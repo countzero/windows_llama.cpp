@@ -1,0 +1,4 @@
+# This overrides the core.autocrlf setting - http://git-scm.com/docs/gitattributes
+# Set default behaviour, in case users don't have core.autocrlf set.
+# We default to Unix line endings (LF) because the exceptions from this are rare.
+* text=auto eol=lf
