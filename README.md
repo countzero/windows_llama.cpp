@@ -84,7 +84,7 @@ You can now chat with the model:
     --ctx-size 2048 `
     --n-predict 2048 `
     --threads 16 `
-    --n-gpu-layers 10 `
+    --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
@@ -98,4 +98,3 @@ Every time there is a new release of [llama.cpp](https://github.com/ggerganov/ll
 ```PowerShell
 ./rebuild_llama.cpp.ps1
 ```
-https://huggingface.co/TheBloke/open-llama-7b-open-instruct-GGML/resolve/main/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin
