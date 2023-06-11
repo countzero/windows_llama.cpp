@@ -1,5 +1,3 @@
-Write-Host "Downloading ${directory}..." -ForegroundColor "DarkYellow"
-
 git submodule update --remote --merge
 
 Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
