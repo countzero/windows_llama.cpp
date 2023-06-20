@@ -11,9 +11,11 @@ Download and install the latest versions:
 * [CMake](https://cmake.org/download/)
 * [Cuda](https://developer.nvidia.com/cuda-downloads)
 * [Git Large File Storage](https://git-lfs.com)
-* [Git](https://git-scm.com/downloads)
+* [Git](https://git-scm.com/download^^)
 * [Miniconda](https://conda.io/projects/conda/en/stable/user-guide/install)
-* [Visual Studio 2022 - Community](https://visualstudio.microsoft.com/)
+* [Visual Studio 2022 - Community](https://visualstudio.microsoft.com/downloads/)
+
+**Hint:** When installing Visual Studio 2022 it is sufficent to just install the `Build Tools for Visual Studio 2022` package. Also make sure that `Desktop development with C++` is enabled in the installer.
 
 ### 2. Clone the repository from GitHub
 
@@ -93,7 +95,11 @@ You can now chat with the model:
 
 ### Rebuild llama.cpp
 
-Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to rebuild the binaries and update the Python dependencies:
+Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to automatically:
+
+1. fetch the latest changes
+2. rebuild the binaries
+3. update the Python dependencies
 
 ```PowerShell
 ./rebuild_llama.cpp.ps1
