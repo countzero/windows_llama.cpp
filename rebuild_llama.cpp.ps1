@@ -43,9 +43,10 @@ Push-Location -Path "./"
 
 Push-Location -Path "./vendor/llama.cpp/build"
 
+# TODO: Fix OpenBLAS for Windows.
 cmake .. `
     -DLLAMA_CUBLAS=ON `
-    -DLLAMA_BLAS=ON `
+    -DLLAMA_BLAS=OFF `
     -DLLAMA_BLAS_VENDOR=OpenBLAS
 
 cmake --build . --config Release
