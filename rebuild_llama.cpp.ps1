@@ -19,14 +19,14 @@ function Resolve-UnixPath {
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
-git submodule update --remote --merge
+git submodule update --remote --merge --force
 
 $lines = @(
     "# This is a workaround for https://github.com/ggerganov/llama.cpp/issues/627"
     "if (LLAMA_BLAS AND `${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
     "    include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
-    "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
     "    add_compile_definitions(GGML_USE_OPENBLAS)"
+    "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
     "endif()"
     ""
 )
