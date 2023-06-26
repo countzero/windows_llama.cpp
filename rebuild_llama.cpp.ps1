@@ -5,7 +5,7 @@ if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS.zip")) {
         -OutFile "./vendor/OpenBLAS/OpenBLAS.zip"
 
     Expand-Archive `
-        -Path "./vendor/OpenBLAS/OpenBLAS-0.3.23-x64.zip" `
+        -Path "./vendor/OpenBLAS/OpenBLAS.zip" `
         -DestinationPath "./vendor/OpenBLAS" `
         -Force
 }
@@ -19,19 +19,21 @@ function Resolve-UnixPath {
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
+git submodule update --remote --merge
+
 $lines = @(
     "# This is a workaround for https://github.com/ggerganov/llama.cpp/issues/627"
-    "include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
-    "add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
-    "add_compile_definitions(GGML_USE_OPENBLAS)"
+    "if (LLAMA_BLAS AND `${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
+    "    include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
+    "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
+    "    add_compile_definitions(GGML_USE_OPENBLAS)"
+    "endif()"
     ""
 )
 
 if (!(Select-String -Path "./vendor/llama.cpp/CMakeLists.txt" -Pattern $lines[0] -SimpleMatch -Quiet)) {
     $lines + (Get-Content "./vendor/llama.cpp/CMakeLists.txt") | Set-Content "./vendor/llama.cpp/CMakeLists.txt"
 }
-
-git submodule update --remote --merge
 
 Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
 
