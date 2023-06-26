@@ -25,8 +25,8 @@ $lines = @(
     "# This is a workaround for https://github.com/ggerganov/llama.cpp/issues/627"
     "if (LLAMA_BLAS AND `${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
     "    include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
-    "    add_compile_definitions(GGML_USE_OPENBLAS)"
     "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
+    "    add_compile_definitions(GGML_USE_OPENBLAS)"
     "endif()"
     ""
 )
@@ -43,7 +43,6 @@ Push-Location -Path "./"
 
 Push-Location -Path "./vendor/llama.cpp/build"
 
-# TODO: Fix OpenBLAS for Windows.
 cmake .. `
     -DLLAMA_CUBLAS=ON `
     -DLLAMA_BLAS=OFF `
