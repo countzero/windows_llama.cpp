@@ -32,7 +32,8 @@ $lines = @(
 )
 
 if (!(Select-String -Path "./vendor/llama.cpp/CMakeLists.txt" -Pattern $lines[0] -SimpleMatch -Quiet)) {
-    $lines + (Get-Content "./vendor/llama.cpp/CMakeLists.txt") | Set-Content "./vendor/llama.cpp/CMakeLists.txt"
+    $lines + (Get-Content "./vendor/llama.cpp/CMakeLists.txt") | `
+    Set-Content "./vendor/llama.cpp/CMakeLists.txt"
 }
 
 Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
@@ -43,10 +44,10 @@ Push-Location -Path "./"
 
 Push-Location -Path "./vendor/llama.cpp/build"
 
-cmake .. `
-    -DLLAMA_CUBLAS=ON `
-    -DLLAMA_BLAS=OFF `
-    -DLLAMA_BLAS_VENDOR=OpenBLAS
+cmake `
+    -DLLAMA_BLAS=ON `
+    -DLLAMA_BLAS_VENDOR=OpenBLAS `
+    ..
 
 cmake --build . --config Release
 
