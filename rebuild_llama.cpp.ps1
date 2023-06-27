@@ -45,7 +45,8 @@ Push-Location -Path "./"
 Push-Location -Path "./vendor/llama.cpp/build"
 
 cmake `
-    -DLLAMA_BLAS=ON `
+    -DLLAMA_CUBLAS=ON `
+    -DLLAMA_BLAS=OFF `
     -DLLAMA_BLAS_VENDOR=OpenBLAS `
     ..
 
