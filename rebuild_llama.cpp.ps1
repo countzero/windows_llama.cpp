@@ -1,11 +1,13 @@
-if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS.zip")) {
+$openBLASVersion = "0.3.23"
+
+if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
     Invoke-WebRequest `
-        -Uri "https://github.com/xianyi/OpenBLAS/releases/download/v0.3.23/OpenBLAS-0.3.23-x64.zip" `
-        -OutFile "./vendor/OpenBLAS/OpenBLAS.zip"
+        -Uri "https://github.com/xianyi/OpenBLAS/releases/download/v${openBLASVersion}/OpenBLAS-${openBLASVersion}-x64.zip" `
+        -OutFile "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 
     Expand-Archive `
-        -Path "./vendor/OpenBLAS/OpenBLAS.zip" `
+        -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip" `
         -DestinationPath "./vendor/OpenBLAS" `
         -Force
 }
@@ -22,7 +24,9 @@ function Resolve-UnixPath {
 git submodule update --remote --merge --force
 
 $lines = @(
-    "# This is a workaround for https://github.com/ggerganov/llama.cpp/issues/627"
+    "# This is a workaround for a CMake bug on Windows."
+    "# @see https://github.com/ggerganov/llama.cpp/issues/627"
+    "# @see https://discourse.cmake.org/t/8414"
     "if (LLAMA_BLAS AND `${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
     "    include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
     "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
@@ -40,13 +44,15 @@ Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
 
 New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 
+Copy-Item -Path "./vendor/OpenBLAS" -Destination "./vendor/llama.cpp/build/OpenBLAS" -Exclude "*.zip" -Recurse
+
 Push-Location -Path "./"
 
 Push-Location -Path "./vendor/llama.cpp/build"
 
 cmake `
-    -DLLAMA_CUBLAS=ON `
-    -DLLAMA_BLAS=OFF `
+    -DLLAMA_CUBLAS=OFF `
+    -DLLAMA_BLAS=ON `
     -DLLAMA_BLAS_VENDOR=OpenBLAS `
     ..
 
