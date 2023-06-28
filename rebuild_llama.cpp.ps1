@@ -54,7 +54,7 @@ $lines = @(
     "# "
     "if (LLAMA_BLAS AND DEFINED LLAMA_BLAS_VENDOR)"
     "    if (`${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
-    "        set(LLAMA_EXTRA_INCLUDES ${LLAMA_EXTRA_INCLUDES}`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
+    "        set(LLAMA_EXTRA_INCLUDES ${LLAMA_EXTRA_INCLUDES} `"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
     "        set(LLAMA_EXTRA_LIBS ${LLAMA_EXTRA_LIBS} `"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
     "        add_compile_definitions(GGML_USE_OPENBLAS)"
     "    endif()"
