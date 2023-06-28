@@ -13,24 +13,26 @@ if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 }
 
 function Resolve-UnixPath {
-
-    Param (
-        [String] $path
-    )
-
+    Param ([String] $path)
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
 git submodule update --remote --merge --force
 
 $lines = @(
-    "# This is a workaround for a CMake bug on Windows."
+    "# This is a workaround for a CMake bug on Windows to build llama.cpp"
+    "# with OpenBLAS. The find_package(BLAS) call fails to find OpenBLAS,"
+    "# so we have to link the 'libopenblas.dll' shared library manually."
+    "# "
     "# @see https://github.com/ggerganov/llama.cpp/issues/627"
     "# @see https://discourse.cmake.org/t/8414"
-    "if (LLAMA_BLAS AND `${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
-    "    include_directories(`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
-    "    add_link_options(`"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
-    "    add_compile_definitions(GGML_USE_OPENBLAS)"
+    "# "
+    "if (LLAMA_BLAS AND DEFINED LLAMA_BLAS_VENDOR)"
+    "    if (`${LLAMA_BLAS_VENDOR} MATCHES `"OpenBLAS`")"
+    "        set(LLAMA_EXTRA_INCLUDES ${LLAMA_EXTRA_INCLUDES}`"$(Resolve-UnixPath "./vendor/OpenBLAS/include")`")"
+    "        set(LLAMA_EXTRA_LIBS ${LLAMA_EXTRA_LIBS} `"$(Resolve-UnixPath "./vendor/OpenBLAS/lib/libopenblas.dll.a")`")"
+    "        add_compile_definitions(GGML_USE_OPENBLAS)"
+    "    endif()"
     "endif()"
     ""
 )
@@ -44,11 +46,7 @@ Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
 
 New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 
-Copy-Item -Path "./vendor/OpenBLAS" -Destination "./vendor/llama.cpp/build/OpenBLAS" -Exclude "*.zip" -Recurse
-
-Push-Location -Path "./"
-
-Push-Location -Path "./vendor/llama.cpp/build"
+Set-Location -Path "./vendor/llama.cpp/build"
 
 cmake `
     -DLLAMA_CUBLAS=OFF `
@@ -58,12 +56,12 @@ cmake `
 
 cmake --build . --config Release
 
-Push-Location -Path "../"
+Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
+
+Set-Location -Path "../"
 
 conda activate llama.cpp
 
 pip install -r ./requirements.txt
 
-Pop-Location
-Pop-Location
-Pop-Location
+Set-Location -Path "../../"
