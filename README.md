@@ -1,6 +1,16 @@
 # Windows llama.cpp
 
-Some PowerShell automation to rebuild [llama.cpp](https://github.com/ggerganov/llama.cpp) for a Windows environment.
+A PowerShell automation to rebuild [llama.cpp](https://github.com/ggerganov/llama.cpp) for a Windows environment. It automates the following steps:
+
+1. Fetching and extracting a specific release of [OpenBLAS](https://github.com/xianyi/OpenBLAS/releases)
+2. Fetching the latest version of [llama.cpp](https://github.com/ggerganov/llama.cpp)
+3. Fixing OpenBLAS binding in the `CMakeLists.txt`
+4. Rebuilding the binaries with CMake
+5. Updating the Python dependencies
+
+## BLAS support
+
+This script currently supports `OpenBLAS` for CPU BLAS acceleration and `cuBLAS` for NVIDIA GPU BLAS acceleration.
 
 ## Installation
 
@@ -11,7 +21,7 @@ Download and install the latest versions:
 * [CMake](https://cmake.org/download/)
 * [Cuda](https://developer.nvidia.com/cuda-downloads)
 * [Git Large File Storage](https://git-lfs.com)
-* [Git](https://git-scm.com/download^^)
+* [Git](https://git-scm.com/download)
 * [Miniconda](https://conda.io/projects/conda/en/stable/user-guide/install)
 * [Visual Studio 2022 - Community](https://visualstudio.microsoft.com/downloads/)
 
@@ -60,10 +70,10 @@ conda init
 
 ### 6. Execute the build script
 
-To build llama.cpp binaries for a Windows environment with CUDA support execute the script:
+To build llama.cpp binaries for a Windows environment with CUDA BLAS acceleration execute the script:
 
 ```PowerShell
-./rebuild_llama.cpp.ps1
+./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"
 ```
 
 ### 7. Download a large language model
@@ -95,12 +105,10 @@ You can now chat with the model:
 
 ### Rebuild llama.cpp
 
-Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to automatically:
+Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to automatically rebuild everything:
 
-1. fetch the latest changes
-2. rebuild the binaries
-3. update the Python dependencies
-
-```PowerShell
-./rebuild_llama.cpp.ps1
-```
+| Command                                               | Description                |
+| ----------------------------------------------------- | -------------------------- |
+| `./rebuild_llama.cpp.ps1`                             | Without BLAS acceleration  |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"` | With CPU BLAS acceleration |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"`   | With GPU BLAS acceleration |

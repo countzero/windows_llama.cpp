@@ -1,3 +1,28 @@
+#Requires -Version 5.0
+
+<#
+.SYNOPSIS
+Automatically rebuild llama.cpp for a Windows environment.
+
+.DESCRIPTION
+This script automatically rebuilds llama.cpp for a Windows environment.
+
+.PARAMETER blasAccelerator
+Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS"
+
+.EXAMPLE
+.\rebuild_llama.ps1 -blasAccelerator "OpenBLAS"
+
+.EXAMPLE
+.\rebuild_llama.ps1 -blasAccelerator "cuBLAS"
+#>
+
+Param (
+    [ValidateSet("OpenBLAS", "cuBLAS")]
+    [String]
+    $blasAccelerator
+)
+
 $openBLASVersion = "0.3.23"
 
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
@@ -48,11 +73,20 @@ New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 
 Set-Location -Path "./vendor/llama.cpp/build"
 
-cmake `
-    -DLLAMA_CUBLAS=OFF `
-    -DLLAMA_BLAS=ON `
-    -DLLAMA_BLAS_VENDOR=OpenBLAS `
-    ..
+switch ($blasAccelerator) {
+
+    "OpenBLAS" {
+        cmake -DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS ..
+    }
+
+    "cuBLAS" {
+        cmake -DLLAMA_CUBLAS=ON ..
+    }
+
+    default {
+        cmake ..
+    }
+}
 
 cmake --build . --config Release
 
