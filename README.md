@@ -36,7 +36,7 @@ git clone --recurse-submodules git@github.com:countzero/windows_llama.cpp.git
 ```
 
 ### 3. Update the llama.cpp submodule to the latest version (optional)
-This repository can reference an outdated version of the stadtwerk_ssh_authorized_keys repository. To update the submodule to the latest version execute the following.
+This repository can reference an outdated version of the llama.cpp repository. To update the submodule to the latest version execute the following.
 
 ```Shell
 git submodule update --remote --merge
