@@ -103,6 +103,20 @@ You can now chat with the model:
     --interactive
 ```
 
+### Measure model perplexity
+
+Execute the following to measure the perplexity of the GGML formatted model:
+
+```PowerShell
+./vendor/llama.cpp/build/bin/Release/perplexity `
+    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --ctx-size 2048 `
+    --n-predict 2048 `
+    --threads 16 `
+    --n-gpu-layers 32 `
+    --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
+```
+
 ### Rebuild llama.cpp
 
 Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to automatically rebuild everything:

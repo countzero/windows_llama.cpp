@@ -37,6 +37,18 @@ if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
         -Force
 }
 
+if (-not(Test-Path -Path "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip")) {
+
+    Invoke-WebRequest `
+        -Uri "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip" `
+        -OutFile "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip"
+
+    Expand-Archive `
+        -Path "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip" `
+        -DestinationPath "./vendor/wikitext-2-raw-v1" `
+        -Force
+}
+
 function Resolve-UnixPath {
     Param ([String] $path)
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
@@ -67,7 +79,7 @@ if (!(Select-String -Path "./vendor/llama.cpp/CMakeLists.txt" -Pattern $lines[0]
     Set-Content "./vendor/llama.cpp/CMakeLists.txt"
 }
 
-Remove-Item  -Path "./vendor/llama.cpp/build" -Force -Recurse
+Remove-Item -Path "./vendor/llama.cpp/build" -Force -Recurse
 
 New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 

@@ -4,6 +4,3 @@
 
 # Ignore Sublime Text files.
 *.sublime-workspace
-
-# Ignore OpenBLAS directories and files
-vendor/OpenBLAS/*
