@@ -86,7 +86,7 @@ Download a large language model (LLM) with weights in the GGML format into the `
 
 ## Usage
 
-### Chat
+### Chat via CLI
 
 You can now chat with the model:
 
