@@ -88,15 +88,15 @@ Set-Location -Path "./vendor/llama.cpp/build"
 switch ($blasAccelerator) {
 
     "OpenBLAS" {
-        cmake -DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS ..
+        cmake -DLLAMA_BUILD_SERVER=ON -DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS ..
     }
 
     "cuBLAS" {
-        cmake -DLLAMA_CUBLAS=ON ..
+        cmake -DLLAMA_BUILD_SERVER=ON -DLLAMA_CUBLAS=ON ..
     }
 
     default {
-        cmake ..
+        cmake -DLLAMA_BUILD_SERVER=ON ..
     }
 }
 
