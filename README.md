@@ -103,6 +103,22 @@ You can now chat with the model:
     --interactive
 ```
 
+### Chat via Webinterface
+
+You can start llama.cpp as a webserver:
+
+```PowerShell
+./vendor/llama.cpp/build/bin/Release/server `
+    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --ctx-size 2048 `
+    --threads 16 `
+    --n-gpu-layers 32
+```
+
+And then access llama.cpp via the webinterface at:
+
+* http://localhost:8080/
+
 ### Measure model perplexity
 
 Execute the following to measure the perplexity of the GGML formatted model:
