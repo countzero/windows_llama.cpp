@@ -8,7 +8,7 @@ Automatically rebuild llama.cpp for a Windows environment.
 This script automatically rebuilds llama.cpp for a Windows environment.
 
 .PARAMETER blasAccelerator
-Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS"
+Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS", "OFF"
 
 .PARAMETER version
 Specifies a llama.cpp commit or tag to checkout a specific version.
@@ -21,13 +21,15 @@ Specifies a llama.cpp commit or tag to checkout a specific version.
 #>
 
 Param (
-    [ValidateSet("OpenBLAS", "cuBLAS")]
+    [ValidateSet("OpenBLAS", "cuBLAS", "OFF")]
     [String]
     $blasAccelerator,
 
     [String]
     $version
 )
+
+$stopwatch = [System.Diagnostics.Stopwatch]::startNew()
 
 # We are defaulting the optional version to the tag of the
 # "latest" release in GitHub to avoid unstable versions.
@@ -39,11 +41,18 @@ if (!$version) {
     ).Value
 
     $version = (
-        ((Invoke-WebRequest "https://api.github.com/repos/${path}/releases/latest") | ConvertFrom-Json).tag_name
-    )
+        (Invoke-WebRequest "https://api.github.com/repos/${path}/releases/latest") | `
+        ConvertFrom-Json
+    ).tag_name
 }
 
-Write-Host "Building ${path} version ${version}..." -ForegroundColor "Yellow"
+if (!$blasAccelerator) {
+    $blasAccelerator = "OFF"
+}
+
+Write-Host "Building llama.cpp..." -ForegroundColor "Yellow"
+Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
+Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 
 $openBLASVersion = "0.3.23"
 
@@ -141,3 +150,8 @@ conda activate llama.cpp
 pip install -r ./requirements.txt
 
 Set-Location -Path "../../"
+
+$stopwatch.Stop()
+$durationInSeconds = [Math]::Floor([Decimal]($stopwatch.Elapsed.TotalSeconds))
+
+Write-Host "Successfully finished the build in ${durationInSeconds} seconds." -ForegroundColor "Yellow"
