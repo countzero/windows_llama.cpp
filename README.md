@@ -142,3 +142,13 @@ Every time there is a new release of [llama.cpp](https://github.com/ggerganov/ll
 | `./rebuild_llama.cpp.ps1`                             | Without BLAS acceleration  |
 | `./rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"` | With CPU BLAS acceleration |
 | `./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"`   | With GPU BLAS acceleration |
+
+### Build a specific version of llama.cpp
+
+You can build a specific version of llama.cpp by specifying a git tag or commit:
+
+| Command                                             | Description              |
+| --------------------------------------------------- | ------------------------ |
+| `./rebuild_llama.cpp.ps1`                           | The latest release       |
+| `./rebuild_llama.cpp.ps1 -version "master-4e7464e"` | The tag `master-4e7464e` |
+| `./rebuild_llama.cpp.ps1 -version "1d16309"`        | The commit `1d16309`     |
