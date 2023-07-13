@@ -10,18 +10,40 @@ This script automatically rebuilds llama.cpp for a Windows environment.
 .PARAMETER blasAccelerator
 Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS"
 
-.EXAMPLE
-.\rebuild_llama.ps1 -blasAccelerator "OpenBLAS"
+.PARAMETER version
+Specifies a llama.cpp commit or tag to checkout a specific version.
 
 .EXAMPLE
-.\rebuild_llama.ps1 -blasAccelerator "cuBLAS"
+.\rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"
+
+.EXAMPLE
+.\rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS" -version "master-4e7464e"
 #>
 
 Param (
     [ValidateSet("OpenBLAS", "cuBLAS")]
     [String]
-    $blasAccelerator
+    $blasAccelerator,
+
+    [String]
+    $version
 )
+
+# We are defaulting the optional version to the tag of the
+# "latest" release in GitHub to avoid unstable versions.
+if (!$version) {
+
+    $path = [regex]::Match(
+        (git -C .\vendor\llama.cpp\ ls-remote --get-url),
+        '(?<=github\.com:).*?(?=\.git)'
+    ).Value
+
+    $version = (
+        ((Invoke-WebRequest "https://api.github.com/repos/${path}/releases/latest") | ConvertFrom-Json).tag_name
+    )
+}
+
+Write-Host "Building ${path} version ${version}..." -ForegroundColor "Yellow"
 
 $openBLASVersion = "0.3.23"
 
@@ -59,6 +81,10 @@ function Resolve-UnixPath {
 git submodule foreach --recursive git reset --hard
 
 git submodule update --remote --merge --force
+
+# We are checking out a specific version (tag / commit)
+# of the repository to enable quick debugging.
+git -C ./vendor/llama.cpp checkout $version
 
 $lines = @(
     "# This is a workaround for a CMake bug on Windows to build llama.cpp"
