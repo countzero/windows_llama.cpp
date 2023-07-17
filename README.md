@@ -94,7 +94,6 @@ You can now chat with the model:
 ./vendor/llama.cpp/build/bin/Release/main `
     --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
     --ctx-size 2048 `
-    --n-predict 2048 `
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
@@ -119,6 +118,34 @@ And then access llama.cpp via the webinterface at:
 
 * http://localhost:8080/
 
+### Increase the context size
+
+You can increase the context size of the model with a minimal quality loss by setting the RoPE parameters:
+
+| `--ctx-size` | `--rope-freq-scale` | `--rope-freq-base` | Description  |
+| ------------ | ------------------- | ------------------ | ------------ |
+| 2048         | 1                   | 10000              | 2k (default) |
+| 4096         | 0.83                | 20000              | 4k           |
+| 6144         | 0.86                | 40000              | 6k           |
+| 8192         | 0.75                | 57200              | 8k           |
+| 16384        | 0.5                 | 80000              | 16k          |
+
+To extend the context to 8k execute the following:
+
+```PowerShell
+./vendor/llama.cpp/build/bin/Release/main `
+    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --ctx-size 8192 `
+    --rope-freq-scale 0.75 `
+    --rope-freq-base 57200 `
+    --threads 16 `
+    --n-gpu-layers 32 `
+    --reverse-prompt '[[USER_NAME]]:' `
+    --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
+    --color `
+    --interactive
+```
+
 ### Measure model perplexity
 
 Execute the following to measure the perplexity of the GGML formatted model:
@@ -127,7 +154,6 @@ Execute the following to measure the perplexity of the GGML formatted model:
 ./vendor/llama.cpp/build/bin/Release/perplexity `
     --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
     --ctx-size 2048 `
-    --n-predict 2048 `
     --threads 16 `
     --n-gpu-layers 32 `
     --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
