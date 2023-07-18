@@ -27,34 +27,34 @@ Download and install the latest versions:
 
 **Hint:** When installing Visual Studio 2022 it is sufficent to just install the `Build Tools for Visual Studio 2022` package. Also make sure that `Desktop development with C++` is enabled in the installer.
 
-### 2. Clone the repository from GitHub
+### 2. Enable Hardware Accelerated GPU Scheduling (optional)
+
+Execute the following in a PowerShell terminal with Administrator privileges to enable the [Hardware Accelerated GPU Scheduling](https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/) feature:
+
+```PowerShell
+New-ItemProperty `
+    -Path "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" `
+    -Name "HwSchMode" `
+    -Value "2" `
+    -PropertyType DWORD `
+    -Force
+```
+
+Then restart your computer to activate the feature.
+
+### 3. Clone the repository from GitHub
 
 Clone the repository to a nice place on your machine via:
 
-```Shell
+```PowerShell
 git clone --recurse-submodules git@github.com:countzero/windows_llama.cpp.git
 ```
-
-### 3. Update the llama.cpp submodule to the latest version (optional)
-This repository can reference an outdated version of the llama.cpp repository. To update the submodule to the latest version execute the following.
-
-```Shell
-git submodule update --remote --merge
-```
-
-Then add, commit and push the changes to make the update available for others.
-
-```Shell
-git add --all; git commit -am "Update llama.cpp submodule to latest commit"; git push
-```
-
-**Hint:** This is optional because the build script will pull the latest version.
 
 ### 4. Create a new Conda environment
 
 Create a new Conda environment for this project with a specific version of Python:
 
-```Shell
+```PowerShell
 conda create --name llama.cpp python=3.10
 ```
 
@@ -62,7 +62,7 @@ conda create --name llama.cpp python=3.10
 
 To make Conda available in you current shell execute the following:
 
-```Shell
+```PowerShell
 conda init
 ```
 
