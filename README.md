@@ -97,6 +97,7 @@ You can now chat with the model:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
+    --prompt-cache "./cache/prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -141,6 +142,7 @@ To extend the context to 8k execute the following:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
+    --prompt-cache "./cache/prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
