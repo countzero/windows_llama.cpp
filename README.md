@@ -97,7 +97,7 @@ You can now chat with the model:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/prompt" `
+    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -142,10 +142,26 @@ To extend the context to 8k execute the following:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/prompt" `
+    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
+```
+
+### Enforce JSON response
+
+You can enforce a specific grammar for the response generation. The following will always return a JSON response:
+
+```PowerShell
+./vendor/llama.cpp/build/bin/Release/main `
+    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --ctx-size 2048 `
+    --threads 16 `
+    --n-gpu-layers 32 `
+    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
+    --prompt "The scientific classification (Taxonomy) of a Llama: " `
+    --grammar-file "./vendor/llama.cpp/grammars/json.gbnf"
+    --color
 ```
 
 ### Measure model perplexity
@@ -160,6 +176,8 @@ Execute the following to measure the perplexity of the GGML formatted model:
     --n-gpu-layers 32 `
     --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
 ```
+
+## Build
 
 ### Rebuild llama.cpp
 
