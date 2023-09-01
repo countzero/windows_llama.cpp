@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add german language prompt
 - Add JSON grammar with floating point numbers support
+- Add RoPE parameter to documentation
+- Add JSON response to documentation
 - Add version parameter to documentation
 - Add prompt cache to documentation
+- Add enabling of Hardware Accelerated GPU Scheduling to documentation
 
 ### Fixed
 - Fix python requirements installation
