@@ -147,7 +147,8 @@ Set-Location -Path "../"
 
 conda activate llama.cpp
 
-pip install -r ./requirements.txt
+# We are making sure to always use the latest version.
+pip install --ignore-installed -r ./requirements.txt
 
 Set-Location -Path "../../"
 
