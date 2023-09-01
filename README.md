@@ -193,8 +193,8 @@ Every time there is a new release of [llama.cpp](https://github.com/ggerganov/ll
 
 You can build a specific version of llama.cpp by specifying a git tag or commit:
 
-| Command                                             | Description              |
-| --------------------------------------------------- | ------------------------ |
-| `./rebuild_llama.cpp.ps1`                           | The latest release       |
-| `./rebuild_llama.cpp.ps1 -version "master-4e7464e"` | The tag `master-4e7464e` |
-| `./rebuild_llama.cpp.ps1 -version "1d16309"`        | The commit `1d16309`     |
+| Command                                      | Description          |
+| -------------------------------------------- | -------------------- |
+| `./rebuild_llama.cpp.ps1`                    | The latest release   |
+| `./rebuild_llama.cpp.ps1 -version "b1138"`   | The tag `b1138`      |
+| `./rebuild_llama.cpp.ps1 -version "1d16309"` | The commit `1d16309` |
