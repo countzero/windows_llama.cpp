@@ -2,5 +2,5 @@
 # .gitignore
 #
 
-# Ignore Sublime Text files.
 *.sublime-workspace
+*.log

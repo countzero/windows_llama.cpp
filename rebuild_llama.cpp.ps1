@@ -147,10 +147,13 @@ Set-Location -Path "../"
 
 conda activate llama.cpp
 
-# We are making sure to always use the latest version.
+# We are making sure to always use the latest version of the "gguf" package.
 pip install --ignore-installed -r ./requirements.txt
 
 Set-Location -Path "../../"
+
+# We also need to install additional packages to support falcon conversion.
+pip install -r ./requirements.txt
 
 $stopwatch.Stop()
 $durationInSeconds = [Math]::Floor([Decimal]($stopwatch.Elapsed.TotalSeconds))
