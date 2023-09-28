@@ -8,7 +8,7 @@ Start-Process "http://127.0.0.1:8080"
 #
 ../vendor/llama.cpp/build/bin/Release/server `
     --model "../vendor/llama.cpp/models/Phind-CodeLlama-34B-v2/model-quantized-q4_K_M.gguf" `
-    --ctx-size 16384 `
+    --ctx-size 32768 `
     --rope-freq-scale 0.125 `
     --rope-freq-base 80000 `
     --threads 16 `
