@@ -1,7 +1,7 @@
 Start-Process "http://127.0.0.1:8080"
 
 # We are increasing the context size of a Llama 2 model from 4096 token
-# to 16384 token, which is a ctx_scale of 4.0. The paramters formula is:
+# to 16384 token, which is a ctx_scale of 4.0. The parameters formula is:
 #
 #     --rope-freq-scale = 1 / ctx_scale
 #     --rope-freq-base = 10000 * ctx_scale

@@ -121,15 +121,15 @@ And then access llama.cpp via the webinterface at:
 
 ### Increase the context size
 
-You can increase the context size of the model with a minimal quality loss by setting the RoPE parameters:
+You can increase the context size of a model with a minimal quality loss by setting the RoPE parameters. The formula for the parameters is as follows:
 
-| `--ctx-size` | `--rope-freq-scale` | `--rope-freq-base` | Description  |
-| ------------ | ------------------- | ------------------ | ------------ |
-| 2048         | 1                   | 10000              | 2k (default) |
-| 4096         | 0.83                | 20000              | 4k           |
-| 6144         | 0.86                | 40000              | 6k           |
-| 8192         | 0.75                | 57200              | 8k           |
-| 16384        | 0.5                 | 80000              | 16k          |
+```
+context_scale = increased_context_size / original_context_size
+rope_frequency_scale = 1 / context_scale
+rope_frequency_base = 10000 * context_scale
+```
+
+**Example:** To increase the context size of a OpenLLaMA model from its original context size of `2048` to `8192` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
 
 To extend the context to 8k execute the following:
 
@@ -137,8 +137,8 @@ To extend the context to 8k execute the following:
 ./vendor/llama.cpp/build/bin/Release/main `
     --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
     --ctx-size 8192 `
-    --rope-freq-scale 0.75 `
-    --rope-freq-base 57200 `
+    --rope-freq-scale 0.25 `
+    --rope-freq-base 40000 `
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
