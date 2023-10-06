@@ -95,15 +95,6 @@ git submodule update --remote --merge --force
 # of the repository to enable quick debugging.
 git -C ./vendor/llama.cpp checkout $version
 
-# Until https://github.com/ggerganov/llama.cpp/pull/3049 is resolved
-# we are adding the working falcon 180B convert script directly.
-if (-not(Test-Path -Path "./vendor/llama.cpp/convert-falcon180-hf-to-gguf.py")) {
-
-    Invoke-WebRequest `
-        -Uri "https://raw.githubusercontent.com/ggerganov/llama.cpp/3a26b3c310ad210d21684f0e222505939eb34259/convert-falcon180-hf-to-gguf.py" `
-        -OutFile "./vendor/llama.cpp/convert-falcon180-hf-to-gguf.py"
-}
-
 $lines = @(
     "# This is a workaround for a CMake bug on Windows to build llama.cpp"
     "# with OpenBLAS. The find_package(BLAS) call fails to find OpenBLAS,"
