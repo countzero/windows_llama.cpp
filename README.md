@@ -76,6 +76,8 @@ To build llama.cpp binaries for a Windows environment with CUDA BLAS acceleratio
 ./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"
 ```
 
+**Hint:** If PowerShell is not configured to execute files allow it by executing the following in an elevated PowerShell: `Set-ExecutionPolicy RemoteSigned`
+
 ### 7. Download a large language model
 
 Download a large language model (LLM) with weights in the GGML format into the `./vendor/llama.cpp/models` directory. You can for example download the [open-llama-7b](https://huggingface.co/openlm-research/open_llama_7b) model in a quantized GGML format:
