@@ -130,6 +130,7 @@ switch ($blasAccelerator) {
         cmake `
             -DLLAMA_BUILD_SERVER=ON `
             -DLLAMA_DISABLE_LOGS=ON `
+            -DLLAMA_SERVER_VERBOSE=OFF `
             -DLLAMA_BLAS=ON `
             -DLLAMA_BLAS_VENDOR=OpenBLAS `
             ..
@@ -139,6 +140,7 @@ switch ($blasAccelerator) {
         cmake `
             -DLLAMA_BUILD_SERVER=ON `
             -DLLAMA_DISABLE_LOGS=ON `
+            -DLLAMA_SERVER_VERBOSE=OFF `
             -DLLAMA_CUBLAS=ON `
             ..
     }
