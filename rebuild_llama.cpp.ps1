@@ -54,7 +54,7 @@ Write-Host "Building llama.cpp..." -ForegroundColor "Yellow"
 Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 
-$openBLASVersion = "0.3.23"
+$openBLASVersion = "0.3.25"
 
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
