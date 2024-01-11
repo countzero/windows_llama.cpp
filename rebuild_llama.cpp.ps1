@@ -164,7 +164,7 @@ pip install --ignore-installed -r ./requirements.txt
 
 Set-Location -Path "../../"
 
-# We also need to install additional packages to support falcon conversion.
+# We want to install specific versions of some packages to avoid unexpected behaviour.
 pip install -r ./requirements.txt
 
 $stopwatch.Stop()
