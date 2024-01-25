@@ -37,27 +37,30 @@ $numberOfGPULayers = 0
 if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     (Get-Command "nvcc" -ErrorAction SilentlyContinue)) {
 
-    $freeGPUMemory = (
+    $freeGPUMemory = ([Int](
         Invoke-Expression "nvidia-smi --query-gpu=memory.free --format=csv,noheader" | `
         Select-String -Pattern '\b(\d+) MiB\b'
-    ).Matches.Groups[1].Value
+    ).Matches.Groups[1].Value * 1024 * 1024)
+
+    # TODO: Understand how the KV cache size is calculated.
+    $kvCacheSize = (2048 * 1024 * 1024)
 
     conda activate llama.cpp
 
     $modelData = Invoke-Expression "python ..\vendor\llama.cpp\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
-
-    $blockCount = [Int]($modelData | Select-String -Pattern '\bllama.block_count = (\d+)\b').Matches.Groups[1].Value
+    $blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
+    $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
 
     # We are assuming, that the total number of model layers are the
     # total number of model blocks plus one input/embedding layer:
     # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
     $totalNumberOfLayers = $blockCount + 1
 
-    $modelFileSize = ((Get-Item -Path "${model}").Length / 1MB)
+    $modelFileSize = (Get-Item -Path "${model}").Length
 
     $estimatedLayerSize = $modelFileSize / $totalNumberOfLayers
 
-    $estimatedMaximumLayers = [Math]::Truncate($freeGPUMemory / $estimatedLayerSize)
+    $estimatedMaximumLayers = [Math]::Truncate(($freeGPUMemory - $kvCacheSize) / $estimatedLayerSize)
 
     $numberOfGPULayers = $estimatedMaximumLayers
 
@@ -71,10 +74,12 @@ Write-Host "Starting default browser at http://localhost:8080..." -ForegroundCol
 Start-Process "http://localhost:8080"
 
 Write-Host "Starting llama.cpp server..." -ForegroundColor "Yellow"
+Write-Host "Context Size: ${contextSize}" -ForegroundColor "DarkYellow"
 Write-Host "Physical CPU Cores: ${numberOfPhysicalCores}" -ForegroundColor "DarkYellow"
 Write-Host "GPU Layers: ${numberOfGPULayers}/${totalNumberOfLayers}" -ForegroundColor "DarkYellow"
 
 ../vendor/llama.cpp/build/bin/Release/server `
     --model "${model}" `
+    --ctx-size "${contextSize}" `
     --threads "${numberOfPhysicalCores}" `
     --n-gpu-layers "${numberOfGPULayers}"
