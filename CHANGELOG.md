@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2024-01-25
+
+### Added
+- Add automatic NVIDIA GPU detection in the build context
+
+### Changed
+- Replace all server examples with one generic server.ps1 script
+- Update OpenBLAS to v0.3.26
+
+### Fixed
+- Fix python requirements installation
+
 ## [1.5.0] - 2023-09-28
 
 ### Added
