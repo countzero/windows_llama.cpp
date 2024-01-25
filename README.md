@@ -7,6 +7,7 @@ A PowerShell automation to rebuild [llama.cpp](https://github.com/ggerganov/llam
 3. Fixing OpenBLAS binding in the `CMakeLists.txt`
 4. Rebuilding the binaries with CMake
 5. Updating the Python dependencies
+6. Automatically detects the best BLAS acceleration
 
 ## BLAS support
 
@@ -25,7 +26,8 @@ Download and install the latest versions:
 * [Miniconda](https://conda.io/projects/conda/en/stable/user-guide/install)
 * [Visual Studio 2022 - Community](https://visualstudio.microsoft.com/downloads/)
 
-**Hint:** When installing Visual Studio 2022 it is sufficent to just install the `Build Tools for Visual Studio 2022` package. Also make sure that `Desktop development with C++` is enabled in the installer.
+> [!TIP]
+> When installing Visual Studio 2022 it is sufficent to just install the `Build Tools for Visual Studio 2022` package. Also make sure that `Desktop development with C++` is enabled in the installer.
 
 ### 2. Enable Hardware Accelerated GPU Scheduling (optional)
 
@@ -66,25 +68,28 @@ To make Conda available in you current shell execute the following:
 conda init
 ```
 
-**Hint:** You can always revert this via `conda init --reverse`.
+> [!TIP]
+> You can always revert this via `conda init --reverse`.
 
 ### 6. Execute the build script
 
-To build llama.cpp binaries for a Windows environment with CUDA BLAS acceleration execute the script:
+To build llama.cpp binaries for a Windows environment with the best available BLAS acceleration execute the script:
 
 ```PowerShell
-./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"
+./rebuild_llama.cpp.ps1
 ```
 
-**Hint:** If PowerShell is not configured to execute files allow it by executing the following in an elevated PowerShell: `Set-ExecutionPolicy RemoteSigned`
+> [!TIP]
+> If PowerShell is not configured to execute files allow it by executing the following in an elevated PowerShell: `Set-ExecutionPolicy RemoteSigned`
 
 ### 7. Download a large language model
 
-Download a large language model (LLM) with weights in the GGML format into the `./vendor/llama.cpp/models` directory. You can for example download the [open-llama-7b](https://huggingface.co/openlm-research/open_llama_7b) model in a quantized GGML format:
+Download a large language model (LLM) with weights in the GGUF format into the `./vendor/llama.cpp/models` directory. You can for example download the [OpenChat-3.5-0106](https://huggingface.co/openchat/openchat-3.5-0106) 7B model in a quantized GGUF format:
 
-* https://huggingface.co/TheBloke/open-llama-7b-open-instruct-GGML/resolve/main/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin
+* https://huggingface.co/TheBloke/openchat-3.5-0106-GGUF/resolve/main/openchat-3.5-0106.Q5_K_M.gguf
 
-**Hint:** See the [🤗 Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) for best in class open source LLMs.
+> [!TIP]
+> See the [🤗 Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) for best in class open source LLMs.
 
 ## Usage
 
@@ -94,7 +99,7 @@ You can now chat with the model:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
     --ctx-size 2048 `
     --threads 16 `
     --n-gpu-layers 32 `
@@ -111,7 +116,7 @@ You can start llama.cpp as a webserver:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/server `
-    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
     --ctx-size 2048 `
     --threads 16 `
     --n-gpu-layers 32
@@ -131,13 +136,14 @@ rope_frequency_scale = 1 / context_scale
 rope_frequency_base = 10000 * context_scale
 ```
 
-**Example:** To increase the context size of a OpenLLaMA model from its original context size of `2048` to `8192` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
+> [!NOTE]
+> To increase the context size of a OpenLLaMA model from its original context size of `2048` to `8192` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
 
 To extend the context to 8k execute the following:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
     --ctx-size 8192 `
     --rope-freq-scale 0.25 `
     --rope-freq-base 40000 `
@@ -156,7 +162,7 @@ You can enforce a specific grammar for the response generation. The following wi
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
     --ctx-size 2048 `
     --threads 16 `
     --n-gpu-layers 32 `
@@ -172,7 +178,7 @@ Execute the following to measure the perplexity of the GGML formatted model:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/perplexity `
-    --model "./vendor/llama.cpp/models/open-llama-7B-open-instruct.ggmlv3.q4_K_M.bin" `
+    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
     --ctx-size 2048 `
     --threads 16 `
     --n-gpu-layers 32 `
@@ -185,11 +191,12 @@ Execute the following to measure the perplexity of the GGML formatted model:
 
 Every time there is a new release of [llama.cpp](https://github.com/ggerganov/llama.cpp) you can simply execute the script to automatically rebuild everything:
 
-| Command                                               | Description                |
-| ----------------------------------------------------- | -------------------------- |
-| `./rebuild_llama.cpp.ps1`                             | Without BLAS acceleration  |
-| `./rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"` | With CPU BLAS acceleration |
-| `./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"`   | With GPU BLAS acceleration |
+| Command                                               | Description                                  |
+| ----------------------------------------------------- | -------------------------------------------- |
+| `./rebuild_llama.cpp.ps1`                             | Automatically detects best BLAS acceleration |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "OFF"`      | Without any BLAS acceleration                |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"` | With CPU BLAS acceleration                   |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"`   | With NVIDIA GPU BLAS acceleration            |
 
 ### Build a specific version of llama.cpp
 

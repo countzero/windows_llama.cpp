@@ -14,6 +14,9 @@ Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS", "OFF
 Specifies a llama.cpp commit or tag to checkout a specific version.
 
 .EXAMPLE
+.\rebuild_llama.cpp.ps1
+
+.EXAMPLE
 .\rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"
 
 .EXAMPLE
@@ -46,15 +49,28 @@ if (!$version) {
     ).tag_name
 }
 
+# We are automatically detecting the best BLAS accelerator setting
+# on the given system if the user did not specify it manually.
 if (!$blasAccelerator) {
-    $blasAccelerator = "OFF"
+
+    # The fallback is using the OpenBLAS library.
+    $blasAccelerator = "OpenBLAS"
+
+    # We are using the presence of NVIDIA System Management Interface
+    # (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
+    # the availability of a CUDA-compatible GPU.
+    if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
+        (Get-Command "nvcc" -ErrorAction SilentlyContinue)) {
+
+        $blasAccelerator = "cuBLAS"
+    }
 }
 
 Write-Host "Building llama.cpp..." -ForegroundColor "Yellow"
 Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 
-$openBLASVersion = "0.3.25"
+$openBLASVersion = "0.3.26"
 
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
