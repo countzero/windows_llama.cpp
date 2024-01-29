@@ -19,12 +19,24 @@ Specifies the path to the GGUF model file.
 
 Param (
     [Parameter(
-        Mandatory=$True,
         HelpMessage="The path to the GGUF model file."
     )]
     [String]
     $model
 )
+
+# We are listing possible models to choose from.
+if (!$model) {
+
+    Write-Host "Please add the -model option with one of the following paths: " -ForegroundColor "DarkYellow"
+
+    Get-ChildItem -Path ../vendor/llama.cpp/models/ -Filter '*.gguf' -Exclude 'ggml-vocab-*' -Recurse | `
+    %{$_.FullName} | `
+    Resolve-Path -Relative
+
+    exit
+}
+
 
 $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -ExpandProperty "NumberOfCores"
 
@@ -82,4 +94,5 @@ Write-Host "GPU Layers: ${numberOfGPULayers}/${totalNumberOfLayers}" -Foreground
     --model "${model}" `
     --ctx-size "${contextSize}" `
     --threads "${numberOfPhysicalCores}" `
-    --n-gpu-layers "${numberOfGPULayers}"
+    --n-gpu-layers "${numberOfGPULayers}" `
+    --parallel 10

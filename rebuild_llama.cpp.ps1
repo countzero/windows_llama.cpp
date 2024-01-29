@@ -144,8 +144,6 @@ switch ($blasAccelerator) {
 
     "OpenBLAS" {
         cmake `
-            -DLLAMA_BUILD_SERVER=ON `
-            -DLLAMA_SERVER_VERBOSE=OFF `
             -DLLAMA_BLAS=ON `
             -DLLAMA_BLAS_VENDOR=OpenBLAS `
             ..
@@ -153,17 +151,12 @@ switch ($blasAccelerator) {
 
     "cuBLAS" {
         cmake `
-            -DLLAMA_BUILD_SERVER=ON `
-            -DLLAMA_SERVER_VERBOSE=OFF `
             -DLLAMA_CUBLAS=ON `
             ..
     }
 
     default {
-        cmake `
-            -DLLAMA_BUILD_SERVER=ON `
-            -DLLAMA_SERVER_VERBOSE=OFF `
-            ..
+        cmake ..
     }
 }
 
