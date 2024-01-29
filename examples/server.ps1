@@ -80,12 +80,13 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     }
 }
 
-Write-Host "Starting Chrome in incognito mode at http://localhost:8080 after the server..." -ForegroundColor "Yellow"
+Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the server..." -ForegroundColor "Yellow"
 
-Start-Job -ScriptBlock { `
-    do { Start-Sleep -Milliseconds 100 }
-    while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://localhost:8080') -ne 200)
-    Start-Process 'chrome' -ArgumentList '--incognito --new-window http://localhost:8080'
+Get-Job -Name 'BrowserJob' | Remove-Job -Force
+Start-Job -Name 'BrowserJob' -ScriptBlock { `
+    do { Start-Sleep -Milliseconds 250 }
+    while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://127.0.0.1:8080') -ne 200)
+    Start-Process 'chrome' -ArgumentList '--incognito --new-window http://127.0.0.1:8080'
 }
 
 Write-Host "Starting llama.cpp server..." -ForegroundColor "Yellow"
