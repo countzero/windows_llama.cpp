@@ -82,7 +82,7 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
 
 Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the server..." -ForegroundColor "Yellow"
 
-Get-Job -Name 'BrowserJob' | Remove-Job -Force
+Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
 Start-Job -Name 'BrowserJob' -ScriptBlock { `
     do { Start-Sleep -Milliseconds 250 }
     while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://127.0.0.1:8080') -ne 200)
