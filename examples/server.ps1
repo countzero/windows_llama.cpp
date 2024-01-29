@@ -37,7 +37,6 @@ if (!$model) {
     exit
 }
 
-
 $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -ExpandProperty "NumberOfCores"
 
 # The fallback is using the OpenBLAS library.
@@ -81,9 +80,13 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     }
 }
 
-Write-Host "Starting default browser at http://localhost:8080..." -ForegroundColor "Yellow"
+Write-Host "Starting Chrome in incognito mode at http://localhost:8080 after the server..." -ForegroundColor "Yellow"
 
-Start-Process "http://localhost:8080"
+Start-Job -ScriptBlock { `
+    do { Start-Sleep -Milliseconds 100 }
+    while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://localhost:8080') -ne 200)
+    Start-Process 'chrome' -ArgumentList '--incognito --new-window http://localhost:8080'
+}
 
 Write-Host "Starting llama.cpp server..." -ForegroundColor "Yellow"
 Write-Host "Context Size: ${contextSize}" -ForegroundColor "DarkYellow"
