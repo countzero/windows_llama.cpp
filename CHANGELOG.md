@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2024-01-29
+
+### Added
+- Add listing available models if model path is missing
+- Add KV cache placeholder
+- Add polling for server before starting the browser
+- Add maximum of 10 parallel job executions
+
 ## [1.6.0] - 2024-01-25
 
 ### Added
