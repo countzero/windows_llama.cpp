@@ -10,22 +10,33 @@ This script automatically starts the llama.cpp server with optimal settings and 
 .PARAMETER model
 Specifies the path to the GGUF model file.
 
+.PARAMETER parallel
+Specifies the number of slots for process requests (default: 1).
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf"
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 2
 
 .EXAMPLE
 .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 #>
 
 Param (
+
     [Parameter(
         HelpMessage="The path to the GGUF model file."
     )]
     [String]
-    $model
+    $model,
+
+    [Parameter(
+        HelpMessage="The number of slots for process requests."
+    )]
+    [ValidateRange(1,256)]
+    [Int]
+    $parallel=1
 )
 
 # We are resolving the absolute path to the llama.cpp project directory
@@ -110,4 +121,5 @@ Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --ctx-size '${contextSize}' ``
     --threads '${numberOfPhysicalCores}' ``
     --n-gpu-layers '${numberOfGPULayers}' ``
-    --parallel 10"
+    --parallel '${parallel}' ``
+    --cont-batching"
