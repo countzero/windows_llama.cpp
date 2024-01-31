@@ -13,11 +13,14 @@ Specifies the path to the GGUF model file.
 .PARAMETER parallel
 Specifies the number of slots for process requests (default: 1).
 
+.PARAMETER contextSize
+Specifies the prompt context size in tokens.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 2
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 2 -contextSize 16384
 
 .EXAMPLE
 .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
@@ -36,7 +39,13 @@ Param (
     )]
     [ValidateRange(1,256)]
     [Int]
-    $parallel=1
+    $parallel=1,
+
+    [Parameter(
+        HelpMessage="The prompt context size in tokens."
+    )]
+    [Int]
+    $contextSize
 )
 
 # We are resolving the absolute path to the llama.cpp project directory
@@ -78,7 +87,10 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
 
     $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
     $blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
-    $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+
+    if (!$contextSize) {
+        $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+    }
 
     # We are assuming, that the total number of model layers are the
     # total number of model blocks plus one input/embedding layer:
