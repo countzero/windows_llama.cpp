@@ -2,19 +2,22 @@
 
 <#
 .SYNOPSIS
-Automatically starts the llama.cpp server with optimal settings and opens it in the default browser.
+Automatically starts the llama.cpp server with optimal settings and opens it in the chrome browser.
 
 .DESCRIPTION
-This script automatically starts the llama.cpp server with optimal settings and opens it in the default browser.
+This script automatically starts the llama.cpp server with optimal settings and opens it in the chrome browser.
 
 .PARAMETER model
 Specifies the path to the GGUF model file.
 
 .EXAMPLE
-.\server.ps1 -model "../vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf"
+.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:/models/openchat-3.5-0106.Q5_K_M.gguf"
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf"
+
+.EXAMPLE
+.\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 #>
 
 Param (
@@ -25,12 +28,16 @@ Param (
     $model
 )
 
+# We are resolving the absolute path to the llama.cpp project directory
+# to support using the absolute  re
+$llamaCppPath = Resolve-Path -Path "${PSScriptRoot}\..\vendor\llama.cpp"
+
 # We are listing possible models to choose from.
 if (!$model) {
 
     Write-Host "Please add the -model option with one of the following paths: " -ForegroundColor "DarkYellow"
 
-    Get-ChildItem -Path ../vendor/llama.cpp/models/ -Filter '*.gguf' -Exclude 'ggml-vocab-*' -Recurse | `
+    Get-ChildItem -Path "${llamaCppPath}\models\" -Filter '*.gguf' -Exclude 'ggml-vocab-*' -Recurse | `
     %{$_.FullName} | `
     Resolve-Path -Relative
 
@@ -58,7 +65,7 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
 
     conda activate llama.cpp
 
-    $modelData = Invoke-Expression "python ..\vendor\llama.cpp\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
+    $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
     $blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
     $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
 
@@ -78,6 +85,10 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     if ($estimatedMaximumLayers -gt $totalNumberOfLayers) {
         $numberOfGPULayers = $totalNumberOfLayers
     }
+
+    if ($estimatedMaximumLayers -lt 1) {
+        $numberOfGPULayers = 0
+    }
 }
 
 Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the server..." -ForegroundColor "Yellow"
@@ -94,9 +105,9 @@ Write-Host "Context Size: ${contextSize}" -ForegroundColor "DarkYellow"
 Write-Host "Physical CPU Cores: ${numberOfPhysicalCores}" -ForegroundColor "DarkYellow"
 Write-Host "GPU Layers: ${numberOfGPULayers}/${totalNumberOfLayers}" -ForegroundColor "DarkYellow"
 
-../vendor/llama.cpp/build/bin/Release/server `
-    --model "${model}" `
-    --ctx-size "${contextSize}" `
-    --threads "${numberOfPhysicalCores}" `
-    --n-gpu-layers "${numberOfGPULayers}" `
-    --parallel 10
+Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
+    --model '${model}' ``
+    --ctx-size '${contextSize}' ``
+    --threads '${numberOfPhysicalCores}' ``
+    --n-gpu-layers '${numberOfGPULayers}' ``
+    --parallel 10"

@@ -93,6 +93,17 @@ Download a large language model (LLM) with weights in the GGUF format into the `
 
 ## Usage
 
+### Chat via server script
+
+You can easily chat with a specific model by using the [.\examples\server.ps1](./examples/server.ps1) script:
+
+```PowerShell
+ .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
+```
+
+> [!NOTE]
+> The script will automatically start the llama.cpp server with an optimal configuration for your machine.
+
 ### Chat via CLI
 
 You can now chat with the model:
@@ -124,7 +135,7 @@ You can start llama.cpp as a webserver:
 
 And then access llama.cpp via the webinterface at:
 
-* http://localhost:8080/
+* http://127.0.0.1:8080/
 
 ### Increase the context size
 
