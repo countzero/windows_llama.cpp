@@ -57,7 +57,7 @@ Param (
         HelpMessage="The number of layers offloaded into the GPU."
     )]
     [Int]
-    $numberOfGPULayers
+    $numberOfGPULayers=-1
 )
 
 # We are resolving the absolute path to the llama.cpp project directory
@@ -115,7 +115,7 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     # Calculating the optimal number of GPU layers is still
     # work in progress, therefore it can always be overruled
     # by using the -numberOfGPULayers option.
-    if (!$numberOfGPULayers) {
+    if ($numberOfGPULayers -lt 0) {
 
         $modelFileSize = (Get-Item -Path "${model}").Length
 
@@ -136,7 +136,7 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
 }
 
 # The global fallback is using the OpenBLAS library.
-if (!$numberOfGPULayers) {
+if ($numberOfGPULayers -lt 0) {
     $numberOfGPULayers = 0
 }
 
@@ -144,7 +144,7 @@ Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the
 
 Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
 Start-Job -Name 'BrowserJob' -ScriptBlock { `
-    do { Start-Sleep -Milliseconds 250 }
+    do { Start-Sleep -Milliseconds 1000 }
     while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://127.0.0.1:8080') -ne 200)
     Start-Process 'chrome' -ArgumentList '--incognito --new-window http://127.0.0.1:8080'
 }
