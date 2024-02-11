@@ -16,11 +16,17 @@ Specifies the number of slots for process requests (default: 1).
 .PARAMETER contextSize
 Specifies the prompt context size in tokens.
 
+.PARAMETER numberOfGPULayers
+Specifies the number of layers offloaded into the GPU.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 2 -contextSize 16384
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 4
+
+.EXAMPLE
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -numberOfGPULayers 10
 
 .EXAMPLE
 .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
@@ -45,7 +51,13 @@ Param (
         HelpMessage="The prompt context size in tokens."
     )]
     [Int]
-    $contextSize
+    $contextSize,
+
+    [Parameter(
+        HelpMessage="The number of layers offloaded into the GPU."
+    )]
+    [Int]
+    $numberOfGPULayers
 )
 
 # We are resolving the absolute path to the llama.cpp project directory
@@ -66,8 +78,25 @@ if (!$model) {
 
 $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -ExpandProperty "NumberOfCores"
 
-# The fallback is using the OpenBLAS library.
-$numberOfGPULayers = 0
+conda activate llama.cpp
+
+$modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
+
+$blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
+
+# We are assuming, that the total number of model layers are the
+# total number of model blocks plus one input/embedding layer:
+# https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
+$totalNumberOfLayers = $blockCount + 1
+
+if (!$contextSize) {
+    $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+
+    # We are defaulting the optimal model context size
+    # for each independent sequence slot. For details see:
+    # https://github.com/ggerganov/llama.cpp/discussions/4130
+    $contextSize = $contextSize * $parallel
+}
 
 # We are using the presence of NVIDIA System Management Interface
 # (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
@@ -83,35 +112,32 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
     # TODO: Understand how the KV cache size is calculated.
     $kvCacheSize = (2048 * 1024 * 1024)
 
-    conda activate llama.cpp
+    # Calculating the optimal number of GPU layers is still
+    # work in progress, therefore it can always be overruled
+    # by using the -numberOfGPULayers option.
+    if (!$numberOfGPULayers) {
 
-    $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
-    $blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
+        $modelFileSize = (Get-Item -Path "${model}").Length
 
-    if (!$contextSize) {
-        $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+        $estimatedLayerSize = $modelFileSize / $totalNumberOfLayers
+
+        $estimatedMaximumLayers = [Math]::Truncate(($freeGPUMemory - $kvCacheSize) / $estimatedLayerSize)
+
+        if ($estimatedMaximumLayers -gt $totalNumberOfLayers) {
+            $estimatedMaximumLayers = $totalNumberOfLayers
+        }
+
+        if ($estimatedMaximumLayers -lt 1) {
+            $estimatedMaximumLayers = 0
+        }
+
+        $numberOfGPULayers = $estimatedMaximumLayers
     }
+}
 
-    # We are assuming, that the total number of model layers are the
-    # total number of model blocks plus one input/embedding layer:
-    # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
-    $totalNumberOfLayers = $blockCount + 1
-
-    $modelFileSize = (Get-Item -Path "${model}").Length
-
-    $estimatedLayerSize = $modelFileSize / $totalNumberOfLayers
-
-    $estimatedMaximumLayers = [Math]::Truncate(($freeGPUMemory - $kvCacheSize) / $estimatedLayerSize)
-
-    $numberOfGPULayers = $estimatedMaximumLayers
-
-    if ($estimatedMaximumLayers -gt $totalNumberOfLayers) {
-        $numberOfGPULayers = $totalNumberOfLayers
-    }
-
-    if ($estimatedMaximumLayers -lt 1) {
-        $numberOfGPULayers = 0
-    }
+# The global fallback is using the OpenBLAS library.
+if (!$numberOfGPULayers) {
+    $numberOfGPULayers = 0
 }
 
 Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the server..." -ForegroundColor "Yellow"
