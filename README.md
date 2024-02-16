@@ -122,7 +122,7 @@ You can now chat with the model:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
+    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -168,7 +168,7 @@ To extend the context to 32k execute the following:
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
+    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -184,7 +184,7 @@ You can enforce a specific grammar for the response generation. The following wi
     --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 32 `
-    --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
+    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
     --prompt "The scientific classification (Taxonomy) of a Llama: " `
     --grammar-file "./vendor/llama.cpp/grammars/json.gbnf"
     --color
