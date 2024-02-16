@@ -155,7 +155,7 @@ rope_frequency_base = 10000 * context_scale
 ```
 
 > [!NOTE]
-> To increase the context size of a OpenChat-3.5-0106 model from its original context size of `8192` to `32768` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
+> To increase the context size of an [OpenChat-3.5-0106](https://huggingface.co/openchat/openchat-3.5-0106) model from its original context size of `8192` to `32768` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
 
 To extend the context to 32k execute the following:
 
