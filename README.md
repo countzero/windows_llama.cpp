@@ -104,6 +104,13 @@ You can easily chat with a specific model by using the [.\examples\server.ps1](.
 > [!NOTE]
 > The script will automatically start the llama.cpp server with an optimal configuration for your machine.
 
+Execute the following to get detailed help on further options of the server script:
+
+```PowerShell
+Get-Help -Detailed .\examples\server.ps1
+```
+
+
 ### Chat via CLI
 
 You can now chat with the model:
@@ -111,7 +118,7 @@ You can now chat with the model:
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
     --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
-    --ctx-size 2048 `
+    --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 32 `
     --reverse-prompt '[[USER_NAME]]:' `
@@ -128,7 +135,7 @@ You can start llama.cpp as a webserver:
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/server `
     --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
-    --ctx-size 2048 `
+    --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 32
 ```
@@ -148,14 +155,14 @@ rope_frequency_base = 10000 * context_scale
 ```
 
 > [!NOTE]
-> To increase the context size of a OpenLLaMA model from its original context size of `2048` to `8192` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
+> To increase the context size of a OpenChat-3.5-0106 model from its original context size of `8192` to `32768` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
 
-To extend the context to 8k execute the following:
+To extend the context to 32k execute the following:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
     --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
-    --ctx-size 8192 `
+    --ctx-size 32768 `
     --rope-freq-scale 0.25 `
     --rope-freq-base 40000 `
     --threads 16 `
@@ -174,7 +181,7 @@ You can enforce a specific grammar for the response generation. The following wi
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/main `
     --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
-    --ctx-size 2048 `
+    --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 32 `
     --prompt-cache "./cache/open-llama-7B-open-instruct.prompt" `
@@ -190,7 +197,7 @@ Execute the following to measure the perplexity of the GGML formatted model:
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/perplexity `
     --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
-    --ctx-size 2048 `
+    --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 32 `
     --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
