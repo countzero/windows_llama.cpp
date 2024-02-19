@@ -76,6 +76,10 @@ if (!$model) {
     exit
 }
 
+# We are using the filename of the model as an alias for
+# the API responses to not leak the directory structure.
+$alias = (Get-ChildItem $model).Name
+
 $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -ExpandProperty "NumberOfCores"
 
 conda activate llama.cpp
@@ -187,6 +191,7 @@ Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "
 Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --log-disable ``
     --model '${model}' ``
+    --alias '${alias}' ``
     --ctx-size '${contextSize}' ``
     --threads '${numberOfPhysicalCores}' ``
     --n-gpu-layers '${numberOfGPULayers}' ``
