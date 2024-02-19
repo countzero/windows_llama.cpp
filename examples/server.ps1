@@ -26,7 +26,7 @@ Specifies the number of layers offloaded into the GPU.
 .\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 4
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -numberOfGPULayers 10
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
 
 .EXAMPLE
 .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
@@ -80,23 +80,46 @@ $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -
 
 conda activate llama.cpp
 
-$modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
-
-$blockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
-
-# We are assuming, that the total number of model layers are the
-# total number of model blocks plus one input/embedding layer:
+# We are extracting model details from the GGUF file.
 # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
-$totalNumberOfLayers = $blockCount + 1
+$modelFileSize = (Get-Item -Path "${model}").Length
+$modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
+$modelContextLength = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+$modelHeadCount = [Int]($modelData | Select-String -Pattern '\bhead_count = (\d+)\b').Matches.Groups[1].Value
+$modelHeadCountKV = [Int]($modelData | Select-String -Pattern '\bhead_count_kv = (\d+)\b').Matches.Groups[1].Value
+$modelBlockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
+$modelEmbeddingLength = [Int]($modelData | Select-String -Pattern '\bembedding_length = (\d+)\b').Matches.Groups[1].Value
 
 if (!$contextSize) {
-    $contextSize = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
 
     # We are defaulting the optimal model context size
     # for each independent sequence slot. For details see:
     # https://github.com/ggerganov/llama.cpp/discussions/4130
-    $contextSize = $contextSize * $parallel
+    $contextSize = $modelContextLength * $parallel
 }
+
+# The Key (K) and Value (V) states of the model are cached in a FP16 format.
+# The allocated size of the KV Cache is based on specific model details.
+# https://github.com/ggerganov/llama.cpp/discussions/3485
+# https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L51
+$kvSize = 2 * 2 * $contextSize * $modelBlockCount * $modelEmbeddingLength * $modelHeadCountKV / $modelHeadCount
+
+# The compute graph size is the amount of overhead and tensors
+# llama.cpp needs to allocate. This is an estimated value.
+# https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L56
+$graphSize = ($modelHeadCount / $modelHeadCountKV) * $kvSize / 6
+
+# The maximum number of layers are the model blocks plus one input layer.
+# https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
+$maximumNumberOfLayers = $modelBlockCount + 1
+
+$averageLayerSize = $modelFileSize / $maximumNumberOfLayers
+
+$freeMemory = ([Int](
+    Get-CIMInstance Win32_OperatingSystem | Select  -ExpandProperty FreePhysicalMemory
+) * 1024)
+
+$freeGPUMemory = 0
 
 # We are using the presence of NVIDIA System Management Interface
 # (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
@@ -109,52 +132,60 @@ if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
         Select-String -Pattern '\b(\d+) MiB\b'
     ).Matches.Groups[1].Value * 1024 * 1024)
 
-    # TODO: Understand how the KV cache size is calculated.
-    $kvCacheSize = (2048 * 1024 * 1024)
-
-    # Calculating the optimal number of GPU layers is still
-    # work in progress, therefore it can always be overruled
-    # by using the -numberOfGPULayers option.
+    # The automatic calculating the optimal number of GPU layers can
+    # always be "overruled" by using the -numberOfGPULayers option.
     if ($numberOfGPULayers -lt 0) {
 
-        $modelFileSize = (Get-Item -Path "${model}").Length
+        $numberOfGPULayers = [Math]::Floor(($freeGPUMemory - $kvSize - $graphSize) / $averageLayerSize)
 
-        $estimatedLayerSize = $modelFileSize / $totalNumberOfLayers
-
-        $estimatedMaximumLayers = [Math]::Truncate(($freeGPUMemory - $kvCacheSize) / $estimatedLayerSize)
-
-        if ($estimatedMaximumLayers -gt $totalNumberOfLayers) {
-            $estimatedMaximumLayers = $totalNumberOfLayers
+        if ($numberOfGPULayers -gt $maximumNumberOfLayers) {
+            $numberOfGPULayers = $maximumNumberOfLayers
         }
 
-        if ($estimatedMaximumLayers -lt 1) {
-            $estimatedMaximumLayers = 0
+        if ($numberOfGPULayers -lt 1) {
+            $numberOfGPULayers = 0
         }
-
-        $numberOfGPULayers = $estimatedMaximumLayers
     }
 }
 
-# The global fallback is using the OpenBLAS library.
+# The global fallback is using only the CPU.
 if ($numberOfGPULayers -lt 0) {
     $numberOfGPULayers = 0
 }
 
-Write-Host "Starting Chrome in incognito mode at http://127.0.0.1:8080 after the server..." -ForegroundColor "Yellow"
+Write-Host "Listing calculated memory details..." -ForegroundColor "Yellow"
+
+[PSCustomObject]@{
+    "Model Size" = "$([Math]::Ceiling($modelFileSize / 1MB)) MiB"
+    "KV Cache Size" = "$([Math]::Ceiling($kvSize / 1MB)) MiB"
+    "Graph Size" = "$([Math]::Ceiling($graphSize / 1MB)) MiB"
+    "Average Layer Size" = "$([Math]::Ceiling(($averageLayerSize) / 1MB)) MiB"
+    "Minimum Required VRAM" = "$([Math]::Ceiling(($averageLayerSize + $graphSize + $kvSize) / 1MB)) MiB"
+    "Total Required Memory" = "$([Math]::Ceiling(($modelFileSize + $graphSize + $kvSize) / 1MB)) MiB"
+    "Free GPU Memory (VRAM)" = "$([Math]::Ceiling($freeGPUMemory / 1MB)) MiB"
+    "Free System Memory (RAM)" = "$([Math]::Ceiling($freeMemory / 1MB)) MiB"
+} | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
+
+Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:8080..." -ForegroundColor "Yellow"
 
 Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
-Start-Job -Name 'BrowserJob' -ScriptBlock { `
+Start-Job -Name 'BrowserJob' -ScriptBlock {
     do { Start-Sleep -Milliseconds 1000 }
     while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://127.0.0.1:8080') -ne 200)
     Start-Process 'chrome' -ArgumentList '--incognito --new-window http://127.0.0.1:8080'
-}
+} | Format-List -Property Id, Name, State, Command | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
-Write-Host "Starting llama.cpp server..." -ForegroundColor "Yellow"
-Write-Host "Context Size: ${contextSize}" -ForegroundColor "DarkYellow"
-Write-Host "Physical CPU Cores: ${numberOfPhysicalCores}" -ForegroundColor "DarkYellow"
-Write-Host "GPU Layers: ${numberOfGPULayers}/${totalNumberOfLayers}" -ForegroundColor "DarkYellow"
+Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "Yellow"
+
+[PSCustomObject]@{
+    "Context Size" = $contextSize
+    "Physical CPU Cores" = $numberOfPhysicalCores
+    "GPU Layers" = "${numberOfGPULayers}/${maximumNumberOfLayers}"
+    "Parallel Slots" = "${parallel}"
+} | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
 Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
+    --log-disable ``
     --model '${model}' ``
     --ctx-size '${contextSize}' ``
     --threads '${numberOfPhysicalCores}' ``
