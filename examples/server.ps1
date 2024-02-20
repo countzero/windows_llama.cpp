@@ -157,6 +157,22 @@ if ($numberOfGPULayers -lt 0) {
     $numberOfGPULayers = 0
 }
 
+# We are automatically using the self extending context window
+# on models that have a trained context window < context size.
+# https://arxiv.org/abs/2401.01325
+# https://github.com/ggerganov/llama.cpp/issues/4886#issuecomment-1890465266
+$groupAttentionFactor = 1
+$groupAttentionWidth = 512
+
+if ($contextSize -gt $modelContextLength) {
+
+    Write-Host "Self extending context window from ${modelContextLength} to ${contextSize}..." -ForegroundColor "Yellow"
+
+    $groupAttentionFactor = $contextSize / $modelContextLength
+    $groupAttentionWidth = $modelContextLength / 2
+}
+
+
 Write-Host "Listing calculated memory details..." -ForegroundColor "Yellow"
 
 [PSCustomObject]@{
@@ -183,6 +199,8 @@ Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "
 
 [PSCustomObject]@{
     "Context Size" = $contextSize
+    "Group Attention Factor" = $groupAttentionFactor
+    "Group Attention Width" = $groupAttentionWidth
     "Physical CPU Cores" = $numberOfPhysicalCores
     "GPU Layers" = "${numberOfGPULayers}/${maximumNumberOfLayers}"
     "Parallel Slots" = "${parallel}"
@@ -196,4 +214,6 @@ Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --threads '${numberOfPhysicalCores}' ``
     --n-gpu-layers '${numberOfGPULayers}' ``
     --parallel '${parallel}' ``
+    --grp-attn-n '${groupAttentionFactor}' ``
+    --grp-attn-w '${groupAttentionWidth}' ``
     --cont-batching"
