@@ -172,7 +172,6 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionWidth = $modelContextLength / 2
 }
 
-
 Write-Host "Listing calculated memory details..." -ForegroundColor "Yellow"
 
 [PSCustomObject]@{
