@@ -19,6 +19,9 @@ Specifies the prompt context size in tokens.
 .PARAMETER numberOfGPULayers
 Specifies the number of layers offloaded into the GPU.
 
+.PARAMETER modelContextLength
+Specifies the models context length it was trained on.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
@@ -57,11 +60,16 @@ Param (
         HelpMessage="The number of layers offloaded into the GPU."
     )]
     [Int]
-    $numberOfGPULayers=-1
+    $numberOfGPULayers=-1,
+
+    [Parameter(
+        HelpMessage="Specifies the models context length it was trained on."
+    )]
+    [Int]
+    $modelContextLength=-1
 )
 
-# We are resolving the absolute path to the llama.cpp project directory
-# to support using the absolute  re
+# We are resolving the absolute path to the llama.cpp project directory.
 $llamaCppPath = Resolve-Path -Path "${PSScriptRoot}\..\vendor\llama.cpp"
 
 # We are listing possible models to choose from.
@@ -84,15 +92,30 @@ $numberOfPhysicalCores = Get-CimInstance -ClassName 'Win32_Processor' | Select -
 
 conda activate llama.cpp
 
-# We are extracting model details from the GGUF file.
-# https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
 $modelFileSize = (Get-Item -Path "${model}").Length
-$modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
-$modelContextLength = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
-$modelHeadCount = [Int]($modelData | Select-String -Pattern '\bhead_count = (\d+)\b').Matches.Groups[1].Value
-$modelHeadCountKV = [Int]($modelData | Select-String -Pattern '\bhead_count_kv = (\d+)\b').Matches.Groups[1].Value
-$modelBlockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
-$modelEmbeddingLength = [Int]($modelData | Select-String -Pattern '\bembedding_length = (\d+)\b').Matches.Groups[1].Value
+
+try {
+
+    # We are trying to extract model details from the GGUF file.
+    # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
+    # TODO: Find a robust way to resolve this values.
+    $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
+    $modelContextLength = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
+    $modelHeadCount = [Int]($modelData | Select-String -Pattern '\bhead_count = (\d+)\b').Matches.Groups[1].Value
+    $modelHeadCountKV = [Int]($modelData | Select-String -Pattern '\bhead_count_kv = (\d+)\b').Matches.Groups[1].Value
+    $modelBlockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
+    $modelEmbeddingLength = [Int]($modelData | Select-String -Pattern '\bembedding_length = (\d+)\b').Matches.Groups[1].Value
+    $modelDataIsAvailable = $true
+}
+catch {
+    $modelDataIsAvailable = $false
+
+    if ($modelContextLength -lt 0) {
+        throw "Failed to extract model details, please provide the -modelContextLength value to use this model."
+    }
+
+    Write-Host "Failed to extract model details, proceeding without automated GPU offloading..." -ForegroundColor "Yellow"
+}
 
 if (!$contextSize) {
 
@@ -102,54 +125,71 @@ if (!$contextSize) {
     $contextSize = $modelContextLength * $parallel
 }
 
-# The Key (K) and Value (V) states of the model are cached in a FP16 format.
-# The allocated size of the KV Cache is based on specific model details.
-# https://github.com/ggerganov/llama.cpp/discussions/3485
-# https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L51
-$kvSize = 2 * 2 * $contextSize * $modelBlockCount * $modelEmbeddingLength * $modelHeadCountKV / $modelHeadCount
+#
+if ($modelDataIsAvailable) {
 
-# The compute graph size is the amount of overhead and tensors
-# llama.cpp needs to allocate. This is an estimated value.
-# https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L56
-$graphSize = ($modelHeadCount / $modelHeadCountKV) * $kvSize / 6
+    # The Key (K) and Value (V) states of the model are cached in a FP16 format.
+    # The allocated size of the KV Cache is based on specific model details.
+    # https://github.com/ggerganov/llama.cpp/discussions/3485
+    # https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L51
+    $kvSize = 2 * 2 * $contextSize * $modelBlockCount * $modelEmbeddingLength * $modelHeadCountKV / $modelHeadCount
 
-# The maximum number of layers are the model blocks plus one input layer.
-# https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
-$maximumNumberOfLayers = $modelBlockCount + 1
+    # The compute graph size is the amount of overhead and tensors
+    # llama.cpp needs to allocate. This is an estimated value.
+    # https://github.com/ollama/ollama/blob/v0.1.25/llm/llm.go#L56
+    $graphSize = ($modelHeadCount / $modelHeadCountKV) * $kvSize / 6
 
-$averageLayerSize = $modelFileSize / $maximumNumberOfLayers
+    # The maximum number of layers are the model blocks plus one input layer.
+    # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
+    $maximumNumberOfLayers = $modelBlockCount + 1
 
-$freeMemory = ([Int](
-    Get-CIMInstance Win32_OperatingSystem | Select  -ExpandProperty FreePhysicalMemory
-) * 1024)
+    $averageLayerSize = $modelFileSize / $maximumNumberOfLayers
 
-$freeGPUMemory = 0
+    $freeMemory = ([Int](
+        Get-CIMInstance Win32_OperatingSystem | Select  -ExpandProperty FreePhysicalMemory
+    ) * 1024)
 
-# We are using the presence of NVIDIA System Management Interface
-# (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
-# the availability of a CUDA-compatible GPU.
-if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
-    (Get-Command "nvcc" -ErrorAction SilentlyContinue)) {
+    $freeGPUMemory = 0
 
-    $freeGPUMemory = ([Int](
-        Invoke-Expression "nvidia-smi --query-gpu=memory.free --format=csv,noheader" | `
-        Select-String -Pattern '\b(\d+) MiB\b'
-    ).Matches.Groups[1].Value * 1024 * 1024)
+    # We are using the presence of NVIDIA System Management Interface
+    # (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
+    # the availability of a CUDA-compatible GPU.
+    if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
+        (Get-Command "nvcc" -ErrorAction SilentlyContinue)) {
 
-    # The automatic calculating the optimal number of GPU layers can
-    # always be "overruled" by using the -numberOfGPULayers option.
-    if ($numberOfGPULayers -lt 0) {
+        $freeGPUMemory = ([Int](
+            Invoke-Expression "nvidia-smi --query-gpu=memory.free --format=csv,noheader" | `
+            Select-String -Pattern '\b(\d+) MiB\b'
+        ).Matches.Groups[1].Value * 1024 * 1024)
 
-        $numberOfGPULayers = [Math]::Floor(($freeGPUMemory - $kvSize - $graphSize) / $averageLayerSize)
+        # The automatic calculating the optimal number of GPU layers can
+        # always be "overruled" by using the -numberOfGPULayers option.
+        if ($numberOfGPULayers -lt 0) {
 
-        if ($numberOfGPULayers -gt $maximumNumberOfLayers) {
-            $numberOfGPULayers = $maximumNumberOfLayers
-        }
+            $numberOfGPULayers = [Math]::Floor(($freeGPUMemory - $kvSize - $graphSize) / $averageLayerSize)
 
-        if ($numberOfGPULayers -lt 1) {
-            $numberOfGPULayers = 0
+            if ($numberOfGPULayers -gt $maximumNumberOfLayers) {
+                $numberOfGPULayers = $maximumNumberOfLayers
+            }
+
+            if ($numberOfGPULayers -lt 1) {
+                $numberOfGPULayers = 0
+            }
         }
     }
+
+    Write-Host "Listing calculated memory details..." -ForegroundColor "Yellow"
+
+    [PSCustomObject]@{
+        "Model Size" = "$([Math]::Ceiling($modelFileSize / 1MB)) MiB"
+        "KV Cache Size" = "$([Math]::Ceiling($kvSize / 1MB)) MiB"
+        "Graph Size" = "$([Math]::Ceiling($graphSize / 1MB)) MiB"
+        "Average Layer Size" = "$([Math]::Ceiling(($averageLayerSize) / 1MB)) MiB"
+        "Minimum Required VRAM" = "$([Math]::Ceiling(($averageLayerSize + $graphSize + $kvSize) / 1MB)) MiB"
+        "Total Required Memory" = "$([Math]::Ceiling(($modelFileSize + $graphSize + $kvSize) / 1MB)) MiB"
+        "Free GPU Memory (VRAM)" = "$([Math]::Ceiling($freeGPUMemory / 1MB)) MiB"
+        "Free System Memory (RAM)" = "$([Math]::Ceiling($freeMemory / 1MB)) MiB"
+    } | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 }
 
 # The global fallback is using only the CPU.
@@ -171,19 +211,6 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionFactor = $contextSize / $modelContextLength
     $groupAttentionWidth = $modelContextLength / 2
 }
-
-Write-Host "Listing calculated memory details..." -ForegroundColor "Yellow"
-
-[PSCustomObject]@{
-    "Model Size" = "$([Math]::Ceiling($modelFileSize / 1MB)) MiB"
-    "KV Cache Size" = "$([Math]::Ceiling($kvSize / 1MB)) MiB"
-    "Graph Size" = "$([Math]::Ceiling($graphSize / 1MB)) MiB"
-    "Average Layer Size" = "$([Math]::Ceiling(($averageLayerSize) / 1MB)) MiB"
-    "Minimum Required VRAM" = "$([Math]::Ceiling(($averageLayerSize + $graphSize + $kvSize) / 1MB)) MiB"
-    "Total Required Memory" = "$([Math]::Ceiling(($modelFileSize + $graphSize + $kvSize) / 1MB)) MiB"
-    "Free GPU Memory (VRAM)" = "$([Math]::Ceiling($freeGPUMemory / 1MB)) MiB"
-    "Free System Memory (RAM)" = "$([Math]::Ceiling($freeMemory / 1MB)) MiB"
-} | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
 Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:8080..." -ForegroundColor "Yellow"
 
