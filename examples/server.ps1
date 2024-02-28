@@ -125,7 +125,6 @@ if (!$contextSize) {
     $contextSize = $modelContextLength * $parallel
 }
 
-#
 if ($modelDataIsAvailable) {
 
     # The Key (K) and Value (V) states of the model are cached in a FP16 format.
