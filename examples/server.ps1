@@ -94,6 +94,8 @@ conda activate llama.cpp
 
 $modelFileSize = (Get-Item -Path "${model}").Length
 
+$modelDataIsAvailable = $false
+
 try {
 
     # We are trying to extract model details from the GGUF file.
@@ -102,13 +104,25 @@ try {
     $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
     $modelContextLength = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
     $modelHeadCount = [Int]($modelData | Select-String -Pattern '\bhead_count = (\d+)\b').Matches.Groups[1].Value
-    $modelHeadCountKV = [Int]($modelData | Select-String -Pattern '\bhead_count_kv = (\d+)\b').Matches.Groups[1].Value
     $modelBlockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
     $modelEmbeddingLength = [Int]($modelData | Select-String -Pattern '\bembedding_length = (\d+)\b').Matches.Groups[1].Value
+
+    # We are adding a fallback to the head_count value if the
+    # head_count_kv value is not set. A missing head_count_kv
+    # means that the model does not use Grouped-Query-Attention.
+    $matchHeadCountKV = $modelData | Select-String -Pattern '\bhead_count_kv = (\d+)\b'
+    if ($matchHeadCountKV){
+        $modelHeadCountKV = [Int]($matchHeadCountKV.Matches.Groups[1].Value)
+    } else {
+        $modelHeadCountKV = $modelHeadCount
+    }
+
     $modelDataIsAvailable = $true
 }
 catch {
-    $modelDataIsAvailable = $false
+
+    Write-host $_.Exception.Message -ForegroundColor "Red"
+    Write-Host $_.ScriptStackTrace -Foreground "DarkGray"
 
     if ($modelContextLength -lt 0) {
         throw "Failed to extract model details, please provide the -modelContextLength value to use this model."
