@@ -32,7 +32,7 @@ Specifies the models context length it was trained on.
 .\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
 
 .EXAMPLE
-.\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -port 8081
 #>
 
 Param (
@@ -61,6 +61,12 @@ Param (
     )]
     [Int]
     $numberOfGPULayers=-1,
+
+    [Parameter(
+        HelpMessage="The server port."
+    )]
+    [Int]
+    $port=8080,
 
     [Parameter(
         HelpMessage="Specifies the models context length it was trained on."
@@ -225,13 +231,13 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionWidth = $modelContextLength / 2
 }
 
-Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:8080..." -ForegroundColor "Yellow"
+Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
 
 Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
 Start-Job -Name 'BrowserJob' -ScriptBlock {
     do { Start-Sleep -Milliseconds 1000 }
-    while((curl.exe -s -o /dev/null -I -w '%{http_code}' 'http://127.0.0.1:8080') -ne 200)
-    Start-Process 'chrome' -ArgumentList '--incognito --new-window http://127.0.0.1:8080'
+    while((curl.exe -s -o /dev/null -I -w '%{http_code}' "http://127.0.0.1:${port}") -ne 200)
+    Start-Process 'chrome' -ArgumentList "--incognito --new-window http://127.0.0.1:${port}"
 } | Format-List -Property Id, Name, State, Command | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
 Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "Yellow"
@@ -247,6 +253,7 @@ Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "
 
 Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --log-disable ``
+    --port '${port}' ``
     --model '${model}' ``
     --alias '${alias}' ``
     --ctx-size '${contextSize}' ``

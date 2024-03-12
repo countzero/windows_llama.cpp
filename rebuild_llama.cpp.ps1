@@ -168,13 +168,15 @@ Set-Location -Path "../"
 
 conda activate llama.cpp
 
-# We are making sure to always use the latest version of the "gguf" package.
+# We are installing the latest version of the dependencies.
 pip install --ignore-installed -r ./requirements.txt
 
 Set-Location -Path "../../"
 
-# We want to install specific versions of some packages to avoid unexpected behaviour.
-pip install -r ./requirements.txt
+# We are enforcing specific versions on some packages.
+pip install --force-reinstall -r ./requirements.txt
+
+conda list
 
 $stopwatch.Stop()
 $durationInSeconds = [Math]::Floor([Decimal]($stopwatch.Elapsed.TotalSeconds))
