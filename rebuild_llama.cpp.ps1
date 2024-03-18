@@ -168,13 +168,13 @@ Set-Location -Path "../"
 
 conda activate llama.cpp
 
-# We are installing the latest version of the dependencies.
-pip install --ignore-installed -r ./requirements.txt
+# We are installing the latest available version of the dependencies.
+pip install --upgrade --upgrade-strategy "eager" -r ./requirements.txt
 
 Set-Location -Path "../../"
 
 # We are enforcing specific versions on some packages.
-pip install --force-reinstall -r ./requirements.txt
+pip install -r ./requirements_override.txt
 
 conda list
 
