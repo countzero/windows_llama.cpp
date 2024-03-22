@@ -261,5 +261,4 @@ Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --n-gpu-layers '${numberOfGPULayers}' ``
     --parallel '${parallel}' ``
     --grp-attn-n '${groupAttentionFactor}' ``
-    --grp-attn-w '${groupAttentionWidth}' ``
-    --cont-batching"
+    --grp-attn-w '${groupAttentionWidth}'"
