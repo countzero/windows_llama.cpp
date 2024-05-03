@@ -169,6 +169,7 @@ if ($modelDataIsAvailable) {
     ) * 1024)
 
     $freeGPUMemory = 0
+    $enableFlashAttention = $false
 
     # We are using the presence of NVIDIA System Management Interface
     # (nvidia-smi) and NVIDIA CUDA Compiler Driver (nvcc) to infer
@@ -180,6 +181,14 @@ if ($modelDataIsAvailable) {
             Invoke-Expression "nvidia-smi --query-gpu=memory.free --format=csv,noheader" | `
             Select-String -Pattern '\b(\d+) MiB\b'
         ).Matches.Groups[1].Value * 1024 * 1024)
+
+        # CUDA Flash Attention requires the GPU to have Tensor Cores,
+        # which are available with a Compute Capability >= 7.0.
+        # https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications
+        # https://github.com/ggerganov/llama.cpp/issues/7055
+        $enableFlashAttention = ([Double](
+            Invoke-Expression "nvidia-smi --query-gpu=compute_cap --format=csv,noheader"
+        ) -ge 7.0)
 
         # The automatic calculating the optimal number of GPU layers can
         # always be "overruled" by using the -numberOfGPULayers option.
@@ -252,7 +261,6 @@ Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "
 } | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
 Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
-    --flash-attn ``
     --log-disable ``
     --port '${port}' ``
     --model '${model}' ``
@@ -262,4 +270,5 @@ Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --n-gpu-layers '${numberOfGPULayers}' ``
     --parallel '${parallel}' ``
     --grp-attn-n '${groupAttentionFactor}' ``
-    --grp-attn-w '${groupAttentionWidth}'"
+    --grp-attn-w '${groupAttentionWidth}' ``
+    $(if ($enableFlashAttention) {" --flash-attn"})"
