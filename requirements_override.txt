@@ -1,4 +1,4 @@
 # We are using a specific version of the "torch"
 # package which supports a specific CUDA version.
 --extra-index-url https://download.pytorch.org/whl/nightly/cu121
-torch==2.3.0.dev20240311+cu121
+torch==2.3.0.dev20240315+cu121
