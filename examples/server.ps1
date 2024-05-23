@@ -261,6 +261,7 @@ Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "
 } | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
 
 Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
+    --n-predict 1024 ``
     --log-disable ``
     --port '${port}' ``
     --model '${model}' ``
