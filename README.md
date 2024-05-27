@@ -110,7 +110,6 @@ Execute the following to get detailed help on further options of the server scri
 Get-Help -Detailed .\examples\server.ps1
 ```
 
-
 ### Chat via CLI
 
 You can now chat with the model:
@@ -201,6 +200,34 @@ Execute the following to measure the perplexity of the GGML formatted model:
     --threads 16 `
     --n-gpu-layers 32 `
     --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
+```
+
+### Count prompt tokens
+
+You can easily count the tokens of a specific text input for a specific model by using the [.\examples\count_tokens.ps1](./examples/count_tokens.ps1) script:
+
+```PowerShell
+ .\examples\count_tokens.ps1 `
+     -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" `
+     -file ".\prompts\chat_with_llm.txt"
+```
+
+To inspect the actual tokenization result you can use the `-debug` flag:
+
+```PowerShell
+ .\examples\count_tokens.ps1 `
+     -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" `
+     -prompt "Hello Word!" `
+     -debug
+```
+
+> [!NOTE]
+> The script is a simple wrapper for the [tokenize.cpp](https://github.com/ggerganov/llama.cpp/blob/master/examples/tokenize/tokenize.cpp) example of the llama.cpp project.
+
+Execute the following to get detailed help on further options of the server script:
+
+```PowerShell
+Get-Help -Detailed .\examples\count_tokens.ps1
 ```
 
 ## Build
