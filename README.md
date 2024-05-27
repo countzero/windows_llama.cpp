@@ -204,7 +204,7 @@ Execute the following to measure the perplexity of the GGML formatted model:
 
 ### Count prompt tokens
 
-You can easily count the tokens of a specific text input for a specific model by using the [.\examples\count_tokens.ps1](./examples/count_tokens.ps1) script:
+You can easily count the tokens of a prompt for a specific model by using the [.\examples\count_tokens.ps1](./examples/count_tokens.ps1) script:
 
 ```PowerShell
  .\examples\count_tokens.ps1 `
