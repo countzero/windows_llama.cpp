@@ -22,6 +22,9 @@ Specifies the number of layers offloaded into the GPU.
 .PARAMETER modelContextLength
 Specifies the models context length it was trained on.
 
+.PARAMETER verbose
+Increases the verbosity of the llama.cpp server.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
@@ -33,6 +36,9 @@ Specifies the models context length it was trained on.
 
 .EXAMPLE
 .\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -port 8081
+
+.EXAMPLE
+.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" -verbose
 #>
 
 Param (
@@ -74,6 +80,9 @@ Param (
     [Int]
     $modelContextLength=-1
 )
+
+# The -verbose option is a default PowerShell parameter.
+$verbose = $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true
 
 # We are resolving the absolute path to the llama.cpp project directory.
 $llamaCppPath = Resolve-Path -Path "${PSScriptRoot}\..\vendor\llama.cpp"
@@ -251,16 +260,7 @@ Start-Job -Name 'BrowserJob' -ScriptBlock {
 
 Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "Yellow"
 
-[PSCustomObject]@{
-    "Context Size" = $contextSize
-    "Group Attention Factor" = $groupAttentionFactor
-    "Group Attention Width" = $groupAttentionWidth
-    "Physical CPU Cores" = $numberOfPhysicalCores
-    "GPU Layers" = "${numberOfGPULayers}/${maximumNumberOfLayers}"
-    "Parallel Slots" = "${parallel}"
-} | Format-List | Out-String | ForEach-Object { $_.Trim("`r","`n") }
-
-Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
+$command = "${llamaCppPath}\build\bin\Release\server ``
     --n-predict 1024 ``
     --log-disable ``
     --port '${port}' ``
@@ -272,4 +272,9 @@ Invoke-Expression "${llamaCppPath}\build\bin\Release\server ``
     --parallel '${parallel}' ``
     --grp-attn-n '${groupAttentionFactor}' ``
     --grp-attn-w '${groupAttentionWidth}' ``
-    $(if ($enableFlashAttention) {" --flash-attn"})"
+    $(if ($enableFlashAttention) {"--flash-attn"}) ``
+    $(if ($verbose) {"--verbose"})"
+
+Write-Host $command -ForegroundColor "Green"
+
+Invoke-Expression $command
