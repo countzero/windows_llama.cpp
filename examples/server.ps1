@@ -22,6 +22,9 @@ Specifies the number of layers offloaded into the GPU.
 .PARAMETER modelContextLength
 Specifies the models context length it was trained on.
 
+.PARAMETER kvCacheDataType
+Specifies the KV cache data type.
+
 .PARAMETER verbose
 Increases the verbosity of the llama.cpp server.
 
@@ -78,7 +81,13 @@ Param (
         HelpMessage="Specifies the models context length it was trained on."
     )]
     [Int]
-    $modelContextLength=-1
+    $modelContextLength=-1,
+
+    [Parameter(
+        HelpMessage="Specifies the KV cache data type."
+    )]
+    [String]
+    $kvCacheDataType
 )
 
 # The -verbose option is a default PowerShell parameter.
@@ -249,6 +258,15 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionWidth = $modelContextLength / 2
 }
 
+# We are defaulting the KV cache data type to a quantized format.
+if (!$kvCacheDataType) {
+    if ($enableFlashAttention) {
+        $kvCacheDataType = 'q4_0'
+    } else {
+        $kvCacheDataType = 'f16'
+    }
+}
+
 Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
 
 Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
@@ -272,6 +290,8 @@ $command = "${llamaCppPath}\build\bin\Release\server ``
     --parallel '${parallel}' ``
     --grp-attn-n '${groupAttentionFactor}' ``
     --grp-attn-w '${groupAttentionWidth}' ``
+    --cache-type-k '${kvCacheDataType}' ``
+    --cache-type-v '${kvCacheDataType}' ``
     $(if ($enableFlashAttention) {"--flash-attn"}) ``
     $(if ($verbose) {"--verbose"})"
 

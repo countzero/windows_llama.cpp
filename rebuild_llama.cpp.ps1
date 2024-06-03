@@ -151,7 +151,9 @@ switch ($blasAccelerator) {
 
     "cuBLAS" {
         cmake `
-            -DLLAMA_CUBLAS=ON `
+            -DLLAMA_CUDA=ON `
+            -DLLAMA_CCACHE=OFF `
+            -DLLAMA_CUDA_FA_ALL_QUANTS=ON `
             ..
     }
 
@@ -160,7 +162,10 @@ switch ($blasAccelerator) {
     }
 }
 
-cmake --build . --config Release
+cmake `
+    --build . `
+    --config Release `
+    --parallel (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
 
