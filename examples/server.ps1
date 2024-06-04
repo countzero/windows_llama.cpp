@@ -200,13 +200,13 @@ if ($modelDataIsAvailable) {
             Select-String -Pattern '\b(\d+) MiB\b'
         ).Matches.Groups[1].Value * 1024 * 1024)
 
-        # CUDA Flash Attention requires the GPU to have Tensor Cores,
-        # which are available with a Compute Capability >= 7.0.
+        # The CUDA Flash Attention implementation of llama.cpp requires
+        # the NVIDIA GPU to have a Compute Capability of >= 6.0.
         # https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications
         # https://github.com/ggerganov/llama.cpp/issues/7055
         $enableFlashAttention = ([Double](
             Invoke-Expression "nvidia-smi --query-gpu=compute_cap --format=csv,noheader"
-        ) -ge 7.0)
+        ) -ge 6.0)
 
         # The automatic calculating the optimal number of GPU layers can
         # always be "overruled" by using the -numberOfGPULayers option.
@@ -258,7 +258,9 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionWidth = $modelContextLength / 2
 }
 
-# We are defaulting the KV cache data type to a quantized format.
+# We are defaulting the KV cache data type to a quantized format
+# if Flash Attention is enabled to maximize the context size.
+# https://github.com/ggerganov/llama.cpp/pull/7527
 if (!$kvCacheDataType) {
     if ($enableFlashAttention) {
         $kvCacheDataType = 'q4_0'
