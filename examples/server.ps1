@@ -23,7 +23,7 @@ Specifies the number of layers offloaded into the GPU.
 Specifies the models context length it was trained on.
 
 .PARAMETER kvCacheDataType
-Specifies the KV cache data type.
+Specifies the KV cache data type (options: f32, f16, q8_0, q4_0, q4_1, iq4_nl, q5_0, or q5_1).
 
 .PARAMETER verbose
 Increases the verbosity of the llama.cpp server.
