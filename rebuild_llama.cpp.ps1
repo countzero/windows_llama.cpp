@@ -8,7 +8,7 @@ Automatically rebuild llama.cpp for a Windows environment.
 This script automatically rebuilds llama.cpp for a Windows environment.
 
 .PARAMETER blasAccelerator
-Specifies the BLAS accelerator, supported values are: "OpenBLAS", "cuBLAS", "OFF"
+Specifies the BLAS accelerator, supported values are: "OpenBLAS", "CUDA", "OFF"
 
 .PARAMETER version
 Specifies a llama.cpp commit or tag to checkout a specific version.
@@ -20,11 +20,11 @@ Specifies a llama.cpp commit or tag to checkout a specific version.
 .\rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"
 
 .EXAMPLE
-.\rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS" -version "master-4e7464e"
+.\rebuild_llama.cpp.ps1 -blasAccelerator "CUDA" -version "master-4e7464e"
 #>
 
 Param (
-    [ValidateSet("OpenBLAS", "cuBLAS", "OFF")]
+    [ValidateSet("OpenBLAS", "CUDA", "OFF")]
     [String]
     $blasAccelerator,
 
@@ -62,7 +62,7 @@ if (!$blasAccelerator) {
     if ((Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) -and
         (Get-Command "nvcc" -ErrorAction SilentlyContinue)) {
 
-        $blasAccelerator = "cuBLAS"
+        $blasAccelerator = "CUDA"
     }
 }
 
@@ -149,7 +149,7 @@ switch ($blasAccelerator) {
             ..
     }
 
-    "cuBLAS" {
+    "CUDA" {
         cmake `
             -DLLAMA_CUDA=ON `
             -DLLAMA_CCACHE=OFF `

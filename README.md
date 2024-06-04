@@ -11,7 +11,7 @@ A PowerShell automation to rebuild [llama.cpp](https://github.com/ggerganov/llam
 
 ## BLAS support
 
-This script currently supports `OpenBLAS` for CPU BLAS acceleration and `cuBLAS` for NVIDIA GPU BLAS acceleration.
+This script currently supports `OpenBLAS` for CPU BLAS acceleration and `CUDA` for NVIDIA GPU BLAS acceleration.
 
 ## Installation
 
@@ -241,7 +241,7 @@ Every time there is a new release of [llama.cpp](https://github.com/ggerganov/ll
 | `./rebuild_llama.cpp.ps1`                             | Automatically detects best BLAS acceleration |
 | `./rebuild_llama.cpp.ps1 -blasAccelerator "OFF"`      | Without any BLAS acceleration                |
 | `./rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"` | With CPU BLAS acceleration                   |
-| `./rebuild_llama.cpp.ps1 -blasAccelerator "cuBLAS"`   | With NVIDIA GPU BLAS acceleration            |
+| `./rebuild_llama.cpp.ps1 -blasAccelerator "CUDA"`     | With NVIDIA GPU BLAS acceleration            |
 
 ### Build a specific version of llama.cpp
 
