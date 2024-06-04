@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2024-06-04
+
+### Added
+- [Server] Add kvCacheDataType option
+- [Server] Automatically enable q4_0 quantized KV cache with Flash Attention
+- [Server] Automatically enable Flash Attention on GPUS with at least Pascal architecture
+- [Build] Enable parallel building with CMake utilizing all CPU threads
+
 ## [1.16.0] - 2024-05-30
 
 ### Added
