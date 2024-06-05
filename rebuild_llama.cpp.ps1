@@ -153,7 +153,6 @@ switch ($blasAccelerator) {
         cmake `
             -DLLAMA_CUDA=ON `
             -DLLAMA_CCACHE=OFF `
-            -DLLAMA_CUDA_FA_ALL_QUANTS=ON `
             ..
     }
 

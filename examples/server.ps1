@@ -23,7 +23,7 @@ Specifies the number of layers offloaded into the GPU.
 Specifies the models context length it was trained on.
 
 .PARAMETER kvCacheDataType
-Specifies the KV cache data type (options: f32, f16, q8_0, q4_0, q4_1, iq4_nl, q5_0, or q5_1).
+Specifies the KV cache data type (options: f32, f16, q8_0, q4_0).
 
 .PARAMETER verbose
 Increases the verbosity of the llama.cpp server.
@@ -38,7 +38,7 @@ Increases the verbosity of the llama.cpp server.
 .\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -port 8081
+.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -port 8081 -kvCacheDataType q8_0
 
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" -verbose
