@@ -280,7 +280,7 @@ Start-Job -Name 'BrowserJob' -ScriptBlock {
 
 Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "Yellow"
 
-$command = "${llamaCppPath}\build\bin\Release\server ``
+$command = "${llamaCppPath}\build\bin\Release\llama-server ``
     --n-predict 1024 ``
     --log-disable ``
     --port '${port}' ``

@@ -76,7 +76,7 @@ if ($debug) {
 }
 
 # We are only interested in the numerical token IDs array format like [1, 2, 3].
-$tokensPythonArrayString = Invoke-Expression "${llamaCppPath}\build\bin\Release\tokenize.exe ``
+$tokensPythonArrayString = Invoke-Expression "${llamaCppPath}\build\bin\Release\llama-tokenize ``
     --log-disable ``
     --ids ``
     $(if ($modelPath) {"--model '${modelPath}'"}) ``

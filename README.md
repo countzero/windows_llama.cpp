@@ -84,12 +84,12 @@ To build llama.cpp binaries for a Windows environment with the best available BL
 
 ### 7. Download a large language model
 
-Download a large language model (LLM) with weights in the GGUF format into the `./vendor/llama.cpp/models` directory. You can for example download the [OpenChat-3.5-0106](https://huggingface.co/openchat/openchat-3.5-0106) 7B model in a quantized GGUF format:
+Download a large language model (LLM) with weights in the GGUF format into the `./vendor/llama.cpp/models` directory. You can for example download the [openchat-3.6-8b-20240522](https://huggingface.co/openchat/openchat-3.6-8b-20240522) 8B model in a quantized GGUF format:
 
-* https://huggingface.co/TheBloke/openchat-3.5-0106-GGUF/resolve/main/openchat-3.5-0106.Q5_K_M.gguf
+* https://huggingface.co/bartowski/openchat-3.6-8b-20240522-GGUF/blob/main/openchat-3.6-8b-20240522-Q5_K_M.gguf
 
 > [!TIP]
-> See the [🤗 Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) for best in class open source LLMs.
+> See the [🤗 Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) and [LMSYS Chatbot Arena Leaderboard](https://chat.lmsys.org/?leaderboard) for best in class open source LLMs.
 
 ## Usage
 
@@ -98,7 +98,7 @@ Download a large language model (LLM) with weights in the GGUF format into the `
 You can easily chat with a specific model by using the [.\examples\server.ps1](./examples/server.ps1) script:
 
 ```PowerShell
- .\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
+.\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf"
 ```
 
 > [!NOTE]
@@ -115,13 +115,13 @@ Get-Help -Detailed .\examples\server.ps1
 You can now chat with the model:
 
 ```PowerShell
-./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
+./vendor/llama.cpp/build/bin/Release/llama-cli `
+    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
     --ctx-size 8192 `
     --threads 16 `
-    --n-gpu-layers 32 `
+    --n-gpu-layers 33 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
+    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -132,11 +132,11 @@ You can now chat with the model:
 You can start llama.cpp as a webserver:
 
 ```PowerShell
-./vendor/llama.cpp/build/bin/Release/server `
-    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
+./vendor/llama.cpp/build/bin/Release/llama-server `
+    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
     --ctx-size 8192 `
     --threads 16 `
-    --n-gpu-layers 32
+    --n-gpu-layers 33
 ```
 
 And then access llama.cpp via the webinterface at:
@@ -154,20 +154,20 @@ rope_frequency_base = 10000 * context_scale
 ```
 
 > [!NOTE]
-> To increase the context size of an [OpenChat-3.5-0106](https://huggingface.co/openchat/openchat-3.5-0106) model from its original context size of `8192` to `32768` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
+> To increase the context size of an [openchat-3.6-8b-20240522](https://huggingface.co/openchat/openchat-3.6-8b-20240522) model from its original context size of `8192` to `32768` means, that the `context_scale` is `4.0`. The `rope_frequency_scale` will then be `0.25` and the `rope_frequency_base` equals `40000`.
 
 To extend the context to 32k execute the following:
 
 ```PowerShell
-./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
+./vendor/llama.cpp/build/bin/Release/llama-cli `
+    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
     --ctx-size 32768 `
     --rope-freq-scale 0.25 `
     --rope-freq-base 40000 `
     --threads 16 `
-    --n-gpu-layers 32 `
+    --n-gpu-layers 33 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
+    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -178,12 +178,12 @@ To extend the context to 32k execute the following:
 You can enforce a specific grammar for the response generation. The following will always return a JSON response:
 
 ```PowerShell
-./vendor/llama.cpp/build/bin/Release/main `
-    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
+./vendor/llama.cpp/build/bin/Release/llama-cli `
+    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
     --ctx-size 8192 `
     --threads 16 `
-    --n-gpu-layers 32 `
-    --prompt-cache "./cache/openchat-3.5-0106.Q5_K_M.gguf.prompt" `
+    --n-gpu-layers 33 `
+    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
     --prompt "The scientific classification (Taxonomy) of a Llama: " `
     --grammar-file "./vendor/llama.cpp/grammars/json.gbnf"
     --color
@@ -194,11 +194,11 @@ You can enforce a specific grammar for the response generation. The following wi
 Execute the following to measure the perplexity of the GGML formatted model:
 
 ```PowerShell
-./vendor/llama.cpp/build/bin/Release/perplexity `
-    --model "./vendor/llama.cpp/models/openchat-3.5-0106.Q5_K_M.gguf" `
+./vendor/llama.cpp/build/bin/Release/llama-perplexity `
+    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
     --ctx-size 8192 `
     --threads 16 `
-    --n-gpu-layers 32 `
+    --n-gpu-layers 33 `
     --file "./vendor/wikitext-2-raw-v1/wikitext-2-raw/wiki.test.raw"
 ```
 
@@ -208,7 +208,7 @@ You can easily count the tokens of a prompt for a specific model by using the [.
 
 ```PowerShell
  .\examples\count_tokens.ps1 `
-     -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" `
+     -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" `
      -file ".\prompts\chat_with_llm.txt"
 ```
 
@@ -216,7 +216,7 @@ To inspect the actual tokenization result you can use the `-debug` flag:
 
 ```PowerShell
  .\examples\count_tokens.ps1 `
-     -model ".\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" `
+     -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" `
      -prompt "Hello Word!" `
      -debug
 ```
