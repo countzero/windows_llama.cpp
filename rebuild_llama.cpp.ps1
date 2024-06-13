@@ -189,17 +189,18 @@ cmake `
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
 
-Set-Location -Path "../"
+Set-Location -Path "../../../"
+
+Write-Host "[Python] Installing dependencies..." -ForegroundColor "Yellow"
 
 conda activate llama.cpp
 
-# We are installing the latest available version of the dependencies.
-pip install --upgrade --upgrade-strategy "eager" -r ./requirements.txt
-
-Set-Location -Path "../../"
-
-# We are enforcing specific versions on some packages.
-pip install -r ./requirements_override.txt
+# We are installing the latest available version of all llama.cpp
+# project dependencies and also overriding some package versions.
+pip install `
+    --upgrade `
+    --upgrade-strategy "eager" `
+    --requirement ./requirements_override.txt
 
 conda list
 

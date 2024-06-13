@@ -1,4 +1,7 @@
-# We are using a specific version of the "torch"
-# package which supports a specific CUDA version.
---extra-index-url https://download.pytorch.org/whl/nightly/cu121
-torch==2.4.0.dev20240516+cu121
+# We are importing the llama.cpp project dependencies.
+--requirement ./vendor/llama.cpp/requirements.txt
+
+# We are overriding the "torch" package version with a
+# specific compatible version that also supports CUDA.
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.2+cu121
