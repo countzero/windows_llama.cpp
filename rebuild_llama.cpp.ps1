@@ -13,6 +13,9 @@ Specifies the BLAS accelerator, supported values are: "OpenBLAS", "CUDA", "OFF"
 .PARAMETER version
 Specifies a llama.cpp commit or tag to checkout a specific version.
 
+.PARAMETER target
+Specifies CMake build targets to compile a specific subset of the llama.cpp project.
+
 .EXAMPLE
 .\rebuild_llama.cpp.ps1
 
@@ -21,6 +24,9 @@ Specifies a llama.cpp commit or tag to checkout a specific version.
 
 .EXAMPLE
 .\rebuild_llama.cpp.ps1 -blasAccelerator "CUDA" -version "master-4e7464e"
+
+.EXAMPLE
+.\rebuild_llama.cpp.ps1 -target "llama-server llama-cli"
 #>
 
 Param (
@@ -29,7 +35,10 @@ Param (
     $blasAccelerator,
 
     [String]
-    $version
+    $version,
+
+    [String]
+    $target="default"
 )
 
 $stopwatch = [System.Diagnostics.Stopwatch]::startNew()
@@ -66,9 +75,10 @@ if (!$blasAccelerator) {
     }
 }
 
-Write-Host "Building llama.cpp..." -ForegroundColor "Yellow"
+Write-Host "Building the llama.cpp project..." -ForegroundColor "Yellow"
 Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
+Write-Host "Target: ${target}" -ForegroundColor "DarkYellow"
 
 $openBLASVersion = "0.3.26"
 
@@ -140,6 +150,8 @@ New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 
 Set-Location -Path "./vendor/llama.cpp/build"
 
+Write-Host "[CMake] Configuring and generating project..." -ForegroundColor "Yellow"
+
 switch ($blasAccelerator) {
 
     "OpenBLAS" {
@@ -161,10 +173,13 @@ switch ($blasAccelerator) {
     }
 }
 
+Write-Host "[CMake] Building project targets '${target}'..." -ForegroundColor "Yellow"
+
 cmake `
     --build . `
     --config Release `
-    --parallel (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+    --parallel (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors `
+    --target "${target}"
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
 
