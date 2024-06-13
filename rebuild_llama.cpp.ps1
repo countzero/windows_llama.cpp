@@ -38,7 +38,7 @@ Param (
     $version,
 
     [String]
-    $target="default"
+    $target
 )
 
 $stopwatch = [System.Diagnostics.Stopwatch]::startNew()
@@ -75,10 +75,16 @@ if (!$blasAccelerator) {
     }
 }
 
+if ($target) {
+    $buildTargetInformation = "${target}"
+} else {
+    $buildTargetInformation = "(using project defaults)"
+}
+
 Write-Host "Building the llama.cpp project..." -ForegroundColor "Yellow"
 Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
-Write-Host "Target: ${target}" -ForegroundColor "DarkYellow"
+Write-Host "Build target: ${buildTargetInformation}" -ForegroundColor "DarkYellow"
 
 $openBLASVersion = "0.3.26"
 
@@ -179,7 +185,7 @@ cmake `
     --build . `
     --config Release `
     --parallel (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors `
-    --target "${target}"
+    $(if ($target) { "--target ${target}" })
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
 
