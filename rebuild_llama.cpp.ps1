@@ -170,7 +170,6 @@ switch ($blasAccelerator) {
     "CUDA" {
         cmake `
             -DGGML_CUDA=ON `
-            -DGGML_CUDA_F16=ON `
             ..
     }
 

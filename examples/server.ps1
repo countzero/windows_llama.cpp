@@ -86,8 +86,9 @@ Param (
     [Parameter(
         HelpMessage="Specifies the KV cache data type."
     )]
+    [ValidateSetAttribute("f32", "f16", "q8_0", "q4_0")]
     [String]
-    $kvCacheDataType
+    $kvCacheDataType="f16"
 )
 
 # The -verbose option is a default PowerShell parameter.
@@ -256,17 +257,6 @@ if ($contextSize -gt $modelContextLength) {
 
     $groupAttentionFactor = $contextSize / $modelContextLength
     $groupAttentionWidth = $modelContextLength / 2
-}
-
-# We are defaulting the KV cache data type to a quantized format
-# if Flash Attention is enabled to maximize the context size.
-# https://github.com/ggerganov/llama.cpp/pull/7527
-if (!$kvCacheDataType) {
-    if ($enableFlashAttention) {
-        $kvCacheDataType = 'q4_0'
-    } else {
-        $kvCacheDataType = 'f16'
-    }
 }
 
 Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
