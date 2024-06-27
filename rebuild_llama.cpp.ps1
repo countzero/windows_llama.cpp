@@ -162,15 +162,15 @@ switch ($blasAccelerator) {
 
     "OpenBLAS" {
         cmake `
-            -DLLAMA_BLAS=ON `
-            -DLLAMA_BLAS_VENDOR=OpenBLAS `
+            -DGGML_BLAS=ON `
+            -DGGML_BLAS_VENDOR=OpenBLAS `
             ..
     }
 
     "CUDA" {
         cmake `
-            -DLLAMA_CUDA=ON `
-            -DLLAMA_CCACHE=OFF `
+            -DGGML_CUDA=ON `
+            -DGGML_CUDA_F16=ON `
             ..
     }
 
