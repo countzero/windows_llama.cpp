@@ -126,7 +126,7 @@ try {
     # We are trying to extract model details from the GGUF file.
     # https://github.com/ggerganov/ggml/blob/master/docs/gguf.md#llm
     # TODO: Find a robust way to resolve this values.
-    $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf-dump.py --no-tensors `"${model}`""
+    $modelData = Invoke-Expression "python ${llamaCppPath}\gguf-py\scripts\gguf_dump.py --no-tensors `"${model}`""
     $modelContextLength = [Int]($modelData | Select-String -Pattern '\bcontext_length = (\d+)\b').Matches.Groups[1].Value
     $modelHeadCount = [Int]($modelData | Select-String -Pattern '\bhead_count = (\d+)\b').Matches.Groups[1].Value
     $modelBlockCount = [Int]($modelData | Select-String -Pattern '\bblock_count = (\d+)\b').Matches.Groups[1].Value
