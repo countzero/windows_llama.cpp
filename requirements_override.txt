@@ -3,5 +3,9 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
 torch==2.2.1+cu121
 
+# We are installing the missing "tiktoken" package
+# to enable support for the GLM model architecture.
+tiktoken==0.7.0
+
 # We are importing the llama.cpp project dependencies.
 --requirement ./vendor/llama.cpp/requirements.txt
