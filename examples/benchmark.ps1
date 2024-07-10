@@ -1,88 +1,30 @@
-#Requires -Version 5.0
-
-<#
-.SYNOPSIS
-Counts tokens of a prompt file for a specific model.
-
-.DESCRIPTION
-This script counts tokens of a prompt file for a specific model.
-
-.PARAMETER model
-Specifies the path to the GGUF model file.
-
-.PARAMETER file
-Specifies the path to the prompt text file.
-
-.PARAMETER prompt
-Specifies the prompt.
-
-.PARAMETER debug
-Logs the result of the tokenization.
-
-.EXAMPLE
-.\count_tokens.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -file "C:\prompts\chat_with_llm.txt"
-
-.EXAMPLE
-.\count_tokens.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -prompt "Hello world!"
-
-.EXAMPLE
-.\count_tokens.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -prompt "Hello world!" -debug
-#>
-
-Param (
-
-    [Parameter(
-        HelpMessage="The path to the GGUF model file.",
-        Mandatory=$true
-    )]
-    [String]
-    $model,
-
-    [Parameter(
-        HelpMessage="The path to the prompt text file."
-    )]
-    [String]
-    $file,
-
-    [Parameter(
-        HelpMessage="The prompt input."
-    )]
-    [String]
-    $prompt
-)
-
-if ((!$file -and !$prompt) -or ($file -and $prompt)) {
-    throw "One prompt text to tokenize is required: Either specify the -file or the -prompt parameter."
-}
-
-$debug = $PSCmdlet.MyInvocation.BoundParameters["Debug"].IsPresent -eq $true
-$verbose = $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true
-
-# We are resolving the absolute path to the llama.cpp project directory.
-$llamaCppPath = Resolve-Path -Path "${PSScriptRoot}\..\vendor\llama.cpp"
-
-$modelPath = Resolve-Path -Path "${model}"
-
-if ($file) {
-    $filePath = Resolve-Path -Path "${file}"
-}
-
-if ($debug) {
-
-    # For debugging purposes we are logging the default output of the tokenization.
-    Invoke-Expression "${llamaCppPath}\build\bin\Release\tokenize.exe ``
-        $(if ($modelPath) {"--model '${modelPath}'"}) ``
-        $(if ($filePath) {"--file '${filePath}'"} else {"--prompt '${prompt}'"})"
-}
-
-# We are only interested in the numerical token IDs array format like [1, 2, 3].
-$tokensPythonArrayString = Invoke-Expression "${llamaCppPath}\build\bin\Release\llama-tokenize ``
-    --log-disable ``
-    --ids ``
-    $(if ($modelPath) {"--model '${modelPath}'"}) ``
-    $(if ($filePath) {"--file '${filePath}'"} else {"--prompt '${prompt}'"})"
-
-# We are converting the Python array string into an PowerShell array.
-$tokens = "${tokensPythonArrayString}".Trim('[', ']') -split ',' | % { [int]$_ }
-
-Write-Host $tokens.Length
+./vendor/llama.cpp/build/bin/Release/llama-bench `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ1_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ1_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_XXS.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_XS.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_XXS.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_XS.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ4_XS.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ4_NL.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_L.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_0.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_1.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_K_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_K_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q5_0.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q5_1.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q5_K_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q5_K_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q6_K.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q8_0.gguf `
+--n-prompt 0 `
+--n-gen 512 `
+--threads 16 `
+--n-gpu-layers 33 `
+--flash-attn 1
