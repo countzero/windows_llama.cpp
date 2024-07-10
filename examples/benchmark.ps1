@@ -5,14 +5,14 @@
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_XXS.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_XS.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ2_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_S.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_M.gguf `
+--model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_L.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_XXS.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_XS.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ3_M.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ4_XS.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.IQ4_NL.gguf `
---model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_S.gguf `
---model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_M.gguf `
---model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q3_K_L.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_0.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_1.gguf `
 --model ./vendor/llama.cpp/models/openchat-3.6-8b-20240522.Q4_K_S.gguf `
