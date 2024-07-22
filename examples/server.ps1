@@ -28,6 +28,9 @@ Specifies the KV cache data type (options: f32, f16, q8_0, q4_0).
 .PARAMETER verbose
 Increases the verbosity of the llama.cpp server.
 
+.PARAMETER help
+Shows the manual on how to use this script.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
 
@@ -88,8 +91,16 @@ Param (
     )]
     [ValidateSetAttribute("f32", "f16", "q8_0", "q4_0")]
     [String]
-    $kvCacheDataType="f16"
+    $kvCacheDataType="f16",
+
+    [switch]
+    $help
 )
+
+if ($help) {
+    Get-Help -Detailed $PSCommandPath
+    exit
+}
 
 # The -verbose option is a default PowerShell parameter.
 $verbose = $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true

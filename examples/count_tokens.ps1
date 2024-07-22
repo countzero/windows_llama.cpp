@@ -19,6 +19,9 @@ Specifies the prompt.
 .PARAMETER debug
 Logs the result of the tokenization.
 
+.PARAMETER help
+Shows the manual on how to use this script.
+
 .EXAMPLE
 .\count_tokens.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -file "C:\prompts\chat_with_llm.txt"
 
@@ -48,8 +51,16 @@ Param (
         HelpMessage="The prompt input."
     )]
     [String]
-    $prompt
+    $prompt,
+
+    [switch]
+    $help
 )
+
+if ($help) {
+    Get-Help -Detailed $PSCommandPath
+    exit
+}
 
 if ((!$file -and !$prompt) -or ($file -and $prompt)) {
     throw "One prompt text to tokenize is required: Either specify the -file or the -prompt parameter."

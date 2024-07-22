@@ -16,6 +16,9 @@ Specifies a llama.cpp commit or tag to checkout a specific version.
 .PARAMETER target
 Specifies CMake build targets to compile a specific subset of the llama.cpp project.
 
+.PARAMETER help
+Shows the manual on how to use this script.
+
 .EXAMPLE
 .\rebuild_llama.cpp.ps1
 
