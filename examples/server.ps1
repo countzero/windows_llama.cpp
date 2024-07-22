@@ -97,16 +97,17 @@ $verbose = $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true
 # We are resolving the absolute path to the llama.cpp project directory.
 $llamaCppPath = Resolve-Path -Path "${PSScriptRoot}\..\vendor\llama.cpp"
 
-function Convert-FileSize($num) {
+function Convert-FileSize($length) {
+
     $suffix = "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"
     $index = 0
-    while ($num -gt 1kb)
-    {
-        $num = $num / 1kb
+
+    while ($length -gt 1kb) {
+        $length = $length / 1kb
         $index++
     }
 
-    "{0:N1} {1}" -f $num, $suffix[$index]
+    "{0:N1} {1}" -f $length, $suffix[$index]
 }
 
 # We are listing possible models to choose from.
@@ -117,7 +118,7 @@ if (!$model) {
     Get-ChildItem -Path "${llamaCppPath}\models\" -Filter '*.gguf' -Exclude 'ggml-vocab-*' -Recurse | `
     ForEach-Object {
         New-Object PSObject -Property @{
-            FullName = Resolve-Path -Relative $_.FullName;
+            FullName = Resolve-Path -Relative $_.FullName
             FileSize = Convert-FileSize $_.Length
         }
     }
