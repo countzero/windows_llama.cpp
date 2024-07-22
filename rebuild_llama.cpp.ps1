@@ -20,10 +20,7 @@ Specifies CMake build targets to compile a specific subset of the llama.cpp proj
 .\rebuild_llama.cpp.ps1
 
 .EXAMPLE
-.\rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS"
-
-.EXAMPLE
-.\rebuild_llama.cpp.ps1 -blasAccelerator "CUDA" -version "master-4e7464e"
+.\rebuild_llama.cpp.ps1 -blasAccelerator "OpenBLAS" -version "50e0535"
 
 .EXAMPLE
 .\rebuild_llama.cpp.ps1 -target "llama-server llama-cli"
@@ -38,8 +35,16 @@ Param (
     $version,
 
     [String]
-    $target
+    $target,
+
+    [switch]
+    $help
 )
+
+if ($help) {
+    Get-Help -Detailed $PSCommandPath
+    exit
+}
 
 $stopwatch = [System.Diagnostics.Stopwatch]::startNew()
 
