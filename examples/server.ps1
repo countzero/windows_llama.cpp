@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-Automatically starts the llama.cpp server with optimal settings and opens it in the chrome browser.
+Automatically starts the llama.cpp server with optimal settings.
 
 .DESCRIPTION
-This script automatically starts the llama.cpp server with optimal settings and opens it in the chrome browser.
+This script automatically starts the llama.cpp server with optimal settings.
 
 .PARAMETER model
 Specifies the path to the GGUF model file.
@@ -287,16 +287,7 @@ if ($contextSize -gt $modelContextLength) {
     $groupAttentionWidth = $modelContextLength / 2
 }
 
-Write-Host "Waiting for server to start Chrome in incognito mode at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
-
-Get-Job -Name 'BrowserJob' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
-Start-Job -Name 'BrowserJob' -ScriptBlock {
-    do { Start-Sleep -Milliseconds 1000 }
-    while((curl.exe -s -o /dev/null -I -w '%{http_code}' "http://127.0.0.1:${port}") -ne 200)
-    Start-Process 'chrome' -ArgumentList "--incognito --new-window http://127.0.0.1:${port}"
-} | Format-List -Property Id, Name, State, Command | Out-String | ForEach-Object { $_.Trim("`r","`n") }
-
-Write-Host "Starting llama.cpp server with custom options..." -ForegroundColor "Yellow"
+Write-Host "Starting llama.cpp server with custom options at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
 
 $command = "${llamaCppPath}\build\bin\Release\llama-server ``
     --n-predict 1024 ``
