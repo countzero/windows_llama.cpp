@@ -10,6 +10,9 @@ This script automatically starts the llama.cpp server with optimal settings.
 .PARAMETER model
 Specifies the path to the GGUF model file.
 
+.PARAMETER chatTemplate
+Specifies the chat template (options: chatml, command-r, deepseek, gemma, llama2, llama3, monarch, openchat, orion, vicuna, vicuna-orca, zephyr).
+
 .PARAMETER parallel
 Specifies the number of slots for process requests (default: 1).
 
@@ -32,19 +35,19 @@ Increases the verbosity of the llama.cpp server.
 Shows the manual on how to use this script.
 
 .EXAMPLE
-.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf"
+.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -parallel 4
+.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -chatTemplate "llama3" -parallel 4
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
+.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.5-0106.Q5_K_M.gguf" -port 8081 -kvCacheDataType q8_0
+.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -port 8081 -kvCacheDataType q8_0
 
 .EXAMPLE
-.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.5-0106.Q5_K_M.gguf" -verbose
+.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -verbose
 #>
 
 Param (
@@ -54,6 +57,26 @@ Param (
     )]
     [String]
     $model,
+
+    [Parameter(
+        HelpMessage="The chat template."
+    )]
+    [ValidateSetAttribute(
+            "chatml",
+            "command-r",
+            "deepseek",
+            "gemma",
+            "llama2",
+            "llama3",
+            "monarch",
+            "openchat",
+            "orion",
+            "vicuna",
+            "vicuna-orca",
+            "zephyr"
+    )]
+    [String]
+    $chatTemplate,
 
     [Parameter(
         HelpMessage="The number of slots for process requests."
@@ -148,6 +171,8 @@ conda activate llama.cpp
 $modelFileSize = (Get-Item -Path "${model}").Length
 
 $modelDataIsAvailable = $false
+
+Write-Host "Extracting model details..." -ForegroundColor "Yellow"
 
 try {
 
@@ -304,6 +329,7 @@ $command = "${llamaCppPath}\build\bin\Release\llama-server ``
     --cache-type-k '${kvCacheDataType}' ``
     --cache-type-v '${kvCacheDataType}' ``
     $(if ($enableFlashAttention) {"--flash-attn"}) ``
+    $(if ($chatTemplate) {"--chat-template '${chatTemplate}'"}) ``
     $(if ($verbose) {"--verbose"})"
 
 Write-Host $command -ForegroundColor "Green"
