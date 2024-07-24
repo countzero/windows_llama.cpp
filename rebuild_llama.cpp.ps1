@@ -111,7 +111,7 @@ if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 if (-not(Test-Path -Path "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip")) {
 
     Invoke-WebRequest `
-        -Uri "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip" `
+        -Uri "https://huggingface.co/datasets/ggml-org/ci/resolve/main/wikitext-2-raw-v1.zip" `
         -OutFile "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip"
 
     Expand-Archive `
