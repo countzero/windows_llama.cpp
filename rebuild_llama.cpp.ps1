@@ -94,7 +94,7 @@ Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 Write-Host "Build target: ${buildTargetInformation}" -ForegroundColor "DarkYellow"
 
-$openBLASVersion = "0.3.26"
+$openBLASVersion = "0.3.27"
 
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
