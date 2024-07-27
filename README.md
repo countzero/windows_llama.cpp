@@ -57,7 +57,7 @@ git clone --recurse-submodules git@github.com:countzero/windows_llama.cpp.git
 Create a new Conda environment for this project with a specific version of Python:
 
 ```PowerShell
-conda create --name llama.cpp python=3.10
+conda create --name llama.cpp python=3.12
 ```
 
 ### 5. Initialize Conda for shell interaction
