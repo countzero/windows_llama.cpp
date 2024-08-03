@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2024-08-03
+
+### Added
+- [Server] Add -help option
+- [Server] Add -chatTemplate option
+- [Server] Add human readable file size
+- [Benchmark] Add llama-bench example
+
+### Changed
+- [Build] Update torch to 2.2.1+cu121
+- [Build] Update OpenBLAS to 0.3.27
+- [Build] Update Python to 3.12
+- [Server] Default KV cache type to f16
+- [Documentation] Use gemma-2-9b-it-IQ4_XS.gguf model across all examples
+
+### Fixed
+- [Build] Fix CUDA build after renaming in upstream llama.cpp
+- [Build] Fix gguf_dump.py after renaming in upstream llama.cpp
+- [Build] Add missing tiktoken package to support GLM models
+- [Build] Fix wikitext URI
+
+### Removed
+- [Server] Remove broken chrome startup
+
 ## [1.20.0] - 2024-06-13
 
 ### Changed

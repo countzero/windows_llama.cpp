@@ -35,19 +35,19 @@ Increases the verbosity of the llama.cpp server.
 Shows the manual on how to use this script.
 
 .EXAMPLE
-.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf"
+.\server.ps1 -model "..\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf"
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -chatTemplate "llama3" -parallel 4
+.\server.ps1 -model "C:\models\gemma-2-9b-it-IQ4_XS.gguf" -chatTemplate "llama3" -parallel 4
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -contextSize 4096 -numberOfGPULayers 10
+.\server.ps1 -model "C:\models\gemma-2-9b-it-IQ4_XS.gguf" -contextSize 4096 -numberOfGPULayers 10
 
 .EXAMPLE
-.\server.ps1 -model "C:\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -port 8081 -kvCacheDataType q8_0
+.\server.ps1 -model "C:\models\gemma-2-9b-it-IQ4_XS.gguf" -port 8081 -kvCacheDataType q8_0
 
 .EXAMPLE
-.\server.ps1 -model "..\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" -verbose
+.\server.ps1 -model "..\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf" -verbose
 #>
 
 Param (

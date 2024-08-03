@@ -84,9 +84,9 @@ To build llama.cpp binaries for a Windows environment with the best available BL
 
 ### 7. Download a large language model
 
-Download a large language model (LLM) with weights in the GGUF format into the `./vendor/llama.cpp/models` directory. You can for example download the [openchat-3.6-8b-20240522](https://huggingface.co/openchat/openchat-3.6-8b-20240522) 8B model in a quantized GGUF format:
+Download a large language model (LLM) with weights in the GGUF format into the `./vendor/llama.cpp/models` directory. You can for example download the [gemma-2-9b-it](https://huggingface.co/google/gemma-2-9b-it) model in a quantized GGUF format:
 
-* https://huggingface.co/bartowski/openchat-3.6-8b-20240522-GGUF/blob/main/openchat-3.6-8b-20240522-Q5_K_M.gguf
+* https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/main/gemma-2-9b-it-IQ4_XS.gguf
 
 > [!TIP]
 > See the [🤗 Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) and [LMSYS Chatbot Arena Leaderboard](https://chat.lmsys.org/?leaderboard) for best in class open source LLMs.
@@ -98,7 +98,7 @@ Download a large language model (LLM) with weights in the GGUF format into the `
 You can easily chat with a specific model by using the [.\examples\server.ps1](./examples/server.ps1) script:
 
 ```PowerShell
-.\examples\server.ps1 -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf"
+.\examples\server.ps1 -model ".\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf"
 ```
 
 > [!NOTE]
@@ -116,12 +116,12 @@ You can now chat with the model:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/llama-cli `
-    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+    --model "./vendor/llama.cpp/models/gemma-2-9b-it-IQ4_XS.gguf" `
     --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 33 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
+    --prompt-cache "./cache/gemma-2-9b-it-IQ4_XS.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -133,7 +133,7 @@ You can start llama.cpp as a webserver:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/llama-server `
-    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+    --model "./vendor/llama.cpp/models/gemma-2-9b-it-IQ4_XS.gguf" `
     --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 33
@@ -160,14 +160,14 @@ To extend the context to 32k execute the following:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/llama-cli `
-    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+    --model "./vendor/llama.cpp/models/gemma-2-9b-it-IQ4_XS.gguf" `
     --ctx-size 32768 `
     --rope-freq-scale 0.25 `
     --rope-freq-base 40000 `
     --threads 16 `
     --n-gpu-layers 33 `
     --reverse-prompt '[[USER_NAME]]:' `
-    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
+    --prompt-cache "./cache/gemma-2-9b-it-IQ4_XS.gguf.prompt" `
     --file "./vendor/llama.cpp/prompts/chat-with-vicuna-v1.txt" `
     --color `
     --interactive
@@ -179,11 +179,11 @@ You can enforce a specific grammar for the response generation. The following wi
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/llama-cli `
-    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+    --model "./vendor/llama.cpp/models/gemma-2-9b-it-IQ4_XS.gguf" `
     --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 33 `
-    --prompt-cache "./cache/openchat-3.6-8b-20240522-Q5_K_M.gguf.prompt" `
+    --prompt-cache "./cache/gemma-2-9b-it-IQ4_XS.gguf.prompt" `
     --prompt "The scientific classification (Taxonomy) of a Llama: " `
     --grammar-file "./vendor/llama.cpp/grammars/json.gbnf"
     --color
@@ -195,7 +195,7 @@ Execute the following to measure the perplexity of the GGML formatted model:
 
 ```PowerShell
 ./vendor/llama.cpp/build/bin/Release/llama-perplexity `
-    --model "./vendor/llama.cpp/models/openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+    --model "./vendor/llama.cpp/models/gemma-2-9b-it-IQ4_XS.gguf" `
     --ctx-size 8192 `
     --threads 16 `
     --n-gpu-layers 33 `
@@ -208,7 +208,7 @@ You can easily count the tokens of a prompt for a specific model by using the [.
 
 ```PowerShell
  .\examples\count_tokens.ps1 `
-     -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+     -model ".\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf" `
      -file ".\prompts\chat_with_llm.txt"
 ```
 
@@ -216,7 +216,7 @@ To inspect the actual tokenization result you can use the `-debug` flag:
 
 ```PowerShell
  .\examples\count_tokens.ps1 `
-     -model ".\vendor\llama.cpp\models\openchat-3.6-8b-20240522-Q5_K_M.gguf" `
+     -model ".\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf" `
      -prompt "Hello Word!" `
      -debug
 ```
