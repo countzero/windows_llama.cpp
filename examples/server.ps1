@@ -316,7 +316,6 @@ Write-Host "Starting llama.cpp server with custom options at http://127.0.0.1:${
 
 $command = "${llamaCppPath}\build\bin\Release\llama-server ``
     --n-predict 1024 ``
-    --log-disable ``
     --port '${port}' ``
     --model '${model}' ``
     --alias '${alias}' ``
