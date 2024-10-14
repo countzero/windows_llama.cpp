@@ -297,39 +297,44 @@ if ($numberOfGPULayers -lt 0) {
     $numberOfGPULayers = 0
 }
 
-# We are automatically using the self extending context window
-# on models that have a trained context window < context size.
-# https://arxiv.org/abs/2401.01325
-# https://github.com/ggerganov/llama.cpp/issues/4886#issuecomment-1890465266
-$groupAttentionFactor = 1
-$groupAttentionWidth = 512
-
-if ($contextSize -gt $modelContextLength) {
-
-    Write-Host "Self extending context window from ${modelContextLength} to ${contextSize}..." -ForegroundColor "Yellow"
-
-    $groupAttentionFactor = $contextSize / $modelContextLength
-    $groupAttentionWidth = $modelContextLength / 2
-}
-
 Write-Host "Starting llama.cpp server with custom options at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
 
-$command = "${llamaCppPath}\build\bin\Release\llama-server ``
-    --n-predict 1024 ``
-    --port '${port}' ``
-    --model '${model}' ``
-    --alias '${alias}' ``
-    --ctx-size '${contextSize}' ``
-    --threads '${numberOfPhysicalCores}' ``
-    --n-gpu-layers '${numberOfGPULayers}' ``
-    --parallel '${parallel}' ``
-    --grp-attn-n '${groupAttentionFactor}' ``
-    --grp-attn-w '${groupAttentionWidth}' ``
-    --cache-type-k '${kvCacheDataType}' ``
-    --cache-type-v '${kvCacheDataType}' ``
-    $(if ($enableFlashAttention) {"--flash-attn"}) ``
-    $(if ($chatTemplate) {"--chat-template '${chatTemplate}'"}) ``
-    $(if ($verbose) {"--verbose"})"
+$commandBinary = "${llamaCppPath}\build\bin\Release\llama-server"
+
+$commandArguments = @(
+    "--n-predict 1024",
+    "--port '${port}'",
+    "--model '${model}'",
+    "--alias '${alias}'",
+    "--ctx-size '${contextSize}'",
+    "--threads '${numberOfPhysicalCores}'",
+    "--n-gpu-layers '${numberOfGPULayers}'",
+    "--parallel '${parallel}'",
+    "--cache-type-k '${kvCacheDataType}'",
+    "--cache-type-v '${kvCacheDataType}'"
+)
+
+if ($chatTemplate) {
+    $commandArguments += "--chat-template '${chatTemplate}'"
+}
+
+if ($enableFlashAttention) {
+    $commandArguments += "--flash-attn"
+}
+
+if ($verbose) {
+    $commandArguments += "--verbose"
+}
+
+$commandArguments = $commandArguments | ForEach-Object {
+    if ($commandArguments.IndexOf($_) -ne $commandArguments.Count - 1) {
+        "   $_ ```n"
+    } else {
+        "   $_ `n"
+    }
+}
+
+$command = $commandBinary + " ```n " + $commandArguments
 
 Write-Host $command -ForegroundColor "Green"
 
