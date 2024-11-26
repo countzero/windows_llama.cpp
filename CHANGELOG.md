@@ -9,8 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - [Server] Add -additionalArguments option
 
-### Removed
-
 ## [1.22.0] - 2024-10-14
 
 ### Removed
