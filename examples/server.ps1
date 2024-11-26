@@ -34,6 +34,9 @@ Increases the verbosity of the llama.cpp server.
 .PARAMETER help
 Shows the manual on how to use this script.
 
+.PARAMETER additionalArguments
+Adds additional arguments to the llama.cpp server that are not handled by this script.
+
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf"
 
@@ -48,6 +51,9 @@ Shows the manual on how to use this script.
 
 .EXAMPLE
 .\server.ps1 -model "..\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf" -verbose
+
+.EXAMPLE
+.\server.ps1 -model "..\vendor\llama.cpp\models\gemma-2-9b-it-IQ4_XS.gguf" -additionalArguments "--no-slots"
 #>
 
 Param (
@@ -117,7 +123,11 @@ Param (
     $kvCacheDataType="f16",
 
     [switch]
-    $help
+    $help,
+
+    [Parameter()]
+    [String]
+    $additionalArguments
 )
 
 if ($help) {
@@ -325,7 +335,32 @@ if ($verbose) {
     $commandArguments += "--verbose"
 }
 
+# Include additional arguments if they are provided via the -additionalArguments parameter.
+$additionalArgumentParts = $additionalArguments -split '\s+'
+$index = 0
+while ($index -lt $additionalArgumentParts.Count) {
+
+    $argument = $additionalArgumentParts[$index]
+
+    $hasNextArgument = $index + 1 -lt $additionalArgumentParts.Count
+    $nextArgumentIsValue = ($additionalArgumentParts[$index + 1] -notmatch '^-{1,2}')
+
+    if ($hasNextArgument -and $nextArgumentIsValue) {
+
+        # It's a key-value pair.
+        $commandArguments += "$argument $($additionalArgumentParts[$index + 1])"
+        $index += 2
+
+    } else {
+
+        # It's a standalone flag.
+        $commandArguments += "$argument"
+        $index += 1
+    }
+}
+
 $commandArguments = $commandArguments | ForEach-Object {
+
     if ($commandArguments.IndexOf($_) -ne $commandArguments.Count - 1) {
         "   $_ ```n"
     } else {
