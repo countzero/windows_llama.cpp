@@ -1,0 +1,17 @@
+./vendor/llama.cpp/build/bin/Release/llama-server `
+    --model './vendor/llama.cpp/models/Qwen2.5-Coder-32B-Instruct.IQ3_XXS.gguf' `
+    --alias 'Qwen2.5-Coder-32B-Instruct' `
+    --ctx-size 16384 `
+    --threads 16 `
+    --n-gpu-layers 99 `
+    --cache-type-k 'q4_0' `
+    --cache-type-v 'q4_0' `
+    --flash-attn `
+    --top-k 1 `
+    --temp 0.1 `
+    --model-draft './vendor/llama.cpp/models/Qwen2.5-Coder-0.5B-Instruct.IQ4_XS.gguf' `
+    --ctx-size-draft 16384 `
+    --n-gpu-layers-draft 99 `
+    --draft-p-min 0.5 `
+    --draft-min 3 `
+    --draft-max 16
