@@ -67,7 +67,7 @@ Param (
     [Parameter(
         HelpMessage="The chat template."
     )]
-    [ValidateSetAttribute(
+    [ValidateSet(
             "chatml",
             "command-r",
             "deepseek",
@@ -118,7 +118,7 @@ Param (
     [Parameter(
         HelpMessage="Specifies the KV cache data type."
     )]
-    [ValidateSetAttribute("f32", "f16", "q8_0", "q4_0")]
+    [ValidateSet("f32", "f16", "q8_0", "q4_0")]
     [String]
     $kvCacheDataType="f16",
 
