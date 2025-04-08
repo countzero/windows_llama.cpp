@@ -172,12 +172,14 @@ switch ($blasAccelerator) {
         cmake `
             -DGGML_BLAS=ON `
             -DGGML_BLAS_VENDOR=OpenBLAS `
+            -DLLAMA_CURL=OFF `
             ..
     }
 
     "CUDA" {
         cmake `
             -DGGML_CUDA=ON `
+            -DLLAMA_CURL=OFF `
             ..
     }
 
