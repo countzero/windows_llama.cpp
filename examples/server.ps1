@@ -122,6 +122,12 @@ Param (
     [String]
     $kvCacheDataType="f16",
 
+    [Parameter(
+        HelpMessage="Disables the thinking mode of the model."
+    )]
+    [switch]
+    $disableThinking=$false,
+
     [switch]
     $help,
 
@@ -134,6 +140,7 @@ if ($help) {
     Get-Help -Detailed $PSCommandPath
     exit
 }
+
 
 # The -verbose option is a default PowerShell parameter.
 $verbose = $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent -eq $true
@@ -329,6 +336,12 @@ if ($chatTemplate) {
 
 if ($enableFlashAttention) {
     $commandArguments += "--flash-attn"
+}
+
+# @see https://github.com/ggml-org/llama.cpp/pull/13771#issuecomment-2909087077
+if ($disableThinking) {
+    $commandArguments += "--jinja"
+    $commandArguments += "--reasoning-budget 0"
 }
 
 if ($verbose) {
