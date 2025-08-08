@@ -5,7 +5,7 @@ torch==2.8.0+cu129
 
 # We are installing the missing "tiktoken" package
 # to enable support for the GLM model architecture.
-tiktoken==1.0.21
+tiktoken==0.10.0
 
 # We are importing the llama.cpp project dependencies.
 --requirement ./vendor/llama.cpp/requirements.txt
