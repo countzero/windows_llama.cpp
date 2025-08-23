@@ -1,7 +1,7 @@
 # We are overriding the "torch" package version with a
 # specific compatible version that also supports CUDA.
---extra-index-url https://download.pytorch.org/whl/cu129
-torch==2.8.0+cu129
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.4.0+cu124
 
 # We are installing the missing "tiktoken" package
 # to enable support for the GLM model architecture.
