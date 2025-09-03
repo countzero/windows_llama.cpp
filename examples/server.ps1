@@ -335,7 +335,7 @@ if ($chatTemplate) {
 }
 
 if ($enableFlashAttention) {
-    $commandArguments += "--flash-attn"
+    $commandArguments += "--flash-attn 'on'"
 }
 
 # @see https://github.com/ggml-org/llama.cpp/pull/13771#issuecomment-2909087077
