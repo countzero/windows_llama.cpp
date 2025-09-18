@@ -99,7 +99,7 @@ $openBLASVersion = "0.3.30"
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
     Invoke-WebRequest `
-        -Uri "https://github.com/OpenMathLib/OpenBLAS/releases/download/v${openBLASVersion}/OpenBLAS-${openBLASVersion}-x64.zip" `
+        -Uri "https://github.com/xianyi/OpenBLAS/releases/download/v${openBLASVersion}/OpenBLAS-${openBLASVersion}-x64.zip" `
         -OutFile "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 
     Expand-Archive `
