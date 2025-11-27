@@ -338,9 +338,7 @@ if ($enableFlashAttention) {
     $commandArguments += "--flash-attn 'on'"
 }
 
-# @see https://github.com/ggml-org/llama.cpp/pull/13771#issuecomment-2909087077
 if ($disableThinking) {
-    $commandArguments += "--jinja"
     $commandArguments += "--reasoning-budget 0"
 }
 
