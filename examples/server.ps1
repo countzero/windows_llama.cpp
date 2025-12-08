@@ -314,6 +314,16 @@ if ($numberOfGPULayers -lt 0) {
     $numberOfGPULayers = 0
 }
 
+# Check if there is a mmproj file next to the model file.
+$mmprojFile = (
+    Get-ChildItem `
+        -Path (Split-Path -Path $model -Parent) `
+        -Filter "mmproj.*" `
+        -File `
+        -ErrorAction SilentlyContinue | `
+    Select-Object -First 1
+).FullName
+
 Write-Host "Starting llama.cpp server with custom options at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
 
 $commandBinary = "${llamaCppPath}\build\bin\Release\llama-server"
@@ -332,6 +342,10 @@ $commandArguments = @(
 
 if ($chatTemplate) {
     $commandArguments += "--chat-template '${chatTemplate}'"
+}
+
+if ($mmprojFile) {
+    $commandArguments += "--mmproj '${mmprojFile}'"
 }
 
 if ($enableFlashAttention) {
