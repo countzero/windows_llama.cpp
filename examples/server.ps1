@@ -104,6 +104,12 @@ Param (
     $numberOfGPULayers=-1,
 
     [Parameter(
+        HelpMessage="The server host ip address."
+    )]
+    [String]
+    $ip="0.0.0.0",
+
+    [Parameter(
         HelpMessage="The server port."
     )]
     [Int]
@@ -324,11 +330,12 @@ $mmprojFile = (
     Select-Object -First 1
 ).FullName
 
-Write-Host "Starting llama.cpp server with custom options at http://127.0.0.1:${port}..." -ForegroundColor "Yellow"
+Write-Host "Starting llama.cpp server with custom options at http://${ip}:${port}..." -ForegroundColor "Yellow"
 
 $commandBinary = "${llamaCppPath}\build\bin\Release\llama-server"
 
 $commandArguments = @(
+    "--host '${ip}'",
     "--port '${port}'",
     "--model '${model}'",
     "--alias '${alias}'",
