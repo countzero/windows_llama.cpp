@@ -61,7 +61,7 @@ if (!$version) {
     ).Value
 
     $version = (
-        (Invoke-WebRequest "https://api.github.com/repos/${path}/releases/latest") | `
+        (Invoke-WebRequest -UseBasicParsing "https://api.github.com/repos/${path}/releases/latest") | `
         ConvertFrom-Json
     ).tag_name
 }
@@ -99,6 +99,7 @@ $openBLASVersion = "0.3.30"
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
 
     Invoke-WebRequest `
+        -UseBasicParsing `
         -Uri "https://github.com/xianyi/OpenBLAS/releases/download/v${openBLASVersion}/OpenBLAS-${openBLASVersion}-x64.zip" `
         -OutFile "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 
@@ -111,6 +112,7 @@ if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip"
 if (-not(Test-Path -Path "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip")) {
 
     Invoke-WebRequest `
+        -UseBasicParsing `
         -Uri "https://huggingface.co/datasets/ggml-org/ci/resolve/main/wikitext-2-raw-v1.zip" `
         -OutFile "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip"
 
