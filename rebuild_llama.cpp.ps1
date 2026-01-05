@@ -38,6 +38,9 @@ Param (
     $version,
 
     [String]
+    $pullRequest,
+
+    [String]
     $target,
 
     [switch]
@@ -90,7 +93,11 @@ if ($target) {
 }
 
 Write-Host "Building the llama.cpp project..." -ForegroundColor "Yellow"
-Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
+if (!$pullRequest) {
+    Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
+} else {
+    Write-Host "Pull Request: ${pullRequest}" -ForegroundColor "DarkYellow"
+}
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 Write-Host "Build target: ${buildTargetInformation}" -ForegroundColor "DarkYellow"
 
@@ -127,15 +134,29 @@ function Resolve-UnixPath {
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
-# We are resetting every submodule to their head prior
-# to updating them to avoid any merge conflicts.
+# TODO: This assumes that every default branch across all
+# submodules is equal which might break in the future...
+$defaultBranch = "master"
+
+# We are resetting every submodule to the head of their default
+# branch prior to updating them to avoid any merge conflicts.
+git submodule foreach --recursive git checkout $defaultBranch
 git submodule foreach --recursive git reset --hard
+git submodule update --remote --rebase --force
 
-git submodule update --remote --merge --force
+if (!$pullRequest) {
 
-# We are checking out a specific version (tag / commit)
-# of the repository to enable quick debugging.
-git -C ./vendor/llama.cpp checkout $version
+    # We are checking out a specific version (tag / commit)
+    # of the repository to enable quick debugging.
+    git -C ./vendor/llama.cpp checkout $version
+
+} else {
+
+    # We are checking out a specific pull request
+    # of the repository to enable quick debugging.
+    git -C ./vendor/llama.cpp fetch origin pull/${pullRequest}/head:pull/${pullRequest}
+    git -C ./vendor/llama.cpp checkout pull/${pullRequest}
+}
 
 $lines = @(
     "# This is a workaround for a CMake bug on Windows to build llama.cpp"
