@@ -136,12 +136,13 @@ function Resolve-UnixPath {
 
 # TODO: This assumes that every default branch across all
 # submodules is equal which might break in the future...
-$defaultBranch = "master"
+$defaultBranch = "origin/master"
 
 # We are resetting every submodule to the head of their default
 # branch prior to updating them to avoid any merge conflicts.
-git submodule foreach --recursive git checkout $defaultBranch
-git submodule foreach --recursive git reset --hard
+git submodule foreach --recursive git fetch origin
+git submodule foreach --recursive git reset --hard $defaultBranch
+
 git submodule update --remote --rebase --force
 
 if (!$pullRequest) {
@@ -154,8 +155,8 @@ if (!$pullRequest) {
 
     # We are checking out a specific pull request
     # of the repository to enable quick debugging.
-    git -C ./vendor/llama.cpp fetch origin pull/${pullRequest}/head:pull/${pullRequest}
-    git -C ./vendor/llama.cpp checkout pull/${pullRequest}
+    git -C ./vendor/llama.cpp fetch origin pull/${pullRequest}/head:PR
+    git -C ./vendor/llama.cpp reset --hard PR
 }
 
 $lines = @(
