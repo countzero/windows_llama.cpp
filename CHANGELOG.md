@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.26.0] - 2026-01-05
+
+### Added
+- [Build] Add -pullRequest option to build a specific pull request
+- [Server] Add automatic loading of mmproj file
+
+### Changed
+- [Build] Update OpenBLAS
+- [Build] Update torch and tiktoken packages
+- [Server] Remove now per default enabled --jinja option
+- [Server] Default llama-server host to 0.0.0.0
+- [Server] Make -fa explicit
+
+### Fixed
+- [Build] Fix tiktoken package version
+- [Build] Fix torch dependency
+- [Build] Use -UseBasicParsing to silence warning in PowerShell 5.1
+- [Server] Fix UTF-8 encoding error
+
 ## [1.25.0] - 2025-05-31
 
 ### Added
