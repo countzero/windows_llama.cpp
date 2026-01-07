@@ -28,6 +28,12 @@ Specifies the models context length it was trained on.
 .PARAMETER kvCacheDataType
 Specifies the KV cache data type (options: f32, f16, q8_0, q4_0).
 
+.PARAMETER disableMultimodal
+Disables the multimodal mode of the model.
+
+.PARAMETER disableThinking
+Disables the thinking mode of the model.
+
 .PARAMETER verbose
 Increases the verbosity of the llama.cpp server.
 
@@ -133,6 +139,12 @@ Param (
     )]
     [switch]
     $disableThinking=$false,
+
+    [Parameter(
+        HelpMessage="Disables the multimodal mode of the model."
+    )]
+    [switch]
+    $disableMultimodal=$false,
 
     [switch]
     $help,
@@ -351,7 +363,7 @@ if ($chatTemplate) {
     $commandArguments += "--chat-template '${chatTemplate}'"
 }
 
-if ($mmprojFile) {
+if (!disableMultimodal -and $mmprojFile) {
     $commandArguments += "--mmproj '${mmprojFile}'"
 }
 
