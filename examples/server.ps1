@@ -363,7 +363,7 @@ if ($chatTemplate) {
     $commandArguments += "--chat-template '${chatTemplate}'"
 }
 
-if (!disableMultimodal -and $mmprojFile) {
+if (!$disableMultimodal -and $mmprojFile) {
     $commandArguments += "--mmproj '${mmprojFile}'"
 }
 
