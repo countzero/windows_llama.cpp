@@ -129,6 +129,14 @@ if (-not(Test-Path -Path "./vendor/wikitext-2-raw-v1/wikitext-2-raw-v1.zip")) {
         -Force
 }
 
+if (-not(Test-Path -Path "./vendor/bartowski1182/calibration_datav5.txt")) {
+
+    Invoke-WebRequest `
+        -UseBasicParsing `
+        -Uri "https://gist.github.com/bartowski1182/82ae9b520227f57d79ba04add13d0d0d/raw/ce111d8971a07caebd8234ef336b2102d6c5fb85/calibration_datav5.txt" `
+        -OutFile "./vendor/bartowski1182/calibration_datav5.txt"
+}
+
 function Resolve-UnixPath {
     Param ([String] $path)
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
