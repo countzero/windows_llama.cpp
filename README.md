@@ -17,14 +17,14 @@ This script currently supports `OpenBLAS` for CPU BLAS acceleration and `CUDA` f
 
 ### 1. Install Prerequisites
 
-Download and install the latest versions:
+Download and install the latest versions in the following order:
 
-* [CMake](https://cmake.org/download/)
-* [Cuda](https://developer.nvidia.com/cuda-downloads)
-* [Git Large File Storage](https://git-lfs.com)
-* [Git](https://git-scm.com/download)
-* [Miniconda](https://conda.io/projects/conda/en/stable/user-guide/install)
-* [Visual Studio 2022 - Community](https://visualstudio.microsoft.com/downloads/)
+1. [Git](https://git-scm.com/download)
+2. [Git Large File Storage](https://git-lfs.com)
+3. [Miniconda](https://conda.io/projects/conda/en/stable/user-guide/install)
+4. [Visual Studio 2022 - Community](https://aka.ms/vs/17/release/vs_community.exe)
+5. [Cuda](https://developer.nvidia.com/cuda-downloads)
+6. [CMake](https://cmake.org/download/)
 
 > [!TIP]
 > When installing Visual Studio 2022 it is sufficent to just install the `Build Tools for Visual Studio 2022` package. Also make sure that `Desktop development with C++` is enabled in the installer.
@@ -245,10 +245,11 @@ Every time there is a new release of [llama.cpp](https://github.com/ggerganov/ll
 
 ### Build a specific version of llama.cpp
 
-You can build a specific version of llama.cpp by specifying a git tag or commit:
+You can build a specific version of llama.cpp by specifying a git tag, commit or pull request:
 
-| Command                                      | Description          |
-| -------------------------------------------- | -------------------- |
-| `./rebuild_llama.cpp.ps1`                    | The latest release   |
-| `./rebuild_llama.cpp.ps1 -version "b1138"`   | The tag `b1138`      |
-| `./rebuild_llama.cpp.ps1 -version "1d16309"` | The commit `1d16309` |
+| Command                                        | Description              |
+| ---------------------------------------------- | ------------------------ |
+| `./rebuild_llama.cpp.ps1`                      | The latest release       |
+| `./rebuild_llama.cpp.ps1 -version "b1138"`     | The tag `b1138`          |
+| `./rebuild_llama.cpp.ps1 -version "1d16309"`   | The commit `1d16309`     |
+| `./rebuild_llama.cpp.ps1 -pullRequest "18675"` | The pull request `18675` |
