@@ -7,5 +7,6 @@ torch==2.6.0+cu126
 # to enable support for the GLM model architecture.
 tiktoken==0.10.0
 
-# We are importing the llama.cpp project dependencies.
---requirement ./vendor/llama.cpp/requirements.txt
+# We are overriding the "transformers" package version
+# to enable support for newer model architectures.
+transformers==5.3.0

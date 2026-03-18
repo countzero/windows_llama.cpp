@@ -237,7 +237,14 @@ Write-Host "[Python] Installing dependencies..." -ForegroundColor "Yellow"
 conda activate llama.cpp
 
 # We are installing the latest available version of all llama.cpp
-# project dependencies and also overriding some package versions.
+# project dependencies.
+pip install `
+    --upgrade `
+    --upgrade-strategy "eager" `
+    --requirement ./vendor/llama.cpp/requirements.txt
+
+# We are overriding some package versions and installing
+# additional packages that are missing from llama.cpp.
 pip install `
     --upgrade `
     --upgrade-strategy "eager" `
