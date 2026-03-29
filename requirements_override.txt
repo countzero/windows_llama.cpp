@@ -10,3 +10,8 @@ tiktoken==0.10.0
 # We are overriding the "transformers" package version
 # to enable support for newer model architectures.
 transformers==5.3.0
+
+# Override numpy to resolve conflict between
+# opencv-python-headless (>=2, <2.3.0) and
+# the legacy llama requirements (~=1.26.4).
+numpy>=2.2.0,<2.3.0
