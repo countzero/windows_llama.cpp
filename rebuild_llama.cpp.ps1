@@ -228,7 +228,9 @@ switch ($blasAccelerator) {
     }
 
     default {
-        cmake ..
+        cmake `
+            -DCMAKE_ASM_COMPILER="$ml64" `
+            ..
     }
 }
 
