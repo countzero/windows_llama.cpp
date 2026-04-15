@@ -198,10 +198,21 @@ Set-Location -Path "./vendor/llama.cpp/build"
 
 Write-Host "[CMake] Configuring and generating project..." -ForegroundColor "Yellow"
 
+# Upstream ggml/CMakeLists.txt sets `cmake_policy(SET CMP0194 NEW)` and then
+# calls `project("ggml" C CXX ASM)`. On CMake 4.1+ that rejects cl.exe as
+# an assembler for the generic ASM language, and the Visual Studio generator
+# has no integration between generic ASM and MASM. Point CMake at MASM
+# (ml64.exe) explicitly; it ships with MSVC but is not normally on PATH.
+$ml64 = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+    -latest -products * -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\ml64.exe' |
+    Select-Object -First 1
+if (-not $ml64) { throw "ml64.exe not found. Install the VS C++ workload." }
+
 switch ($blasAccelerator) {
 
     "OpenBLAS" {
         cmake `
+            -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_BLAS=ON `
             -DGGML_BLAS_VENDOR=OpenBLAS `
             -DLLAMA_CURL=OFF `
@@ -210,6 +221,7 @@ switch ($blasAccelerator) {
 
     "CUDA" {
         cmake `
+            -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_CUDA=ON `
             -DLLAMA_CURL=OFF `
             ..
