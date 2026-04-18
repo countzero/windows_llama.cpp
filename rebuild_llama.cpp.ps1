@@ -153,6 +153,13 @@ git submodule foreach --recursive git reset --hard $defaultBranch
 
 git submodule update --remote --rebase --force
 
+# Untracked files in the submodule survive `git reset --hard` and `git checkout`.
+# A stale `vendor/llama.cpp/build-info.h` from late 2023 has been shadowing the
+# new `common/build-info.h` because `tools/server/CMakeLists.txt` adds the repo
+# root to the include path. Wipe untracked files (and dirs) so the tree matches
+# the checked-out commit exactly.
+git -C ./vendor/llama.cpp clean --force -d
+
 if (!$pullRequest) {
 
     # We are checking out a specific version (tag / commit)
