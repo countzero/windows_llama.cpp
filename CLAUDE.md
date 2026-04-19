@@ -32,3 +32,15 @@ Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` 
 - **`requirements_override.txt` layers on top of upstream `vendor/llama.cpp/requirements.txt`.** It pins `torch` to a CUDA 12.6 wheel, adds `tiktoken` (missing upstream, required for GLM), pins `transformers==5.3.0`, and narrows `numpy` to resolve an `opencv-python-headless` conflict. When bumping any of these, verify both constraints still hold.
 - **`server.ps1` reads GGUF metadata** by shelling out to `vendor/llama.cpp/gguf-py/gguf/scripts/gguf_dump.py`. Upstream has moved this path before (CHANGELOG 1.24.0) — if server startup fails with "Failed to extract model details", check the path first.
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
+
+## Presets
+
+`presets/models_24GB_VRAM.ini` is an INI-style config with model presets for the 24GB VRAM setup.
+Each section header is a model name; keys map directly to llama-server CLI flags.
+
+**ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
+- Dense models: `spec-ngram-size-n = 16`, `draft-min = 16`, `draft-max = 32`
+- MoE models: `spec-ngram-size-n = 24`, `draft-min = 48`, `draft-max = 64`
+  (source says "MoEs require long drafts" — short drafts don't offset the higher per-token compute)
+- `n < 16` triggers a warning in llama.cpp; 16 is the hard minimum.
+- Memory overhead: ~16MB per server slot.
