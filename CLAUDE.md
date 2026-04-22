@@ -35,8 +35,12 @@ Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` 
 
 ## Presets
 
-`presets/models_24GB_VRAM.ini` is an INI-style config with model presets for the 24GB VRAM setup.
-Each section header is a model name; keys map directly to llama-server CLI flags.
+VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`.
+See `presets/README.md` for the user-facing quick-start; notes below are for editing.
+
+- **`mmproj-offload = true` fails silently at startup on a saturated GPU.** CLIP's warmup
+  compute buffer OOMs but the server keeps running — only image requests error at generation
+  time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-size-n = 24`, `draft-min = 48`, `draft-max = 64`
