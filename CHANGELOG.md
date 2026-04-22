@@ -5,6 +5,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.28.0] - 2026-04-22
+
+### Added
+- [Presets] Add 24 GB VRAM presets example for coding models
+- [Presets] Add 16 GB VRAM presets example for coding models
+- [Presets] Add presets/README.md with quick start, INI format docs,
+  shipped-preset catalogue, and model-selection notes
+- [Presets] Add model aliases
+- [Documentation] Add CLAUDE.md with repo guidance for Claude Code
+
+### Changed
+- [Build] Override transformers package version to 5.3.0
+- [Build] Override numpy to resolve opencv-python-headless dependency conflict
+- [Build] Clean untracked files in vendor/llama.cpp before each build to
+  prevent stale header shadowing
+- [Presets] Harmonize ngram-mod speculative decoding across presets
+  (n=24, draft-min=48, draft-max=64), normalize min-p=0.01 and
+  ctx-checkpoints=32
+
+### Fixed
+- [Build] Pass ml64.exe as ASM compiler for CMake 4.1+ MSVC builds
+  (also for the OFF accelerator case)
+- [Presets] Fix 16 GB preset bugs: stray quote in Qwen3-Coder-Next header,
+  missing jinja and n-cpu-moe=40, incorrect reasoning=on, and
+  mmproj-offload=true CLIP warmup OOM on Qwen3.6 IQ3_XXS
+
 ## [1.27.0] - 2026-02-23
 
 ### Added
