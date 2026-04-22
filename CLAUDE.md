@@ -39,8 +39,15 @@ Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` 
 Each section header is a model name; keys map directly to llama-server CLI flags.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
-- Dense models: `spec-ngram-size-n = 16`, `draft-min = 16`, `draft-max = 32`
-- MoE models: `spec-ngram-size-n = 24`, `draft-min = 48`, `draft-max = 64`
-  (source says "MoEs require long drafts" — short drafts don't offset the higher per-token compute)
-- `n < 16` triggers a warning in llama.cpp; 16 is the hard minimum.
-- Memory overhead: ~16MB per server slot.
+- All models: `spec-ngram-size-n = 24`, `draft-min = 48`, `draft-max = 64`
+  (matches upstream `docs/speculative.md` sample; ggerganov confirmed post-merge in PR #19164
+  that `--draft-min`/`--draft-max` "likely don't need to be changed from the recommended values";
+  MoEs require long drafts and dense models tolerate them without noticeable cost)
+- `n < 16` logs a "too small — poor quality is possible" warning at `vendor/llama.cpp/common/speculative.cpp:964`;
+  parser accepts `1..1024` (`common/arg.cpp:3542-3550`), so 16 is the lowest non-warning value, not a hard floor.
+- Memory overhead: ~16 MiB **total**, shared across all server slots
+  (single `common_ngram_mod` singleton allocated at `common/speculative.cpp:958`).
+- Pool auto-resets on `begin()` if occupancy > 25 %, and after 3 consecutive rounds with
+  acceptance < 50 % (`common/speculative.cpp:671-679`, `:737-758`). Smaller `n` makes these
+  resets fire more often and wipes ngrams learned from the current prompt — another reason
+  to stay at `n ≥ 24`.
