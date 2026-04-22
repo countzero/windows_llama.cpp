@@ -143,6 +143,22 @@ And then access llama.cpp via the webinterface at:
 
 * http://127.0.0.1:8080/
 
+### Serve multiple models via presets
+
+You can run llama.cpp as a router that exposes several preconfigured models behind a single endpoint. Each model is defined as an INI section with `llama-server` flags as keys:
+
+```PowerShell
+./vendor/llama.cpp/build/bin/Release/llama-server `
+    --models-dir "D:\AI\LLM\gguf" `
+    --models-preset "./presets/models_24GB_VRAM.ini" `
+    --models-max 1
+```
+
+Clients select a model by its section header name in the OpenAI-compatible `"model"` request field. The router loads and unloads models on demand.
+
+> [!NOTE]
+> See [presets/README.md](./presets/README.md) for the INI format, shipped presets, and how to add your own.
+
 ### Increase the context size
 
 You can increase the context size of a model with a minimal quality loss by setting the RoPE parameters. The formula for the parameters is as follows:
