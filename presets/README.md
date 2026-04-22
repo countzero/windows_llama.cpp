@@ -3,6 +3,8 @@
 ## Start
 
 ```powershell
+# Pick the preset matching your GPU
+llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_VRAM.ini --models-max 1
 llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_24GB_VRAM.ini --models-max 1
 ```
 
@@ -11,6 +13,8 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_24GB_VRA
 | `--models-dir` | Directory containing GGUF files (router mode source #1) |
 | `--models-preset` | INI file with model configs (router mode source #2) |
 | `--models-max` | Max simultaneous loaded models (1 = only one at a time) |
+
+Shipped: `models_16GB_VRAM.ini` and `models_24GB_VRAM.ini`, each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware.
 
 ## INI Format
 
@@ -23,5 +27,7 @@ n-gpu-layers = -1
 ctx-size = 262144
 parallel = 2
 ```
+
+The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clients pass in the OpenAI-compatible `"model"` field. The `alias = ...` key adds an additional name for the same entry.
 
 See `llama-server --help` for all flags.
