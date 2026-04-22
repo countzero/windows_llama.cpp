@@ -23,7 +23,7 @@ The presets `models_16GB_VRAM.ini` and `models_24GB_VRAM.ini` are each tuned for
 
 ## INI Format
 
-Each `[section]` is a model. Keys are `llama-server` flags without `--`.
+Each `[section]` is a model. Keys are `llama-server` flags without `--` for example:
 
 ```INI
 [model-name]
@@ -33,7 +33,7 @@ ctx-size = 262144
 parallel = 2
 ```
 
-The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clients pass in the OpenAI-compatible `"model"` field. The `alias = ...` key adds an additional name for the same entry.
+The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clients pass in the OpenAI-compatible `"model"` field.
 
 > [!TIP]
 > See `llama-server --help` for all flags.
