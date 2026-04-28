@@ -16,6 +16,11 @@ Specifies a llama.cpp commit or tag to checkout a specific version.
 .PARAMETER target
 Specifies CMake build targets to compile a specific subset of the llama.cpp project.
 
+.PARAMETER parallelJobs
+Overrides the number of parallel build jobs passed to "cmake --build --parallel".
+Defaults to the sum of physical cores reported by Win32_Processor.NumberOfCores
+(drops SMT siblings) to keep the OS responsive during the build.
+
 .PARAMETER help
 Shows the manual on how to use this script.
 
@@ -42,6 +47,9 @@ Param (
 
     [String]
     $target,
+
+    [Int]
+    $parallelJobs,
 
     [switch]
     $help
@@ -92,6 +100,18 @@ if ($target) {
     $buildTargetInformation = "(using project defaults)"
 }
 
+# Default to physical cores, not logical processors. Upstream's CMakeLists
+# sets UseMultiToolTask=true + EnforceProcessCountAcrossBuilds=true
+# (vendor/llama.cpp/CMakeLists.txt:92-93), so --parallel N is the single cap
+# on concurrent cl.exe / nvcc processes. Logical-processor count saturates
+# every SMT thread and starves the OS scheduler; physical-core count keeps
+# foreground responsiveness with negligible throughput loss on FP+memory
+# bound C++/CUDA compilation. Override with -parallelJobs N.
+if ($parallelJobs -le 0) {
+    $parallelJobs = (Get-CimInstance Win32_Processor |
+                     Measure-Object -Property NumberOfCores -Sum).Sum
+}
+
 Write-Host "Building the llama.cpp project..." -ForegroundColor "Yellow"
 if (!$pullRequest) {
     Write-Host "Version: ${version}" -ForegroundColor "DarkYellow"
@@ -100,6 +120,7 @@ if (!$pullRequest) {
 }
 Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 Write-Host "Build target: ${buildTargetInformation}" -ForegroundColor "DarkYellow"
+Write-Host "Parallel build jobs: ${parallelJobs}" -ForegroundColor "DarkYellow"
 
 $openBLASVersion = "0.3.30"
 
@@ -246,7 +267,7 @@ Write-Host "[CMake] Building project targets '${target}'..." -ForegroundColor "Y
 cmake `
     --build . `
     --config Release `
-    --parallel (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors `
+    --parallel $parallelJobs `
     $(if ($target) { "--target ${target}" })
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
