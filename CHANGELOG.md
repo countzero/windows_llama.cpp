@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`rebuild_llama.cpp.ps1`)
 - [Presets] 24 GB tier: Qwen3.6-27B IQ3_XXS + Qwen3.5-0.8B IQ4_XS
   draft model — combines ngram-mod with vocab-compatible draft-model
-  speculative decoding (enabled by upstream PR #22397; both models
+  speculative decoding (enabled by upstream PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397); both models
   share arch `qwen3_5` and token embedding 248320 so the no-translation
   draft path is used)
 - [Documentation] CLAUDE.md notes on physical-core build parallelism
@@ -34,13 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   24 GB Qwen3.6 entries
 - [Documentation] Update CLAUDE.md ngram-mod section to renamed flag
   names and refresh `common/speculative.cpp` / `common/arg.cpp` line
-  citations after upstream refactor (#22397)
+  citations after upstream refactor ([#22397](https://github.com/ggml-org/llama.cpp/pull/22397))
 - [Vendor] Bump llama.cpp submodule to `f42e29f`, picking up upstream
-  PR #22397 (spec params refactor), PR #21237 (webui server tools),
-  CVE-2026-21869 server fix (#22267), and ~80 other upstream changes
+  PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397) (spec params refactor), PR [#21237](https://github.com/ggml-org/llama.cpp/pull/21237) (webui server tools),
+  CVE-2026-21869 server fix ([#22267](https://github.com/ggml-org/llama.cpp/pull/22267)), and ~80 other upstream changes
 
 ### Fixed
-- [Presets] Adopt renamed ngram-mod speculative flags (upstream PR #22397):
+- [Presets] Adopt renamed ngram-mod speculative flags (upstream PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397)):
   `spec-ngram-size-n` → `spec-ngram-mod-n-match`,
   `draft-min` → `spec-ngram-mod-n-min`,
   `draft-max` → `spec-ngram-mod-n-max`.
