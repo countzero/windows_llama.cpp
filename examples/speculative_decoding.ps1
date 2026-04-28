@@ -12,6 +12,6 @@
     --model-draft './vendor/llama.cpp/models/Qwen2.5-Coder-0.5B-Instruct.IQ4_XS.gguf' `
     --ctx-size-draft 16384 `
     --n-gpu-layers-draft 99 `
-    --draft-p-min 0.5 `
-    --draft-min 3 `
-    --draft-max 16
+    --spec-draft-p-min 0.5 `
+    --spec-draft-n-min 3 `
+    --spec-draft-n-max 16

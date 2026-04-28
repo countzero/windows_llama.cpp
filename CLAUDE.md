@@ -43,15 +43,20 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
-- All models: `spec-ngram-size-n = 24`, `draft-min = 48`, `draft-max = 64`
-  (matches upstream `docs/speculative.md` sample; ggerganov confirmed post-merge in PR #19164
-  that `--draft-min`/`--draft-max` "likely don't need to be changed from the recommended values";
-  MoEs require long drafts and dense models tolerate them without noticeable cost)
-- `n < 16` logs a "too small — poor quality is possible" warning at `vendor/llama.cpp/common/speculative.cpp:964`;
-  parser accepts `1..1024` (`common/arg.cpp:3542-3550`), so 16 is the lowest non-warning value, not a hard floor.
+- All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`
+  (matches the struct defaults in `common/common.h:329-337` and what `--spec-default` produces
+  at `common/arg.cpp:4065-4074`; ggerganov confirmed post-merge in PR #19164 that the min/max
+  "likely don't need to be changed from the recommended values"; MoEs require long drafts and
+  dense models tolerate them without noticeable cost). Flags were renamed from
+  `--draft-min`/`--draft-max`/`--spec-ngram-size-n` in upstream PR #22397; the old names now
+  error at startup.
+- `n_match < 16` logs a "too small — poor quality is possible" warning at
+  `vendor/llama.cpp/common/speculative.cpp:1031-1034`; parser accepts `1..1024`
+  (`common/arg.cpp:3606-3615`), so 16 is the lowest non-warning value, not a hard floor.
+  Min/max parsers accept `0..1024` (`common/arg.cpp:3587-3605`).
 - Memory overhead: ~16 MiB **total**, shared across all server slots
-  (single `common_ngram_mod` singleton allocated at `common/speculative.cpp:958`).
+  (single `common_ngram_mod` instance allocated at `common/speculative.cpp:1026`).
 - Pool auto-resets on `begin()` if occupancy > 25 %, and after 3 consecutive rounds with
-  acceptance < 50 % (`common/speculative.cpp:671-679`, `:737-758`). Smaller `n` makes these
-  resets fire more often and wipes ngrams learned from the current prompt — another reason
-  to stay at `n ≥ 24`.
+  acceptance < 50 % (`common/speculative.cpp:720-728`, `:790-806`). Smaller `n_match` makes
+  these resets fire more often and wipes ngrams learned from the current prompt — another
+  reason to stay at `n_match ≥ 24`.

@@ -5,6 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+- [Presets] Adopt renamed ngram-mod speculative flags (upstream PR #22397):
+  `spec-ngram-size-n` → `spec-ngram-mod-n-match`,
+  `draft-min` → `spec-ngram-mod-n-min`,
+  `draft-max` → `spec-ngram-mod-n-max`.
+  Old names now error at startup ("the argument has been removed").
+  Affected: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`.
+- [Examples] Rename removed draft flags in `examples/speculative_decoding.ps1`:
+  `--draft-min` → `--spec-draft-n-min`, `--draft-max` → `--spec-draft-n-max`,
+  `--draft-p-min` → `--spec-draft-p-min`. Uses a real draft model so this is
+  the `--spec-draft-*` family, not the ngram-mod family.
+
+### Changed
+- [Documentation] Update CLAUDE.md ngram-mod section to renamed flag names
+  and refresh `common/speculative.cpp` / `common/arg.cpp` line citations
+  after upstream refactor (#22397).
+
+
 ## [1.28.0] - 2026-04-22
 
 ### Added
