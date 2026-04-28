@@ -7,22 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.29.0] - 2026-04-28
+
+### Added
+- [Build] `-parallelJobs <N>` override for `cmake --build --parallel`
+  (`rebuild_llama.cpp.ps1`)
+- [Presets] 24 GB tier: Qwen3.6-27B IQ3_XXS + Qwen3.5-0.8B IQ4_XS
+  draft model — combines ngram-mod with vocab-compatible draft-model
+  speculative decoding (enabled by upstream PR #22397; both models
+  share arch `qwen3_5` and token embedding 248320 so the no-translation
+  draft path is used)
+- [Documentation] CLAUDE.md notes on physical-core build parallelism
+  rationale (`UseMultiToolTask` + `EnforceProcessCountAcrossBuilds` make
+  `--parallel N` the single authoritative cap)
+
+### Changed
+- [Build] Cap default build parallelism at physical cores instead of
+  logical processors — drops SMT siblings to halve concurrent
+  `cl.exe`/`nvcc`, prevents OS-scheduler starvation, and roughly halves
+  peak `nvcc` RAM on CUDA builds. Override with `-parallelJobs`.
+- [Presets] Bump Qwen3.5-27B → Qwen3.6-27B in both 16 GB and 24 GB
+  tiers; enable `chat-template-kwargs` `preserve_thinking` on 24 GB
+- [Presets] Anti-repeat-loop tuning for Qwen3.6 entries: `min-p=0.0`,
+  `presence-penalty=1.5` (both tiers); reduce `parallel=1` on both
+  24 GB Qwen3.6 entries
+- [Documentation] Update CLAUDE.md ngram-mod section to renamed flag
+  names and refresh `common/speculative.cpp` / `common/arg.cpp` line
+  citations after upstream refactor (#22397)
+- [Vendor] Bump llama.cpp submodule to `f42e29f`, picking up upstream
+  PR #22397 (spec params refactor), PR #21237 (webui server tools),
+  CVE-2026-21869 server fix (#22267), and ~80 other upstream changes
+
 ### Fixed
 - [Presets] Adopt renamed ngram-mod speculative flags (upstream PR #22397):
   `spec-ngram-size-n` → `spec-ngram-mod-n-match`,
   `draft-min` → `spec-ngram-mod-n-min`,
   `draft-max` → `spec-ngram-mod-n-max`.
   Old names now error at startup ("the argument has been removed").
-  Affected: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`.
+  Affects `presets/models_16GB_VRAM.ini` and `presets/models_24GB_VRAM.ini`.
 - [Examples] Rename removed draft flags in `examples/speculative_decoding.ps1`:
   `--draft-min` → `--spec-draft-n-min`, `--draft-max` → `--spec-draft-n-max`,
   `--draft-p-min` → `--spec-draft-p-min`. Uses a real draft model so this is
   the `--spec-draft-*` family, not the ngram-mod family.
-
-### Changed
-- [Documentation] Update CLAUDE.md ngram-mod section to renamed flag names
-  and refresh `common/speculative.cpp` / `common/arg.cpp` line citations
-  after upstream refactor (#22397).
+- [Presets] Fix `presence_penalty` → `presence-penalty` hyphenation in
+  24 GB Qwen3.6 entries (CLI parser rejects the underscore form)
 
 
 ## [1.28.0] - 2026-04-22
