@@ -18,8 +18,9 @@ Specifies CMake build targets to compile a specific subset of the llama.cpp proj
 
 .PARAMETER parallelJobs
 Overrides the number of parallel build jobs passed to "cmake --build --parallel".
-Defaults to the sum of physical cores reported by Win32_Processor.NumberOfCores
-(drops SMT siblings) to keep the OS responsive during the build.
+Defaults to Sum(Win32_Processor.NumberOfCores). On SMT CPUs this drops
+siblings; on hybrid non-SMT CPUs (Arrow/Lunar Lake) it equals all P+E cores,
+which is the right ceiling — E-cores are throughput cores.
 
 .PARAMETER help
 Shows the manual on how to use this script.
@@ -100,13 +101,15 @@ if ($target) {
     $buildTargetInformation = "(using project defaults)"
 }
 
-# Default to physical cores, not logical processors. Upstream's CMakeLists
-# sets UseMultiToolTask=true + EnforceProcessCountAcrossBuilds=true
-# (vendor/llama.cpp/CMakeLists.txt:92-93), so --parallel N is the single cap
-# on concurrent cl.exe / nvcc processes. Logical-processor count saturates
-# every SMT thread and starves the OS scheduler; physical-core count keeps
-# foreground responsiveness with negligible throughput loss on FP+memory
-# bound C++/CUDA compilation. Override with -parallelJobs N.
+# Default = physical cores. Upstream gates total cl.exe/nvcc parallelism on
+# this single value (UseMultiToolTask + EnforceProcessCountAcrossBuilds at
+# vendor/llama.cpp/CMakeLists.txt:92-93).
+#   - SMT CPUs (Zen, Alder/Raptor Lake): drops siblings; logical-count
+#     starves the scheduler and ~doubles peak nvcc RAM for no throughput.
+#   - Hybrid non-SMT (Arrow/Lunar Lake): physical == logical -> all P+E
+#     cores. Correct ceiling; E-cores are throughput cores, Thread Director
+#     handles placement.
+# Override with -parallelJobs N.
 if ($parallelJobs -le 0) {
     $parallelJobs = (Get-CimInstance Win32_Processor |
                      Measure-Object -Property NumberOfCores -Sum).Sum
