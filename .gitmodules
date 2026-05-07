@@ -2,3 +2,8 @@
 	path = vendor/llama.cpp
 	url = git@github.com:ggml-org/llama.cpp.git
 	ignore = dirty
+[submodule "vendor/Qwen-Fixed-Chat-Templates"]
+	path = vendor/Qwen-Fixed-Chat-Templates
+	url = git@hf.co:froggeric/Qwen-Fixed-Chat-Templates
+	branch = main
+	ignore = dirty

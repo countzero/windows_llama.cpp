@@ -166,16 +166,19 @@ function Resolve-UnixPath {
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
-# TODO: This assumes that every default branch across all
-# submodules is equal which might break in the future...
+# Only `vendor/llama.cpp` is wiped-and-re-checked-out per build (the
+# `-version` / `-pullRequest` checkout below relies on a clean tree).
+# Other submodules (e.g. `vendor/Qwen-Fixed-Chat-Templates`) are pinned
+# at the SHA recorded in the superproject and must not be advanced
+# automatically — running `--remote` on them would defeat the pin and,
+# for HF repos, also break against the hardcoded `origin/master` since
+# Hugging Face uses `main` as the default branch.
 $defaultBranch = "origin/master"
 
-# We are resetting every submodule to the head of their default
-# branch prior to updating them to avoid any merge conflicts.
-git submodule foreach --recursive git fetch origin
-git submodule foreach --recursive git reset --hard $defaultBranch
+git -C ./vendor/llama.cpp fetch origin
+git -C ./vendor/llama.cpp reset --hard $defaultBranch
 
-git submodule update --remote --rebase --force
+git submodule update --remote --rebase --force -- ./vendor/llama.cpp
 
 # Untracked files in the submodule survive `git reset --hard` and `git checkout`.
 # A stale `vendor/llama.cpp/build-info.h` from late 2023 has been shadowing the

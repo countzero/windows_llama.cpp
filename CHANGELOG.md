@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [Vendor] Add `froggeric/Qwen-Fixed-Chat-Templates` as a git submodule
+  at `vendor/Qwen-Fixed-Chat-Templates`, pinned to `81ec3f0`. Provides
+  drop-in Jinja chat templates for Qwen 3.5 / 3.6 that fix tool-call
+  rendering on C++ engines, accept the OpenAI-spec `developer` role,
+  add a `<|think_on|>` / `<|think_off|>` toggle, and avoid the
+  no-user-query crash. Use via
+  `--jinja --chat-template-file vendor/Qwen-Fixed-Chat-Templates/qwen3.6/chat_template.jinja`
+  (or `qwen3.5/`). Cloning requires a Hugging Face SSH key, mirroring
+  the existing GitHub SSH requirement for `vendor/llama.cpp`.
+
+### Changed
+- [Build] Scope the per-build submodule reset in `rebuild_llama.cpp.ps1`
+  to `vendor/llama.cpp` only. The previous `git submodule foreach`
+  would have advanced the new pinned submodule to its `main` head on
+  every build (defeating the pin) and additionally failed against the
+  hardcoded `origin/master`, since Hugging Face repos default to
+  `main`. `git submodule update --remote` is likewise narrowed to
+  `vendor/llama.cpp`.
+
 
 ## [1.29.0] - 2026-04-28
 
