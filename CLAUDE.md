@@ -43,6 +43,23 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   compute buffer OOMs but the server keeps running — only image requests error at generation
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
+- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template.jinja`.**
+  Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces* the
+  GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
+  `params.chat_template = read_file(value)`). Upstream embeds a Jinja template with
+  several bugs that bite under realistic use: the `|items` filter is rejected by the
+  C++ Jinja runtime so tool calls fail; the OpenAI-spec `developer` role raises an
+  exception; empty `<think>` blocks are spammed into history; on agentic loops where
+  the last message is a tool result, the template hard-crashes via
+  `raise_exception('No user query found in messages.')`; and Qwen 3.6 specifically
+  generates `</thinking>` (which the official parser splits on `</think >` and fails
+  on). All fixed in the vendored template (also adds a `<|think_on|>` / `<|think_off|>`
+  toggle that coexists with `chat-template-kwargs = {"preserve_thinking":true}`). Path
+  is repo-relative, so `llama-server` must be launched from the repo root — `read_file()`
+  resolves against the process CWD, not the INI file's directory. Gemma and
+  `Qwen3-Coder-Next` entries deliberately keep their GGUF-embedded templates;
+  upstream's README only claims compatibility for Qwen 3.5 / 3.6 variants.
+
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`
   (matches the struct defaults in `common/common.h:329-337` and what `--spec-default` produces

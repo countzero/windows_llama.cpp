@@ -26,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hardcoded `origin/master`, since Hugging Face repos default to
   `main`. `git submodule update --remote` is likewise narrowed to
   `vendor/llama.cpp`.
+- [Presets] Wire `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template.jinja`
+  on every Qwen 3.6 entry in `models_16GB_VRAM.ini` (3 entries) and
+  `models_24GB_VRAM.ini` (6 entries). Replaces the buggy GGUF-embedded
+  template entirely (`common/arg.cpp:3142`, `params.chat_template = read_file(value)`),
+  fixing tool-call rendering on llama.cpp's C++ Jinja runtime, accepting the
+  OpenAI-spec `developer` role, recovering from `</thinking>` hallucinations,
+  and avoiding the no-user-query crash on agentic loops. The path is
+  repo-relative — `llama-server` must be launched from the repo root.
+  Gemma and `Qwen3-Coder-Next` entries are unchanged; upstream's README
+  only claims compatibility for Qwen 3.5 / 3.6 variants.
 
 
 ## [1.29.0] - 2026-04-28
