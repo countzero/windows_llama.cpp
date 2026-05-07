@@ -78,3 +78,11 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   acceptance < 50 % (`common/speculative.cpp:720-728`, `:790-806`). Smaller `n_match` makes
   these resets fire more often and wipes ngrams learned from the current prompt — another
   reason to stay at `n_match ≥ 24`.
+
+## Changelog style
+
+- One bullet = one physical line. Never insert manual line-breaks; let the editor soft-wrap.
+- Format: `- [Component] <verb> <thing>` (Added / Changed / Fixed / Removed).
+- No rationale, no file paths, no line numbers, no explanatory prose. Rationale lives in CLAUDE.md "Non-obvious behavior" or in the commit message.
+- PR refs as bare `#NNNNN`, at most once per release.
+- Canonical examples: [1.21.0] – [1.27.0] in CHANGELOG.md.

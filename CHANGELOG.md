@@ -7,81 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.30.0] - 2026-05-07
+
 ### Added
-- [Vendor] Add `froggeric/Qwen-Fixed-Chat-Templates` as a git submodule
-  at `vendor/Qwen-Fixed-Chat-Templates`, pinned to `81ec3f0`. Provides
-  drop-in Jinja chat templates for Qwen 3.5 / 3.6 that fix tool-call
-  rendering on C++ engines, accept the OpenAI-spec `developer` role,
-  add a `<|think_on|>` / `<|think_off|>` toggle, and avoid the
-  no-user-query crash. Use via
-  `--jinja --chat-template-file vendor/Qwen-Fixed-Chat-Templates/qwen3.6/chat_template.jinja`
-  (or `qwen3.5/`). Cloning requires a Hugging Face SSH key, mirroring
-  the existing GitHub SSH requirement for `vendor/llama.cpp`.
+- [Vendor] Add Qwen-Fixed-Chat-Templates submodule at vendor/Qwen-Fixed-Chat-Templates (pinned 81ec3f0)
+- [Presets] Add 24 GB Qwen3.6-35B-A3B IQ4_XS + Qwen3.5-0.8B IQ4_XS draft entry
+- [Presets] Add 24 GB Abiray-Qwen3.6-27B-NVFP4 entries (with and without speculative draft)
 
 ### Changed
-- [Build] Scope the per-build submodule reset in `rebuild_llama.cpp.ps1`
-  to `vendor/llama.cpp` only. The previous `git submodule foreach`
-  would have advanced the new pinned submodule to its `main` head on
-  every build (defeating the pin) and additionally failed against the
-  hardcoded `origin/master`, since Hugging Face repos default to
-  `main`. `git submodule update --remote` is likewise narrowed to
-  `vendor/llama.cpp`.
-- [Presets] Wire `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template.jinja`
-  on every Qwen 3.6 entry in `models_16GB_VRAM.ini` (3 entries) and
-  `models_24GB_VRAM.ini` (6 entries). Replaces the buggy GGUF-embedded
-  template entirely (`common/arg.cpp:3142`, `params.chat_template = read_file(value)`),
-  fixing tool-call rendering on llama.cpp's C++ Jinja runtime, accepting the
-  OpenAI-spec `developer` role, recovering from `</thinking>` hallucinations,
-  and avoiding the no-user-query crash on agentic loops. The path is
-  repo-relative — `llama-server` must be launched from the repo root.
-  Gemma and `Qwen3-Coder-Next` entries are unchanged; upstream's README
-  only claims compatibility for Qwen 3.5 / 3.6 variants.
+- [Build] Scope per-build submodule reset to vendor/llama.cpp only
+- [Presets] Wire chat-template-file to vendor/Qwen-Fixed-Chat-Templates/qwen3.6 on all Qwen 3.6 entries
+- [Presets] Bump 24 GB Qwen3.6-27B preset from IQ3_XXS to IQ4_XS
+- [Documentation] Clarify parallelJobs rationale for hybrid non-SMT CPUs in CLAUDE.md
+- [Vendor] Bump llama.cpp submodule to 739393b
 
 
 ## [1.29.0] - 2026-04-28
 
 ### Added
-- [Build] `-parallelJobs <N>` override for `cmake --build --parallel`
-  (`rebuild_llama.cpp.ps1`)
-- [Presets] 24 GB tier: Qwen3.6-27B IQ3_XXS + Qwen3.5-0.8B IQ4_XS
-  draft model — combines ngram-mod with vocab-compatible draft-model
-  speculative decoding (enabled by upstream PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397); both models
-  share arch `qwen3_5` and token embedding 248320 so the no-translation
-  draft path is used)
-- [Documentation] CLAUDE.md notes on physical-core build parallelism
-  rationale (`UseMultiToolTask` + `EnforceProcessCountAcrossBuilds` make
-  `--parallel N` the single authoritative cap)
+- [Build] Add -parallelJobs option to override cmake --build --parallel
+- [Presets] Add 24 GB Qwen3.6-27B IQ3_XXS + Qwen3.5-0.8B IQ4_XS draft-model entry
+- [Documentation] Document physical-core build parallelism rationale in CLAUDE.md
 
 ### Changed
-- [Build] Cap default build parallelism at physical cores instead of
-  logical processors — drops SMT siblings to halve concurrent
-  `cl.exe`/`nvcc`, prevents OS-scheduler starvation, and roughly halves
-  peak `nvcc` RAM on CUDA builds. Override with `-parallelJobs`.
-- [Presets] Bump Qwen3.5-27B → Qwen3.6-27B in both 16 GB and 24 GB
-  tiers; enable `chat-template-kwargs` `preserve_thinking` on 24 GB
-- [Presets] Anti-repeat-loop tuning for Qwen3.6 entries: `min-p=0.0`,
-  `presence-penalty=1.5` (both tiers); reduce `parallel=1` on both
-  24 GB Qwen3.6 entries
-- [Documentation] Update CLAUDE.md ngram-mod section to renamed flag
-  names and refresh `common/speculative.cpp` / `common/arg.cpp` line
-  citations after upstream refactor ([#22397](https://github.com/ggml-org/llama.cpp/pull/22397))
-- [Vendor] Bump llama.cpp submodule to `f42e29f`, picking up upstream
-  PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397) (spec params refactor), PR [#21237](https://github.com/ggml-org/llama.cpp/pull/21237) (webui server tools),
-  CVE-2026-21869 server fix ([#22267](https://github.com/ggml-org/llama.cpp/pull/22267)), and ~80 other upstream changes
+- [Build] Cap default build parallelism at physical cores
+- [Presets] Bump Qwen3.5-27B to Qwen3.6-27B in 16 GB and 24 GB tiers
+- [Presets] Tune Qwen3.6 anti-repeat sampling (min-p, presence-penalty); reduce parallel on 24 GB
+- [Documentation] Refresh CLAUDE.md ngram-mod flag names and line citations
+- [Vendor] Bump llama.cpp submodule to f42e29f
 
 ### Fixed
-- [Presets] Adopt renamed ngram-mod speculative flags (upstream PR [#22397](https://github.com/ggml-org/llama.cpp/pull/22397)):
-  `spec-ngram-size-n` → `spec-ngram-mod-n-match`,
-  `draft-min` → `spec-ngram-mod-n-min`,
-  `draft-max` → `spec-ngram-mod-n-max`.
-  Old names now error at startup ("the argument has been removed").
-  Affects `presets/models_16GB_VRAM.ini` and `presets/models_24GB_VRAM.ini`.
-- [Examples] Rename removed draft flags in `examples/speculative_decoding.ps1`:
-  `--draft-min` → `--spec-draft-n-min`, `--draft-max` → `--spec-draft-n-max`,
-  `--draft-p-min` → `--spec-draft-p-min`. Uses a real draft model so this is
-  the `--spec-draft-*` family, not the ngram-mod family.
-- [Presets] Fix `presence_penalty` → `presence-penalty` hyphenation in
-  24 GB Qwen3.6 entries (CLI parser rejects the underscore form)
+- [Presets] Adopt renamed ngram-mod flags (#22397): spec-ngram-mod-n-match / -n-min / -n-max
+- [Examples] Adopt renamed draft flags in speculative_decoding.ps1: --spec-draft-n-min / -n-max / -p-min
+- [Presets] Fix presence_penalty to presence-penalty hyphenation in 24 GB Qwen3.6 entries
 
 
 ## [1.28.0] - 2026-04-22
