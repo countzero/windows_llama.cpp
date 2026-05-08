@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to 7efa9ee (chat_template-v8)
+- [Presets] Switch all Qwen 3.6 entries to chat_template-v8.jinja
+- [Documentation] Note v8 template fixes (mid-conversation system/developer, </thinking> recovery, split/join Jinja compat) in CLAUDE.md
+- [Vendor] Bump llama.cpp submodule to a8fd165
+
 
 ## [1.30.0] - 2026-05-07
 

@@ -43,7 +43,7 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   compute buffer OOMs but the server keeps running — only image requests error at generation
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
-- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template.jinja`.**
+- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template-v8.jinja`.**
   Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces* the
   GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
   `params.chat_template = read_file(value)`). Upstream embeds a Jinja template with
@@ -51,12 +51,18 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   C++ Jinja runtime so tool calls fail; the OpenAI-spec `developer` role raises an
   exception; empty `<think>` blocks are spammed into history; on agentic loops where
   the last message is a tool result, the template hard-crashes via
-  `raise_exception('No user query found in messages.')`; and Qwen 3.6 specifically
+  `raise_exception('No user query found in messages.')`; Qwen 3.6 specifically
   generates `</thinking>` (which the official parser splits on `</think >` and fails
-  on). All fixed in the vendored template (also adds a `<|think_on|>` / `<|think_off|>`
-  toggle that coexists with `chat-template-kwargs = {"preserve_thinking":true}`). Path
-  is repo-relative, so `llama-server` must be launched from the repo root — `read_file()`
-  resolves against the process CWD, not the INI file's directory. Gemma and
+  on); and any *mid-conversation* `system`/`developer` message — as injected by
+  agent frameworks like opencode-dcp, Codex CLI, Docker Agent, oh-my-pi —
+  raises `'System message must be at the beginning.'`. All eight fixed in the
+  vendored `-v8` template (which also adds a `<|think_on|>` / `<|think_off|>`
+  toggle that coexists with `chat-template-kwargs = {"preserve_thinking":true}`,
+  and rewrites the auto-close-`<think>`-before-`<tool_call>` logic with
+  `split`/`join` for strict C++ Jinja compatibility — the prior file used
+  `rfind`/slice which is Python-Jinja only). Path is repo-relative, so
+  `llama-server` must be launched from the repo root — `read_file()` resolves
+  against the process CWD, not the INI file's directory. Gemma and
   `Qwen3-Coder-Next` entries deliberately keep their GGUF-embedded templates;
   upstream's README only claims compatibility for Qwen 3.5 / 3.6 variants.
 
