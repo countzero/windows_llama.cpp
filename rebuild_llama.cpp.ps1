@@ -65,7 +65,9 @@ $stopwatch = [System.Diagnostics.Stopwatch]::startNew()
 
 # We are defaulting the optional version to the tag of the
 # "latest" release in GitHub to avoid unstable versions.
-if (!$version) {
+# Skipped when -pullRequest is set: $version is unused on that path
+# and the GitHub API call wastes a network round-trip.
+if (!$version -and !$pullRequest) {
 
     $path = [regex]::Match(
         (git -C .\vendor\llama.cpp\ ls-remote --get-url),
@@ -197,7 +199,7 @@ if (!$pullRequest) {
 
     # We are checking out a specific pull request
     # of the repository to enable quick debugging.
-    git -C ./vendor/llama.cpp fetch origin pull/${pullRequest}/head:PR
+    git -C ./vendor/llama.cpp fetch --force origin pull/${pullRequest}/head:PR
     git -C ./vendor/llama.cpp reset --hard PR
 }
 
