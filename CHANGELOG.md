@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.31.0] - 2026-05-10
+
+### Added
+- [Presets] Add 24 GB Qwen3.6-27B-IQ4_XS-MTP entry with spec-type=mtp (#22673)
+- [Presets] Add 24 GB Qwen3.6-35B-A3B-MTP-IMAT-IQ4_XS-Q8nextn entry with spec-type=mtp
+
 ### Changed
 - [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to 7efa9ee (chat_template-v8)
 - [Presets] Switch all Qwen 3.6 entries to chat_template-v8.jinja
-- [Documentation] Note v8 template fixes (mid-conversation system/developer, </thinking> recovery, split/join Jinja compat) in CLAUDE.md
+- [Documentation] Note v8 template fixes in CLAUDE.md
 - [Vendor] Bump llama.cpp submodule to a8fd165
+
+### Fixed
+- [Build] Force-fetch PR ref and skip unused version lookup in -pullRequest path
 
 
 ## [1.30.0] - 2026-05-07
