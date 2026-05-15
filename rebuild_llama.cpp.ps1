@@ -127,6 +127,17 @@ Write-Host "BLAS accelerator: ${blasAccelerator}" -ForegroundColor "DarkYellow"
 Write-Host "Build target: ${buildTargetInformation}" -ForegroundColor "DarkYellow"
 Write-Host "Parallel build jobs: ${parallelJobs}" -ForegroundColor "DarkYellow"
 
+# Fail fast if any running process was launched from the build tree. The
+# Remove-Item ./vendor/llama.cpp/build below would otherwise partially-delete
+# the tree on Windows. Common trigger: forgetting to stop llama-server.exe.
+$buildRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'vendor\llama.cpp\build'))
+$blockers = Get-Process |
+    Where-Object { $_.Path -and $_.Path.StartsWith($buildRoot, [StringComparison]::OrdinalIgnoreCase) }
+if ($blockers) {
+    $list = ($blockers | ForEach-Object { "  PID $($_.Id)  $($_.Path)" }) -join "`n"
+    throw "Processes hold files under ${buildRoot}:`n${list}`nStop them and re-run."
+}
+
 $openBLASVersion = "0.3.30"
 
 if (-not(Test-Path -Path "./vendor/OpenBLAS/OpenBLAS-${openBLASVersion}-x64.zip")) {
