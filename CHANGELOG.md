@@ -7,14 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.32.0] - 2026-05-15
+
 ### Added
 - [Build] Abort rebuild when a running process was launched from vendor/llama.cpp/build/
+- [Examples] Add MTP speculative-decoding benchmark script
 
 ### Changed
 - [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to 5983684 (chat_template-v13)
 - [Presets] Switch all Qwen 3.6 entries to chat_template-v13.jinja
 - [Documentation] Note v13 template fixes in CLAUDE.md
 - [Build] Mirror pinned SHA of non-llama.cpp submodules into working tree on each build
+- [Build] Patch webui-download.cmake to resolve npm via find_program
 
 
 ## [1.31.0] - 2026-05-10
