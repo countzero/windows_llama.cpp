@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.33.0] - 2026-05-15
+
 ### Changed
 - [Presets] Combine draft-mtp with ngram-mod fallback on Qwen3.6 MTP entries
 
