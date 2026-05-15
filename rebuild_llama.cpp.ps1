@@ -168,6 +168,19 @@ function Resolve-UnixPath {
     Write-Output ((Resolve-Path "$path").Path -replace '\\','/')
 }
 
+# Mirror the pinned SHA of every non-llama.cpp submodule into its working tree
+# so a committed pin bump propagates on the next rebuild. `vendor/llama.cpp` is
+# advanced separately below per -version / -pullRequest.
+$submodulePaths = git config --file .gitmodules --get-regexp '^submodule\..+\.path$' |
+    ForEach-Object { ($_ -split '\s+', 2)[1] } |
+    Where-Object { $_ -ne 'vendor/llama.cpp' }
+
+foreach ($submodulePath in $submodulePaths) {
+    Write-Host "[Submodules] Syncing ${submodulePath} to pinned SHA..." -ForegroundColor "Yellow"
+    git -C $submodulePath fetch origin
+    git submodule update --init --force -- $submodulePath
+}
+
 # Only `vendor/llama.cpp` is wiped-and-re-checked-out per build (the
 # `-version` / `-pullRequest` checkout below relies on a clean tree).
 # Other submodules (e.g. `vendor/Qwen-Fixed-Chat-Templates`) are pinned
