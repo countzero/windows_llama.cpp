@@ -61,7 +61,7 @@ def run(args):
     for p in PROMPTS:
         t0 = time.time()
         r = post(f"{args.url}/v1/chat/completions", {
-            "model": "llama",
+            "model": args.model,
             "messages": [{"role": "user", "content": p["prompt"]}],
             "max_tokens": 192,
             "seed": 42,
@@ -107,6 +107,7 @@ def diff(a, b):
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--url", default="http://127.0.0.1:8080")
+ap.add_argument("--model", default="llama")
 ap.add_argument("--out")
 ap.add_argument("--diff", nargs=2)
 a = ap.parse_args()

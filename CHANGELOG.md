@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - [Presets] Rename spec-type `mtp` to `draft-mtp` on Qwen3.6 MTP entries (#22673)
+- [Examples] Add --model CLI flag to mtp-bench.py for router-mode compatibility
 
 
 ## [1.32.0] - 2026-05-15
