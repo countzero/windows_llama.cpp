@@ -260,24 +260,6 @@ if (!(Select-String -Path "./vendor/llama.cpp/CMakeLists.txt" -Pattern $lines[0]
     Set-Content "./vendor/llama.cpp/CMakeLists.txt"
 }
 
-# Patch webui-download.cmake to resolve npm via find_program. CMake's
-# execute_process cannot resolve a bare `npm` on Windows (no npm.exe; only
-# npm.cmd). find_program honors PATHEXT, picks npm.cmd on Windows and npm
-# on POSIX. No REQUIRED -> preserves graceful fallback to the HF Bucket
-# when npm is missing.
-# @see https://cmake.org/cmake/help/latest/command/execute_process.html
-$webuiCmake = "./vendor/llama.cpp/scripts/webui-download.cmake"
-$sentinel   = "# windows_llama.cpp: npm resolver patch"
-
-if (!(Select-String -LiteralPath $webuiCmake -Pattern $sentinel -SimpleMatch -Quiet)) {
-    (Get-Content -Raw -LiteralPath $webuiCmake).
-        Replace('cmake_minimum_required(VERSION 3.16)',
-                "cmake_minimum_required(VERSION 3.16)`nfind_program(NPM NAMES npm.cmd npm) $sentinel").
-        Replace('COMMAND npm install',   'COMMAND ${NPM} install').
-        Replace('COMMAND npm run build', 'COMMAND ${NPM} run build') |
-        Set-Content -LiteralPath $webuiCmake -Encoding utf8NoBOM -NoNewline
-}
-
 Remove-Item -Path "./vendor/llama.cpp/build" -Force -Recurse
 
 New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
