@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.34.0] - 2026-05-18
+
 ### Changed
 - [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v19
 - [Presets] Repoint chat-template-file to unified chat_template.jinja
 - [Presets] Drop chat-template-kwargs preserve_thinking override
+- [Presets] Fold MTP into main Qwen3.6-27B-IQ4_XS entry (spec-type draft-mtp,ngram-mod)
+- [Presets] Increase MTP ctx-size on Qwen3.6 entries
+- [Vendor] Bump llama.cpp submodule to c3f95c1 (#23237)
 
 ### Removed
 - [Build] Drop webui-download.cmake npm-resolver patch (fixed upstream in #23064)
+- [Presets] Remove standalone Qwen3.6-27B-IQ4_XS-MTP duplicate entry
+- [Presets] Remove Abiray-Qwen3.6-27B-NVFP4 entries
+- [Presets] Remove draft-model speculative decoding presets
 
 
 ## [1.33.0] - 2026-05-15
