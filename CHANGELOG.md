@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v19
+- [Presets] Repoint chat-template-file to unified chat_template.jinja
+- [Presets] Drop chat-template-kwargs preserve_thinking override
+
 ### Removed
 - [Build] Drop webui-download.cmake npm-resolver patch (fixed upstream in #23064)
 

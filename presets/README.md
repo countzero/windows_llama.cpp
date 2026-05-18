@@ -39,8 +39,9 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.6-*` entries set `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template-v13.jinja`,
-> overriding the buggy template embedded in the GGUF. The path is repo-relative,
+> All `Qwen3.6-*` entries set `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
+> overriding the buggy template embedded in the GGUF. The vendored template is a
+> single unified file that handles both Qwen 3.5 and 3.6 variants. The path is repo-relative,
 > so launch `llama-server` from the repository root (as the examples above do).
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
 > first — otherwise startup fails with a missing-file error. Gemma and

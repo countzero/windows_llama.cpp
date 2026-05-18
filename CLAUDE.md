@@ -44,20 +44,25 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   compute buffer OOMs but the server keeps running — only image requests error at generation
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
-- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\qwen3.6\chat_template-v13.jinja`.**
+- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
   Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces*
   the GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
   `params.chat_template = read_file(value)`). The upstream embedded template has
-  fourteen documented bugs affecting tool calls, role handling, `<think>` block
-  rendering, agentic loops, and llama.cpp KV-prefix cache stability; the vendored
-  template fixes all of them (full list in `vendor/Qwen-Fixed-Chat-Templates/README-v13.md`).
-  The template also adds a `<|think_on|>` / `<|think_off|>` toggle that coexists
-  with `chat-template-kwargs = {"preserve_thinking":true}` (default strips past
-  `<think>` blocks from history; set the kwarg to keep them for agentic reasoning).
-  Path is repo-relative, so `llama-server` must be launched from the repo root —
-  `read_file()` resolves against the process CWD, not the INI file's directory.
-  Gemma and `Qwen3-Coder-Next` entries deliberately keep their GGUF-embedded
-  templates; upstream's README only claims compatibility for Qwen 3.5 / 3.6 variants.
+  documented issues with tool calls, role handling, `<think>` block rendering,
+  agentic loops, and llama.cpp KV-prefix cache stability; the vendored template
+  fixes all of them (full list in `vendor/Qwen-Fixed-Chat-Templates/README.md`).
+  Since v19 the template is a single unified file covering both Qwen 3.5 and 3.6
+  variants (the old `qwen3.5/` and `qwen3.6/` subdirectories now live under
+  `archive/`). The template adds a `<|think_on|>` / `<|think_off|>` toggle, and
+  v19 defaults `preserve_thinking` to `true` (past `<think>` blocks are kept
+  chronologically for 100% KV prefix cache stability and agentic reasoning
+  continuity). To strip past `<think>` blocks instead, set
+  `chat-template-kwargs = {"preserve_thinking":false}` — at the cost of a lower
+  KV cache hit rate. Path is repo-relative, so `llama-server` must be launched
+  from the repo root — `read_file()` resolves against the process CWD, not the
+  INI file's directory. Gemma and `Qwen3-Coder-Next` entries deliberately keep
+  their GGUF-embedded templates; upstream's README only claims compatibility for
+  Qwen 3.5 / 3.6 variants.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`
