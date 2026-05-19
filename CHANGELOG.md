@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Presets] Switch Qwen3.6-35B-A3B 24 GB tier from ngram-mod to draft-mtp
+- [Presets] Drop ngram-mod from Qwen3.6-27B 24 GB tier (combined mode broken, #23184)
+
 
 ## [1.34.0] - 2026-05-18
 
