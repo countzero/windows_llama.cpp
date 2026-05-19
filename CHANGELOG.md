@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - [Presets] Switch Qwen3.6-35B-A3B 24 GB tier from ngram-mod to draft-mtp
 - [Presets] Drop ngram-mod from Qwen3.6-27B 24 GB tier (combined mode broken, #23184)
+- [Presets] Disable mmproj-offload on Qwen3.6-27B 24 GB tier
+- [Presets] Raise Qwen3.6-27B 24 GB ctx-size from 172032 to 184320
 
 
 ## [1.34.0] - 2026-05-18
