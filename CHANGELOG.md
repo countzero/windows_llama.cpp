@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.35.0] - 2026-05-29
+
 ### Changed
 - [Presets] Combine draft-mtp with ngram-mod on Qwen3.6 24 GB tiers (RS-rollback regression fixed upstream, #23269)
 - [Presets] Re-enable mmproj-offload on Qwen3.6 24 GB tiers
