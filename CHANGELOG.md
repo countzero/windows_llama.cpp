@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Presets] Add direct-io, no-mmap, and fit=off to Qwen3.6 and gemma 16/24 GB tiers
+- [Presets] Add draft KV cache types (cache-type-k-draft/cache-type-v-draft) to spec-decode entries
+- [Presets] Combine draft-mtp with ngram-mod on Qwen3.6 16 GB tiers
+- [Presets] Rework gemma-4-31B 16 GB entry (q4_0 KV cache, no-mmproj-offload)
+- [Vendor] Bump llama.cpp submodule to d4c8e2c
+
+### Removed
+- [Presets] Drop gemma-4-26B-A4B and Qwen3-Coder-Next from 16 GB tier
+
 
 ## [1.35.0] - 2026-05-29
 
