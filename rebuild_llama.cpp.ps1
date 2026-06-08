@@ -18,9 +18,10 @@ Specifies CMake build targets to compile a specific subset of the llama.cpp proj
 
 .PARAMETER parallelJobs
 Overrides the number of parallel build jobs passed to "cmake --build --parallel".
-Defaults to Sum(Win32_Processor.NumberOfCores). On SMT CPUs this drops
-siblings; on hybrid non-SMT CPUs (Arrow/Lunar Lake) it equals all P+E cores,
-which is the right ceiling — E-cores are throughput cores.
+On SMT CPUs it defaults to the physical-core count (which leaves the logical
+siblings free, keeping the machine usable). On non-SMT CPUs (hybrid Arrow/Lunar
+Lake) physical == logical, so it defaults to 80% of physical cores to leave
+headroom rather than pegging every core at 100%.
 
 .PARAMETER help
 Shows the manual on how to use this script.
@@ -103,18 +104,31 @@ if ($target) {
     $buildTargetInformation = "(using project defaults)"
 }
 
-# Default = physical cores. Upstream gates total cl.exe/nvcc parallelism on
+# Default depends on SMT. Upstream gates total cl.exe/nvcc parallelism on
 # this single value (UseMultiToolTask + EnforceProcessCountAcrossBuilds at
 # vendor/llama.cpp/CMakeLists.txt:92-93).
-#   - SMT CPUs (Zen, Alder/Raptor Lake): drops siblings; logical-count
-#     starves the scheduler and ~doubles peak nvcc RAM for no throughput.
-#   - Hybrid non-SMT (Arrow/Lunar Lake): physical == logical -> all P+E
-#     cores. Correct ceiling; E-cores are throughput cores, Thread Director
-#     handles placement.
+#   - SMT CPUs (Zen, Alder/Raptor Lake): use physical cores. This drops the
+#     logical siblings (logical-count starves the scheduler and ~doubles peak
+#     nvcc RAM for no throughput) AND leaves them free so the box stays usable.
+#   - Non-SMT CPUs (hybrid Arrow/Lunar Lake): physical == logical, so all
+#     cores would peg the machine at 100%. Back off to 80% of physical for
+#     headroom; E-cores are throughput cores and Thread Director handles
+#     placement among the rest.
 # Override with -parallelJobs N.
 if ($parallelJobs -le 0) {
-    $parallelJobs = (Get-CimInstance Win32_Processor |
-                     Measure-Object -Property NumberOfCores -Sum).Sum
+    $cpu = Get-CimInstance Win32_Processor
+    $physicalCores = ($cpu | Measure-Object -Property NumberOfCores -Sum).Sum
+    $logicalCores  = ($cpu | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+
+    if ($logicalCores -gt $physicalCores) {
+        # SMT present: the physical-core count already leaves the logical
+        # siblings free, so the machine stays usable. Use all physical cores.
+        $parallelJobs = $physicalCores
+    } else {
+        # No SMT (hybrid Arrow/Lunar Lake): physical == logical, so using
+        # every core pegs the machine at 100%. Back off to 80% for headroom.
+        $parallelJobs = [int][Math]::Max(1, [Math]::Floor($physicalCores * 0.8))
+    }
 }
 
 Write-Host "Building the llama.cpp project..." -ForegroundColor "Yellow"

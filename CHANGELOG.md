@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- [Build] Default build parallelism to 80% of cores on non-SMT CPUs, physical cores on SMT CPUs
 - [Presets] Add direct-io, no-mmap, and fit=off to Qwen3.6 and gemma 16/24 GB tiers
 - [Presets] Add draft KV cache types (cache-type-k-draft/cache-type-v-draft) to spec-decode entries
 - [Presets] Combine draft-mtp with ngram-mod on Qwen3.6 16 GB tiers
