@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.36.0] - 2026-06-08
+
+### Added
+- [Presets] Add gemma-4-26B-A4B and gemma-4-12B entries to 24 GB tier
+
 ### Changed
 - [Build] Default build parallelism to 80% of cores on non-SMT CPUs, physical cores on SMT CPUs
 - [Presets] Add direct-io, no-mmap, and fit=off to Qwen3.6 and gemma 16/24 GB tiers
 - [Presets] Add draft KV cache types (cache-type-k-draft/cache-type-v-draft) to spec-decode entries
 - [Presets] Combine draft-mtp with ngram-mod on Qwen3.6 16 GB tiers
 - [Presets] Rework gemma-4-31B 16 GB entry (q4_0 KV cache, no-mmproj-offload)
-- [Vendor] Bump llama.cpp submodule to d4c8e2c
+- [Presets] Rework gemma 24 GB tier to QAT q4_0 unquantized models with draft-mtp,ngram-mod speculative decoding
+- [Presets] Set parallel=1 on Qwen3.6 24 GB entries
+- [Presets] Lower Qwen3.6-27B 24 GB spec-draft-n-max to 3
+- [Vendor] Bump llama.cpp submodule to 42a0afd
 
 ### Removed
 - [Presets] Drop gemma-4-26B-A4B and Qwen3-Coder-Next from 16 GB tier
