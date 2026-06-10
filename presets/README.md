@@ -44,6 +44,10 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > single unified file that handles both Qwen 3.5 and 3.6 variants. The path is repo-relative,
 > so launch `llama-server` from the repository root (as the examples above do).
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
-> first — otherwise startup fails with a missing-file error. Gemma and
-> `Qwen3-Coder-Next` entries continue to use their GGUF-embedded templates.
+> first — otherwise startup fails with a missing-file error.
+>
+> All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
+> the official Google template bundled with llama.cpp itself, kept in lock-step with
+> its built-in Gemma 4 parser. The same repo-root launch caveat applies.
+> `Qwen3-Coder-Next` entries continue to use their GGUF-embedded template.
 

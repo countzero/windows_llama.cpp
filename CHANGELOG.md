@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Presets] Pin gemma-4 entries to the llama.cpp-bundled google-gemma-4-31B-it chat template
+
 
 ## [1.36.0] - 2026-06-08
 

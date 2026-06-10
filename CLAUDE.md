@@ -60,9 +60,27 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   `chat-template-kwargs = {"preserve_thinking":false}` — at the cost of a lower
   KV cache hit rate. Path is repo-relative, so `llama-server` must be launched
   from the repo root — `read_file()` resolves against the process CWD, not the
-  INI file's directory. Gemma and `Qwen3-Coder-Next` entries deliberately keep
-  their GGUF-embedded templates; upstream's README only claims compatibility for
+  INI file's directory. `Qwen3-Coder-Next` entries deliberately keep their
+  GGUF-embedded template; froggeric's README only claims compatibility for
   Qwen 3.5 / 3.6 variants.
+
+- **All gemma-4 entries pin `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja`.**
+  This is Google's fixed official template as aligned by upstream (#21704) — the exact
+  file upstream's `tests/test-chat.cpp` locks against the native gemma4 chat handler
+  (`vendor/llama.cpp/common/chat.cpp:1216`), so parser and template always come from the
+  same submodule commit (each rebuild resets the submodule to master, mirroring the built
+  binary). GGUF-embedded templates from conversions predating Google's template fixes
+  lack the `{#- OpenAI Chat Completions:` marker; llama.cpp then logs "detected an
+  outdated gemma4 chat template" and rewrites messages via C++ compatibility workarounds
+  (`common/chat.cpp:2250-2258`) — the pin avoids that path. One file covers the whole
+  series (12B / 26B-A4B / 31B, incl. `<|image|>`/`<|audio|>` placeholders), and
+  `reasoning = on` maps to the template's `enable_thinking` kwarg
+  (`common/arg.cpp:3167-3175`), so no `chat-template-kwargs` are needed. Unlike the Qwen
+  template, past `<|channel>thought` blocks are *stripped* from history by design —
+  Gemma 4 is trained that way — so cross-turn KV-prefix invalidation is inherent
+  (`ctx-checkpoints` mitigates); do not add a preserve-thinking hack. If startup fails
+  reading the template after a rebuild, check whether upstream moved
+  `models/templates/` (same failure mode as the `gguf_dump.py` note above).
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`
