@@ -17,14 +17,18 @@ per-device `fit-target` values line up with the physical cards:
 
 ```powershell
 $env:CUDA_DEVICE_ORDER = "PCI_BUS_ID"   # CUDA0 = 8 GB GPU, CUDA1 = 16 GB GPU
-llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini --models-max 1
+llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini
 ```
 
 | Flag              | Purpose                                                 |
 |-------------------|---------------------------------------------------------|
 | `--models-dir`    | Directory containing GGUF files (router mode source #1) |
 | `--models-preset` | INI file with model configs (router mode source #2)     |
-| `--models-max`    | Max simultaneous loaded models (1 = only one at a time) |
+
+> [!TIP]
+> `main-gpu`, `models-max`, `split-mode`, `tensor-split`, and `threads` are handled by the
+> preset's `[*]` global section. `--host`, `--port`, and `--models-dir` must stay on the CLI
+> — they are parent-server settings that the server manages internally and cannot be set via preset.
 
 > [!NOTE]
 The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware.
@@ -33,16 +37,19 @@ The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB
 > **`models_16GB_8GB_VRAM.ini` (dual-GPU: one GPU with 16 GB VRAM + one with 8 GB VRAM).**
 > It uses `split-mode = layer` (pipeline parallel - the recommended mode for consumer GPUs
 > on PCIe without NVLink) with `tensor-split = 1,2` to weight the 16 GB card twice as
-> heavily as the 8 GB card. `fit = off`; each model has a fixed `ctx-size` and `n-gpu-layers = -1`
-> baked in for deterministic launches.
+> heavily as the 8 GB card. `main-gpu = 1` puts scratch buffers and intermediate results
+> on the 16 GB card. `models-max = 1` limits to one loaded model at a time. `fit = off`;
+> each model has a fixed `ctx-size` and `n-gpu-layers = -1` baked in for deterministic launches.
 >
-> - **Device order matters.** `tensor-split`, `--main-gpu`, and `--device` all
+> - **Device order matters.** `tensor-split`, `main-gpu`, and `--device` all
 >   follow llama.cpp's CUDA order (shown by `llama-server --list-devices`), **not** the
 >   `nvidia-smi` order. Set `CUDA_DEVICE_ORDER=PCI_BUS_ID` (as above) so `CUDA0` is the
 >   8 GB card and `CUDA1` is the 16 GB card, then **verify once** with `--list-devices`.
 > - All vision entries set `no-mmproj-offload = true`, so image preprocessing runs on CPU.
 >   This is deliberate: on a VRAM-saturated GPU `mmproj-offload = true` can OOM the CLIP warmup
 >   buffer silently and only fail at image-generation time.
+> - Global settings (`main-gpu`, `models-max`, `split-mode`, `tensor-split`, etc.) live in
+>   the `[*]` section and apply to all models. Per-model sections only override what differs.
 
 ## INI Format
 
