@@ -3,11 +3,10 @@ name: pr-code-review
 description: >
   Multi-pass PR code review. Use when reviewing pull request code changes for
   defects and design issues. Performs 3 review passes with escalating focus,
-  deduplicates findings, and produces a severity-filtered summary with deep
-  links to the relevant code on GitHub, and writes the report as both
-  Markdown and GitHub-styled HTML to `.tmp/sessions/<session-id>/`. This
-  skill never writes comments, reviews, or any data to GitHub; it is
-  advisory only.
+  deduplicates findings, and prints a severity-filtered report directly in the
+  terminal with deep links to the relevant code on GitHub. This skill is
+  read-only: it writes no files and never posts comments, reviews, or any data
+  to GitHub; it is advisory only.
 ---
 
 ## Multi-Pass PR Code Review
@@ -79,24 +78,18 @@ Use the TodoWrite tool to create and track these steps:
 4. Pass 2
 5. Pass 3
 6. Build final summary (deduplicate, re-examine, severity, filter); internally only
-7. Write Markdown report to `.tmp/sessions/<session-id>/`
-8. Render HTML report next to the Markdown file
-9. Print full report body in chat (title, metadata table, Design, severity tables), ending with the file-links trailer
+7. Print the report in the terminal
 
 Mark each todo as `in_progress` when starting and `completed` when done.
 After each pass, tell the user in one line how many new defects were found
 (e.g., "Pass 1 complete; found 6 defects.").
 
 After Pass 3, build the final summary internally; **do not print it yet**.
-Write the Markdown report file, then render the HTML sibling. Only after both
-files are on disk, print the report body in the conversation. The chat body
-matches the Markdown file body byte-for-byte except for the YAML front matter,
-which lives only in the Markdown file. The **very last** content printed is a
-file-links trailer (`**Report files:**` with markdown links to `file://` URIs
-of the artifacts). **Nothing (no recap, no "Let me know if…", no "Review
-complete" line, no follow-up commentary) may be printed after the trailer.**
-The trailer is the terminal output of the turn; any follow-up question opens
-a new turn.
+Once the summary is complete, print the report body in the conversation as the
+turn's final output, following the *Report Output* section below. **Nothing
+(no recap, no "Let me know if…", no "Review complete" line, no follow-up
+commentary) may be printed after the report.** The report is the terminal
+output of the turn; any follow-up question opens a new turn.
 
 ### Review Passes
 
@@ -207,247 +200,16 @@ After Pass 3:
    - **Medium:** Bad practice that could lead to bugs, missing validation for
      unlikely but possible inputs, minor logic issue.
 5. **Filter:** Keep only Critical, High, and Medium.
-6. **Hold for output:** Keep the deduped, severity-filtered findings in
-   memory. Do not print them yet; printing happens after the disk write per
-   *Output Files* below. When the filtered set is empty, the chat body prints
-   a single line `No Critical/High/Medium findings.` in place of the severity
-   tables; the Design section and the trailer still print normally. When the
-   set is non-empty, print one table per severity level (omitting empty
-   levels), following the link format rules in the Link Format section below.
+6. **Print:** Print the deduped, severity-filtered findings directly in the
+   terminal, following the *Report Output* section below. When the filtered
+   set is empty, print a single line `No Critical/High/Medium findings.` in
+   place of the severity tables; the metadata table and Design section still
+   print normally. When the set is non-empty, print one table per severity
+   level (omitting empty levels), following the link format rules in the Link
+   Format section below.
 
 No data is written to GitHub. The developer or reviewer uses the output to
 manually create PR comments.
-
-### Output Files
-
-Before printing anything to the conversation, persist the report to disk
-under `.tmp/sessions/<session-id>/` (gitignored per AGENTS.md *Scratch Files*
-rules; `<session-id>` is `SESSION_ID` when injected, otherwise a minted
-`YYYYMMDD-HHMMSS-<random6>`). Always write both a Markdown file and a
-GitHub-styled HTML file. The conversation tables and the Markdown file body
-are byte-identical (minus the Markdown file's YAML front-matter, which carries
-run metadata so re-runs can be diffed). Once both files exist, the chat output
-proceeds in this fixed order: **(1)** the report body (title, metadata table,
-Design section, severity tables, or the empty-findings line), **(2)** the
-`**Report files:**` trailer with markdown links to the two files. Nothing
-else may follow the trailer.
-
-All markdown tables in the report (the metadata table at the top and every
-severity table) must have every cell (header, separator, body) padded with
-spaces (or dashes for the separator row) so all cells in the same column
-occupy the same character width between pipes.
-
-**Filename convention:**
-
-```
-pr-review-<branch>-<base>-<head7>.md
-pr-review-<branch>-<base>-<head7>.html
-```
-
-- `<branch>`: the current branch name with `/` replaced by `-`.
-- `<base>`: the base branch name (`main`, `develop`, …). Always required;
-  the review scope changes if the base changes.
-- `<head7>`: the first 7 characters of the HEAD SHA. Pins the report to
-  the exact code reviewed.
-
-Re-running the review against the same `<branch, base, head7>` overwrites
-the prior report; that is intentional, since the inputs are identical.
-Lowercase the filename throughout.
-
-Create the `.tmp/sessions/<session-id>/` directory if it does not yet
-exist (`mkdir -p`). Do not write reviews anywhere else (not `.claude/`,
-not the repo root, not `vendor/`); this is enforced by AGENTS.md.
-
-**Markdown file shape:**
-
-```markdown
----
-branch: develop
-base: main
-head: <40-character HEAD SHA>
-pr: null
-generated: <ISO 8601 timestamp with timezone>
-files-changed: 6
-diff-loc: +390 / -0
-findings:
-  critical: <count>
-  high: <count>
-  medium: <count>
----
-
-# PR Review
-
-## develop (vs main)
-
-| Field     | Value                                                                        |
-| --------- | ---------------------------------------------------------------------------- |
-| Branch    | [`develop`](https://github.com/OWNER/REPO/tree/develop) → [`main`](https://github.com/OWNER/REPO/tree/main) |
-| HEAD      | [`head7`](https://github.com/OWNER/REPO/commit/head7)                        |
-| PR        | [#42](https://github.com/OWNER/REPO/pull/42) (or `none` when no PR is open)  |
-| Generated | YYYY-MM-DD HH:MM                                                              |
-| Diff      | 6 files · +390 · −0                                                          |
-| Findings  | 🔴 0 Critical · 🟠 1 High · 🟡 6 Medium                                      |
-
-### Design
-
-- ...
-
-### Critical
-
-| File | Description |
-| ---- | ----------- |
-| ...  | ...         |
-
-### High
-
-...
-
-### Medium
-
-...
-```
-
-The metadata block is a 2-column GFM table with explicit `Field` / `Value`
-headers; renders cleanly in chat (where HTML would show as raw tags), in
-the on-disk Markdown, and in the rendered HTML. Severity glyphs
-(🔴 🟠 🟡) replace coloured pills to keep the recipe free of custom CSS
-while staying scannable.
-
-Metadata-row formatting rules:
-
-- **Branch:** link both branches to their GitHub tree URLs:
-  `https://github.com/<owner>/<repo>/tree/<branch-name>`. Multi-segment
-  branch names (e.g. `feature/foo`) work without encoding because the
-  `tree/` path accepts literal slashes; percent-encode any branch name
-  that contains spaces or other reserved characters.
-- **HEAD:** use the 7-char short SHA in both the link label and the
-  URL (`/commit/<head7>`). The full SHA still lives in the YAML front
-  matter and the filename for unambiguous traceability; the short SHA
-  in the URL keeps the row narrow enough that the OpenCode TUI does
-  not wrap the Field column. GitHub redirects `/commit/<short>` to the
-  full commit, so the link resolves identically.
-- **Diff:** plain text, no colour, no emoji. Format:
-  `<files> files · +<additions> · −<deletions>`, with middle dots
-  (` · `, U+00B7) as separators. Use the Unicode minus sign
-  (U+2212, `−`) for the deletions count, not the ASCII hyphen-minus,
-  for typographic correctness. Plain text renders identically in the TUI,
-  the standalone HTML, and the github.com web view.
-
-`pr` is the PR number when one exists, `null` otherwise. `findings` is an
-omittable subkey when its severity is empty (e.g. omit `medium:` when
-there are no Medium findings); doing so keeps the front-matter aligned
-with the printed tables.
-
-**HTML rendering:**
-
-The HTML file is generated from the Markdown file via GitHub's `/markdown`
-API and a vendored stylesheet. The skill ships two template files in its
-own directory:
-
-- `templates/report.html`: page wrapper containing `{{TITLE}}`,
-  `{{CSS}}`, and `{{CONTENT}}` placeholders. Inlines the CSS so the
-  rendered HTML is a single, self-contained file (no sibling CSS to keep
-  in sync, no network dependency at view time).
-- `templates/github-markdown.css`: vendored from the
-  `github-markdown-css` npm package. Version pinned in the file header.
-
-Steps:
-
-1. Read the `.md` file as UTF-8.
-2. Strip the leading YAML front matter (regex anchored at start of file:
-   `(?ms)\A---\r?\n.*?\r?\n---\r?\n\r?\n?`). The metadata table that
-   follows the front matter stays in the body and renders into the HTML
-   as a regular GFM table.
-3. Send the stripped body to `POST /markdown` with `mode=gfm` and capture
-   the rendered HTML fragment.
-4. Substitute `{{TITLE}}` (the report's H1 followed by ` — ` followed
-   by the H2, so the wrapper `<title>` element keeps the branch
-   reference even though the body splits the heading across H1
-   `PR Review` and H2 `<branch> (vs <base>)`), `{{CSS}}` (verbatim
-   contents of `templates/github-markdown.css`), and `{{CONTENT}}` (the
-   captured fragment) into `templates/report.html`. Do not URL-encode
-   the substitutions; they are embedded verbatim into HTML and CSS
-   contexts respectively.
-5. Write the assembled HTML to disk as UTF-8 without BOM.
-
-Canonical Bash invocation (Linux/macOS):
-
-```Bash
-sed '1{/^---$/!q;};1,/^---$/d' <report.md> \
-    | gh api --method POST /markdown --field mode=gfm --field text=@- \
-    > <fragment.html>
-```
-
-**Windows / PowerShell:** PowerShell on Windows decodes subprocess stdout
-via the console's `OutputEncoding`, which on a German Windows host
-defaults to **CP-850** (the OEM code page). Capturing `gh api`'s UTF-8
-response via `>` or `|` without overriding this re-decodes the bytes
-through CP-850 and produces double-encoded mojibake (e.g. `—` becomes
-`ÔÇö`, `ü` becomes `├╝`). Override the encoding before invoking `gh` and
-use `[System.IO.File]` for the final write; `Set-Content` defaults to
-the local ANSI code page on PowerShell 5.1:
-
-```PowerShell
-$body = [System.IO.File]::ReadAllText($mdPath,
-    [System.Text.UTF8Encoding]::new($false))
-$body = $body -replace '(?ms)\A---\r?\n.*?\r?\n---\r?\n\r?\n?', ''
-$tmp  = [System.IO.Path]::GetTempFileName()
-[System.IO.File]::WriteAllText($tmp, $body,
-    [System.Text.UTF8Encoding]::new($false))
-
-$prev = [Console]::OutputEncoding
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-try {
-    $fragment = & gh api --method POST /markdown `
-        --field mode=gfm --field "text=@$tmp" | Out-String
-} finally {
-    [Console]::OutputEncoding = $prev
-    Remove-Item $tmp -Force
-}
-
-$output = $template.Replace('{{TITLE}}', $title).
-    Replace('{{CSS}}', $css).Replace('{{CONTENT}}', $fragment)
-[System.IO.File]::WriteAllText($htmlPath, $output,
-    [System.Text.UTF8Encoding]::new($false))
-```
-
-**Failure handling:**
-
-| Failure                                | Behavior                                                                                                                                                                                  |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Markdown write fails                   | Print a one-line `Failed to write report file: <reason>` notice, then print the full report body to chat anyway so the work is not lost. Skip the HTML step. Skip the trailer.            |
-| `.tmp/sessions/<session-id>/` missing  | Create it with `mkdir -p` before writing.                                                                                                                                                 |
-| `gh api /markdown` fails               | Keep the `.md` file. Skip the `.html` step. The trailer afterwards lists only the `.md` artifact. Surface a one-line note in the conversation before printing the report body.            |
-| Network unavailable                    | Same as above; Markdown succeeds, HTML is skipped with a note, trailer lists only the `.md` artifact.                                                                                     |
-| `gh` not authenticated                 | Same as `gh api` failure; markdown only, with a one-line note, trailer lists only the `.md` artifact.                                                                                     |
-
-After both files are written, the **last** thing printed in the conversation
-is the `**Report files:**` trailer, a markdown bullet list of the artifacts
-linked via `file://` URIs. The HTML link is listed first so the default
-click-target opens the rendered view in the browser (Chrome handles `.html`
-natively); the Markdown link is listed second as the source artifact. The
-trailer enumerates only the artifacts that were written successfully (so a
-Markdown-only run shows a one-item trailer with just the source link).
-Example:
-
-```markdown
-**Report files:**
-
-- [Rendered view (HTML, opens in browser)](file:///D:/Arbeit/windows_llama.cpp/.tmp/sessions/01J.../pr-review-develop-main-136fd56.html)
-- [Markdown source](file:///D:/Arbeit/windows_llama.cpp/.tmp/sessions/01J.../pr-review-develop-main-136fd56.md)
-```
-
-The Markdown link opens in the OS-default `.md` handler, typically a text
-editor (Notepad, VS Code, Typora) on Windows, not the browser. Users who
-want `.md` clicks to open in Chrome can set the Windows file association or
-install a local-file Markdown viewer extension; the skill cannot dictate
-the handler from a `file://` URL.
-
-The `file://` URI MUST use forward slashes on every platform. On Windows,
-that means converting the absolute path's backslashes to forward slashes and
-prefixing the drive letter as `file:///D:/...` (three slashes; no host
-segment). Paths containing spaces or other reserved characters must be
-URL-encoded (`%20` etc.).
 
 ### Link Format
 
@@ -498,7 +260,47 @@ second is wrong because the label is a URL instead of a file path. The third
 is wrong because it uses a filename only; the label must be the full path
 from the repository root with a leading `/`.
 
-**Full output template:**
+### Report Output
+
+The report is printed directly in the terminal as the turn's final output; no
+files are written and no trailer follows it. Print the body in this fixed
+order: **(1)** the title (`# PR Review` then `## <branch> (vs <base>)`),
+**(2)** the metadata table, **(3)** the `### Design` section, **(4)** the
+severity tables (or the empty-findings line). Nothing may be printed after the
+report.
+
+All tables (the metadata table and every severity table) must have every cell
+(header, separator, body) padded with spaces (or dashes for the separator row)
+so all cells in the same column occupy the same character width between pipes.
+This keeps the report scannable in the monospace TUI.
+
+The metadata block is a 2-column GFM table with explicit `Field` / `Value`
+headers. Severity glyphs (🔴 🟠 🟡) keep the Findings row scannable without
+custom styling.
+
+Metadata-row formatting rules:
+
+- **Branch:** link both branches to their GitHub tree URLs:
+  `https://github.com/<owner>/<repo>/tree/<branch-name>`. Multi-segment branch
+  names (e.g. `feature/foo`) work without encoding because the `tree/` path
+  accepts literal slashes; percent-encode any branch name that contains spaces
+  or other reserved characters.
+- **HEAD:** use the 7-char short SHA in both the link label and the URL
+  (`/commit/<head7>`). The short SHA keeps the row narrow enough that the
+  OpenCode TUI does not wrap the Field column. GitHub redirects
+  `/commit/<short>` to the full commit, so the link resolves identically.
+- **PR:** the PR number linked to its GitHub URL when one exists
+  (`[#42](https://github.com/<owner>/<repo>/pull/42)`), `none` otherwise.
+- **Diff:** plain text, no colour, no emoji. Format:
+  `<files> files · +<additions> · −<deletions>`, with middle dots (` · `,
+  U+00B7) as separators. Use the Unicode minus sign (U+2212, `−`) for the
+  deletions count, not the ASCII hyphen-minus, for typographic correctness.
+
+When the severity-filtered set is empty, print `No Critical/High/Medium
+findings.` in place of the severity tables; the metadata table and Design
+section still print.
+
+**Full report template:**
 
 ```markdown
 # PR Review
@@ -536,9 +338,8 @@ from the repository root with a leading `/`.
 - Do NOT modify source code.
 - Do NOT post comments, reviews, or any data to GitHub. This skill is
   advisory with respect to GitHub; it never writes there.
-- Local-disk writes are permitted only under `.tmp/sessions/<session-id>/`
-  and only for the Markdown and HTML report files described in
-  *Output Files*. Do not touch `.claude/`, the repo root, or `vendor/`.
+- This skill is read-only: do NOT write any files. The report is printed in
+  the terminal only. Do not touch `.claude/`, the repo root, or `vendor/`.
 - Do NOT report pure style or formatting preferences.
 - Do NOT report issues in generated files, lock files, or changelog entries.
 - Do NOT report findings inside `vendor/`.
