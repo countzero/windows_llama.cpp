@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - [Documentation] Move repo guidance to AGENTS.md with a CLAUDE.md import shim
 - [Presets] Pin gemma-4 entries to the llama.cpp-bundled google-gemma-4-31B-it chat template
+- [Vendor] Bump llama.cpp submodule to e36a602
 
 
 ## [1.36.0] - 2026-06-08
