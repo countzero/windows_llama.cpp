@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [Examples] Add speed-bench wrapper for SPEED-Bench server benchmarking
+
 ### Changed
 - [Presets] Pin gemma-4 entries to the llama.cpp-bundled google-gemma-4-31B-it chat template
 
