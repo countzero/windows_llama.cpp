@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [Examples] Add speed-bench wrapper for SPEED-Bench server benchmarking
+- [Presets] Add gemma-4-31B EAGLE3 speculative-decoding variant to 24 GB tier
 
 ### Changed
 - [Documentation] Move repo guidance to AGENTS.md with a CLAUDE.md import shim
