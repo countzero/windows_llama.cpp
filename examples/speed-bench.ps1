@@ -170,7 +170,7 @@ if ($help) {
 $speedBenchDirectory = "${PSScriptRoot}\..\vendor\llama.cpp\tools\server\bench\speed-bench"
 
 if (-not (Test-Path -Path "${speedBenchDirectory}\speed_bench.py")) {
-    throw "Could not find speed_bench.py under ${speedBenchDirectory}. Upstream may have moved tools/server/bench/speed-bench/ (see CLAUDE.md)."
+    throw "Could not find speed_bench.py under ${speedBenchDirectory}. Upstream may have moved tools/server/bench/speed-bench/ (see AGENTS.md)."
 }
 
 $speedBenchPath = Resolve-Path -Path $speedBenchDirectory
@@ -268,7 +268,7 @@ if (-not (Test-Path -Path $outputDirectory)) {
 
 # We are building the shared additional-argument tokens once. This mirrors the
 # server.ps1 parser: it splits on whitespace and re-pairs key/value flags, so
-# values that contain spaces will not survive (see CLAUDE.md).
+# values that contain spaces will not survive (see AGENTS.md).
 $extraArguments = @()
 if ($additionalArguments) {
     $additionalArgumentParts = $additionalArguments -split '\s+'
