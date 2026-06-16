@@ -4,3 +4,7 @@
 
 *.sublime-workspace
 *.log
+
+# Local scratch directory for all agent-generated artifacts (screenshots,
+# diffs, trace outputs, experimental scripts). See AGENTS.md "Scratch Files".
+.tmp/

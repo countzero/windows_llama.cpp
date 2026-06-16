@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.37.0] - 2026-06-15
+
+### Added
+- [Examples] Add speed-bench wrapper for SPEED-Bench server benchmarking
+- [Presets] Add dual-GPU models_16GB_8GB_VRAM.ini preset (16 GB + 8 GB VRAM)
+- [Presets] Add gemma-4-31B EAGLE3 speculative-decoding variant to 24 GB tier
+- [Tooling] Add pr-code-review and plan-review agent skills
+
 ### Changed
+- [Documentation] Move repo guidance to AGENTS.md with a CLAUDE.md import shim
+- [Presets] Hoist shared threads/models-max into a [*] global section on the 24 GB tier
+- [Presets] Switch gemma-4-31B-it 24 GB draft model and draft KV cache to q4_0
+- [Presets] Lower gemma-4 24 GB ctx sizes (31B-it 131072, EAGLE3 81920)
 - [Presets] Pin gemma-4 entries to the llama.cpp-bundled google-gemma-4-31B-it chat template
+- [Vendor] Bump llama.cpp submodule to e36a602
+
+### Removed
+- [Presets] Drop gemma-4-26B-A4B from 24 GB tier
 
 
 ## [1.36.0] - 2026-06-08
