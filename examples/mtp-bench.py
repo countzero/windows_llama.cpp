@@ -2,7 +2,8 @@
 
 # Source: https://gist.github.com/am17an/228edfb84ed082aa88e3865d6fa27090
 
-import argparse, json, sys, time
+import argparse, json, statistics, sys, time
+from concurrent.futures import ThreadPoolExecutor
 from urllib import request
 
 PROMPTS = [
@@ -56,36 +57,92 @@ def post(url, payload):
     with request.urlopen(req, timeout=300) as r:
         return json.loads(r.read())
 
-def run(args):
-    out = {"results": []}
-    for p in PROMPTS:
-        t0 = time.time()
+def one_request(args, p):
+    # Run a single prompt. Errors are captured (not raised) so one failed request
+    # does not abort the whole concurrent batch.
+    t0 = time.time()
+    try:
         r = post(f"{args.url}/v1/chat/completions", {
             "model": args.model,
             "messages": [{"role": "user", "content": p["prompt"]}],
             "max_tokens": 192,
             "seed": 42,
         })
-        wall = time.time() - t0
-        # OpenAI-compatible endpoint: timings are in usage or top-level
-        usage = r.get("usage", {}) or {}
-        t = r.get("timings", {}) or {}
-        predicted_n = usage.get("completion_tokens") or t.get("predicted_n")
-        predicted_per_second = t.get("predicted_per_second") or (predicted_n / wall if wall > 0 else 0)
-        rec = {"name": p["name"], "wall_s": round(wall,3),
-               "predicted_n": predicted_n, "predicted_per_second": round(predicted_per_second, 2),
-               "draft_n": t.get("draft_n",0), "draft_n_accepted": t.get("draft_n_accepted",0)}
-        rec["accept_rate"] = round(rec["draft_n_accepted"]/rec["draft_n"],4) if rec["draft_n"] else None
-        out["results"].append(rec)
-        ar = f"{rec['accept_rate']:.3f}" if rec["accept_rate"] is not None else "n/a"
-        print(f"  {rec['name']:<18} pred={rec['predicted_n']:>4} draft={rec['draft_n']:>4} acc={rec['draft_n_accepted']:>4} rate={ar} tok/s={rec['predicted_per_second']:.1f}")
-    td  = sum(x["draft_n"] or 0 for x in out["results"])
-    ta  = sum(x["draft_n_accepted"] or 0 for x in out["results"])
-    tp  = sum(x["predicted_n"] or 0 for x in out["results"])
-    tw  = sum(x["wall_s"] for x in out["results"])
-    out["aggregate"] = {"n_requests": len(out["results"]), "total_predicted": tp, "total_draft": td, "total_draft_accepted": ta,
-                        "aggregate_accept_rate": round(ta/td,4) if td else None, "wall_s_total": round(tw,2)}
-    print("\nAggregate:", json.dumps(out["aggregate"], indent=2))
+    except Exception as e:
+        return {"name": p["name"], "wall_s": round(time.time()-t0,3), "predicted_n": 0,
+                "predicted_per_second": 0.0, "draft_n": 0, "draft_n_accepted": 0,
+                "accept_rate": None, "error": str(e)}
+    wall = time.time() - t0
+    # OpenAI-compatible endpoint: timings are in usage or top-level
+    usage = r.get("usage", {}) or {}
+    t = r.get("timings", {}) or {}
+    predicted_n = usage.get("completion_tokens") or t.get("predicted_n") or 0
+    # Prefer the server-measured rate; the wall fallback is contaminated by queue wait under concurrency.
+    predicted_per_second = t.get("predicted_per_second") or (predicted_n / wall if wall > 0 else 0)
+    rec = {"name": p["name"], "wall_s": round(wall,3),
+           "predicted_n": predicted_n, "predicted_per_second": round(predicted_per_second, 2),
+           "draft_n": t.get("draft_n",0), "draft_n_accepted": t.get("draft_n_accepted",0)}
+    rec["accept_rate"] = round(rec["draft_n_accepted"]/rec["draft_n"],4) if rec["draft_n"] else None
+    return rec
+
+def fmt_row(name, predicted_n, draft_n, draft_acc, accept_rate, tok_s, err=None):
+    if err:
+        return f"  {name:<18} ERROR: {err}"
+    ar = f"{accept_rate:.3f}" if accept_rate is not None else "n/a"
+    return f"  {name:<18} pred={predicted_n:>4} draft={draft_n:>4} acc={draft_acc:>4} rate={ar} tok/s={tok_s:.1f}"
+
+def run(args):
+    tasks = [p for _ in range(args.repeat) for p in PROMPTS]
+    t0 = time.time()
+    if args.concurrency <= 1:
+        results = [one_request(args, p) for p in tasks]
+    else:
+        # max_workers caps the in-flight count; remaining tasks queue. ex.map preserves
+        # submission order, so output is deterministic regardless of completion order.
+        with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+            results = list(ex.map(lambda p: one_request(args, p), tasks))
+    batch_wall = time.time() - t0
+    out = {"results": results}
+
+    ok = [x for x in results if not x.get("error")]
+    if args.repeat > 1:
+        # Collapse the repeated runs of each prompt into a single row.
+        for name in dict.fromkeys(p["name"] for p in PROMPTS):
+            grp  = [x for x in ok if x["name"] == name]
+            errs = [x for x in results if x["name"] == name and x.get("error")]
+            if not grp:
+                print(fmt_row(name, 0, 0, 0, None, 0.0, err=f"all {len(errs)} runs failed"))
+                continue
+            d   = sum(x["draft_n"] or 0 for x in grp)
+            a   = sum(x["draft_n_accepted"] or 0 for x in grp)
+            tp_ = sum(x["predicted_n"] or 0 for x in grp)
+            tok = statistics.mean(x["predicted_per_second"] for x in grp)
+            extra = f"  ({len(errs)} failed)" if errs else ""
+            print(fmt_row(f"{name} x{len(grp)}", tp_, d, a, (a/d if d else None), tok) + extra)
+    else:
+        for rec in results:
+            print(fmt_row(rec["name"], rec["predicted_n"], rec["draft_n"], rec["draft_n_accepted"],
+                          rec["accept_rate"], rec["predicted_per_second"], err=rec.get("error")))
+
+    td = sum(x["draft_n"] or 0 for x in ok)
+    ta = sum(x["draft_n_accepted"] or 0 for x in ok)
+    tp = sum(x["predicted_n"] or 0 for x in ok)
+    tw = sum(x["wall_s"] for x in results)
+    mean_rate = statistics.mean(x["predicted_per_second"] for x in ok) if ok else 0.0
+    out["aggregate"] = {
+        "n_requests": len(results), "n_failed": len(results) - len(ok),
+        "concurrency": args.concurrency, "repeat": args.repeat,
+        "total_predicted": tp, "total_draft": td, "total_draft_accepted": ta,
+        "aggregate_accept_rate": round(ta/td,4) if td else None,
+        "wall_s_total": round(tw,2),                       # sum of per-request walls (retained for diff back-compat)
+        "batch_wall_s": round(batch_wall,2),               # real wall clock of the concurrent run
+        "aggregate_throughput_tok_s": round(tp/batch_wall,2) if batch_wall > 0 else 0.0,
+        "mean_request_tok_s": round(mean_rate,2),
+    }
+    print(f"\nConcurrency={args.concurrency} repeat={args.repeat}  "
+          f"aggregate={out['aggregate']['aggregate_throughput_tok_s']} tok/s  "
+          f"mean per-stream={out['aggregate']['mean_request_tok_s']} tok/s")
+    print("Aggregate:", json.dumps(out["aggregate"], indent=2))
     if args.out:
         json.dump(out, open(args.out,"w"), indent=2); print("Wrote", args.out)
 
@@ -108,6 +165,8 @@ def diff(a, b):
 ap = argparse.ArgumentParser()
 ap.add_argument("--url", default="http://127.0.0.1:8080")
 ap.add_argument("--model", default="llama")
+ap.add_argument("-c", "--concurrency", type=int, default=1, help="number of requests in flight simultaneously (server must run with parallel >= this, or requests queue)")
+ap.add_argument("-r", "--repeat", type=int, default=1, help="replicate the prompt workload N times to sustain saturation under concurrency")
 ap.add_argument("--out")
 ap.add_argument("--diff", nargs=2)
 a = ap.parse_args()
