@@ -304,9 +304,14 @@ switch ($blasAccelerator) {
     }
 
     "CUDA" {
+        # Pin pipeline-parallel staging to a single copy (ggml default is 4).
+        # On multi-GPU layer-split, ggml pre-allocates GGML_SCHED_MAX_COPIES
+        # copies of the compute buffer per device. Single-stream decode gains
+        # nothing from the extra copies.
         cmake `
             -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_CUDA=ON `
+            -DGGML_SCHED_MAX_COPIES=1 `
             -DLLAMA_CURL=OFF `
             ..
     }
