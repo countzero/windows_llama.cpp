@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [Build] Enable GGML_CUDA_FA_ALL_QUANTS on CUDA builds for all KV cache quant combinations
+- [Presets] Switch dual-GPU 16GB+8GB KV cache to q5_0 K / q4_1 V
+
 
 ## [1.37.0] - 2026-06-15
 

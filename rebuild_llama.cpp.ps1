@@ -308,10 +308,16 @@ switch ($blasAccelerator) {
         # On multi-GPU layer-split, ggml pre-allocates GGML_SCHED_MAX_COPIES
         # copies of the compute buffer per device. Single-stream decode gains
         # nothing from the extra copies.
+        #
+        # GGML_CUDA_FA_ALL_QUANTS compiles the full set of flash-attention
+        # K/V quant kernels. Without it only f16/f16, q4_0/q4_0, q8_0/q8_0,
+        # bf16/bf16 are built; any mixed or q5/q4_1 KV cache aborts at runtime.
+        # Unlocks q5_0/q4_1 at the cost of extra nvcc compile time.
         cmake `
             -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_CUDA=ON `
             -DGGML_SCHED_MAX_COPIES=1 `
+            -DGGML_CUDA_FA_ALL_QUANTS=ON `
             -DLLAMA_CURL=OFF `
             ..
     }
