@@ -1,5 +1,12 @@
 # Windows llama.cpp
 
+[![Latest release](https://img.shields.io/github/v/release/countzero/windows_llama.cpp)](https://github.com/countzero/windows_llama.cpp/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/countzero/windows_llama.cpp)](https://github.com/countzero/windows_llama.cpp/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE.md)
+[![PowerShell 5.0+](https://img.shields.io/badge/PowerShell-5.0%2B-5391FE)](https://github.com/PowerShell/PowerShell)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/countzero?label=Sponsor&logo=GitHub)](https://github.com/sponsors/countzero)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Tip-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/finnkumkar)
+
 A PowerShell automation to rebuild [llama.cpp](https://github.com/ggerganov/llama.cpp) for a Windows environment. It automates the following steps:
 
 1. Fetching and extracting a specific release of [OpenBLAS](https://github.com/xianyi/OpenBLAS/releases)
@@ -269,3 +276,12 @@ You can build a specific version of llama.cpp by specifying a git tag, commit or
 | `./rebuild_llama.cpp.ps1 -version "b1138"`     | The tag `b1138`          |
 | `./rebuild_llama.cpp.ps1 -version "1d16309"`   | The commit `1d16309`     |
 | `./rebuild_llama.cpp.ps1 -pullRequest "18675"` | The pull request `18675` |
+
+## Support
+
+If this project saves you time, consider supporting future work:
+
+- [GitHub Sponsors](https://github.com/sponsors/countzero): recurring or one-time.
+- [Ko-fi](https://ko-fi.com/finnkumkar): one-time tip, no signup required.
+
+[![Support on Ko-fi](https://storage.ko-fi.com/cdn/kofi2.png?v=6)](https://ko-fi.com/finnkumkar)
