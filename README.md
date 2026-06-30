@@ -284,4 +284,4 @@ If this project saves you time, consider supporting future work:
 - [GitHub Sponsors](https://github.com/sponsors/countzero): recurring or one-time.
 - [Ko-fi](https://ko-fi.com/finnkumkar): one-time tip, no signup required.
 
-[![Support on Ko-fi](https://storage.ko-fi.com/cdn/kofi2.png?v=6)](https://ko-fi.com/finnkumkar)
+<a href="https://ko-fi.com/finnkumkar"><img src="https://storage.ko-fi.com/cdn/kofi2.png?v=6" alt="Support on Ko-fi" width="180"></a>
