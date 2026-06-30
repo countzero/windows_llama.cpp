@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.38.1] - 2026-06-30
+
+### Fixed
+- [Build] Select the newest Visual Studio instance with the C++ x64 toolset when locating ml64.exe (#3)
+
+
 ## [1.38.0] - 2026-06-30
 
 ### Added
