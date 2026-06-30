@@ -287,8 +287,16 @@ Write-Host "[CMake] Configuring and generating project..." -ForegroundColor "Yel
 # an assembler for the generic ASM language, and the Visual Studio generator
 # has no integration between generic ASM and MASM. Point CMake at MASM
 # (ml64.exe) explicitly; it ships with MSVC but is not normally on PATH.
+#
+# -requires restricts -latest to instances that actually carry the MSVC x64
+# toolset (the component that ships ml64.exe). Without it, -latest blindly
+# returns the newest-installed instance by timestamp, which may be a
+# Build Tools install lacking the C++ workload; -find then comes back empty
+# even though another instance (e.g. Community) has ml64.exe. Mirrors the
+# pattern upstream uses in .github/workflows/build-cpu.yml.
 $ml64 = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -products * -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\ml64.exe' |
+    -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+    -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\ml64.exe' |
     Select-Object -First 1
 if (-not $ml64) { throw "ml64.exe not found. Install the VS C++ workload." }
 
