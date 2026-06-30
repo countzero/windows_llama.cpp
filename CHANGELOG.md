@@ -7,9 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.38.0] - 2026-06-30
+
+### Added
+- [Documentation] Add MIT license
+- [Documentation] Add status badges and Support section to the README
+- [Documentation] Add GitHub Sponsors and Ko-fi funding configuration
+
 ### Changed
 - [Build] Enable GGML_CUDA_FA_ALL_QUANTS on CUDA builds for all KV cache quant combinations
+- [Build] Pin GGML_SCHED_MAX_COPIES=1 on CUDA builds
 - [Presets] Switch dual-GPU 16GB+8GB KV cache to q5_0 K / q4_1 V
+- [Presets] Add tensor-split 1,2 to all dual-GPU 16GB+8GB entries
+- [Presets] Switch dual-GPU 16GB+8GB gemma-4-31B draft model to q4_0
+- [Presets] Retune dual-GPU 16GB+8GB ctx sizes (gemma-4-31B 102400, Qwen3.6-27B 200000)
+- [Presets] Lower gemma-4-31B 24GB ctx-size to 100000
+- [Presets] Lower Qwen3.6-27B IQ3_XXS 16GB ctx-size to 100000
+- [Presets] Switch 16GB tier from fit-target to fit=off
+- [Vendor] Bump llama.cpp submodule to b3fed31
+
+### Removed
+- [Presets] Drop gemma-4-26B-A4B from dual-GPU 16GB+8GB tier
 
 
 ## [1.37.0] - 2026-06-15
