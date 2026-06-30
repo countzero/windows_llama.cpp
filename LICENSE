@@ -1,4 +1,4 @@
-# MIT License
+MIT License
 
 Copyright (c) 2023-2026 Finn Kumkar
 
@@ -19,14 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-## Third-party components
-
-This repository is a wrapper around third-party software that is licensed
-separately under its own terms:
-
-- `vendor/llama.cpp` (git submodule) - MIT License, Copyright (c) 2023-2026 The ggml authors
-- `vendor/Qwen-Fixed-Chat-Templates` (git submodule) - Apache License 2.0, froggeric
-- OpenBLAS (downloaded during build, not distributed in this repository) - BSD 3-Clause License
-
-Each component's full license text is provided within its respective source tree.
