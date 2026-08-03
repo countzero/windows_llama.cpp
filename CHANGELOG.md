@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [Presets] Add Ternary-Bonsai-27B Q2_0 ternary entry to 16 GB tier
+
+### Changed
+- [Documentation] Note that unpinned VRAM-tier presets span all visible CUDA devices
+
 
 ## [1.38.1] - 2026-06-30
 
