@@ -116,13 +116,16 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   reading the template after a rebuild, check whether upstream moved
   `models/templates/` (same failure mode as the `gguf_dump.py` note above).
 
-- **`Ternary-Bonsai-27B` uses the same `chat-template-file` pin as the Qwen 3.6 entries.** It is a
-  Qwen3.6-27B derivative: arch `qwen35`, and its tokenizer is byte-identical to stock Qwen3.6-27B
+- **Both Bonsai entries use the same `chat-template-file` pin as the Qwen 3.6 entries.**
+  `Ternary-Bonsai-27B` and `Bonsai-27B` ship from separate HF repos but are both Qwen3.6-27B
+  derivatives: arch `qwen35`, and their tokenizers are byte-identical to stock Qwen3.6-27B
   (248320 tokens, same merges, `eos = 248046`) right down to the same 7764-byte embedded template —
   which is exactly the upstream template the pin exists to replace. `general.sampling.temp = 1.0` is
-  embedded in the GGUF and applied at `common/common.cpp:1194`, so `temp` has to be pinned in the
-  preset or generation runs at 1.0. The preset uses `0.6` to match the sibling Qwen 3.6 entries;
-  Prism's own card benchmarks at `0.7`.
+  embedded in both GGUFs and applied at `common/common.cpp:1194`, so `temp` has to be pinned in the
+  preset or generation runs at 1.0. The presets use `0.6` to match the sibling Qwen 3.6 entries;
+  Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar below, both weight files are
+  mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a tensor-offset
+  mismatch.
 
 - **The DSpark drafter shipped beside Ternary Bonsai 27B cannot be enabled on mainline.**
   `Ternary-Bonsai-27B-dspark-Q4_1.gguf` has its `token_embd.weight` in `Q2_0` at Prism's
