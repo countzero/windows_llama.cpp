@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - [Documentation] Note that unpinned VRAM-tier presets span all visible CUDA devices
 - [Presets] Replace deprecated direct-io/no-mmap with load-mode = dio in all VRAM tiers
-- [Presets] Set image-min-tokens = 1024 on the 16 GB Qwen-VL entries
+- [Presets] Set image-min-tokens = 1024 on all Qwen-VL entries
 
 
 ## [1.38.1] - 2026-06-30
