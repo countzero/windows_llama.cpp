@@ -31,7 +31,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 > — they are parent-server settings that the server manages internally and cannot be set via preset.
 
 > [!NOTE]
-The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware.
+The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice.
 
 > [!IMPORTANT]
 > **`models_16GB_8GB_VRAM.ini` (dual-GPU: one GPU with 16 GB VRAM + one with 8 GB VRAM).**
@@ -69,10 +69,11 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.6-*` entries set `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
+> All `Qwen3.6-*` and `Ternary-Bonsai-27B` entries set `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
 > overriding the buggy template embedded in the GGUF. The vendored template is a
-> single unified file that handles both Qwen 3.5 and 3.6 variants. The path is repo-relative,
-> so launch `llama-server` from the repository root (as the examples above do).
+> single unified file that handles both Qwen 3.5 and 3.6 variants; Ternary Bonsai 27B is a
+> Qwen3.6-27B derivative with a byte-identical tokenizer and embedded template. The path is
+> repo-relative, so launch `llama-server` from the repository root (as the examples above do).
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
 > first — otherwise startup fails with a missing-file error.
 >

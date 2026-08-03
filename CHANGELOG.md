@@ -5,7 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [1.39.0] - 2026-08-03
+
+### Added
+- [Presets] Add Bonsai-27B Q1_0 entry to 16 GB tier
+- [Presets] Add Qwen3.6-27B-uncensored-heretic-v2 entry to dual-GPU 16GB+8GB tier
+- [Presets] Add Ternary-Bonsai-27B Q2_0 ternary entry to 16 GB tier
+
+### Changed
+- [Documentation] Note that unpinned VRAM-tier presets span all visible CUDA devices
+- [Presets] Replace deprecated direct-io/no-mmap with load-mode = dio in all VRAM tiers
+- [Presets] Set image-min-tokens = 1024 on all Qwen-VL entries
+
+### Removed
+- [Presets] Drop dead gemma-4-31B-it entries from the 16 GB and 24 GB tiers
 
 
 ## [1.38.1] - 2026-06-30
@@ -30,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Retune dual-GPU 16GB+8GB ctx sizes (gemma-4-31B 102400, Qwen3.6-27B 200000)
 - [Presets] Lower gemma-4-31B 24GB ctx-size to 100000
 - [Presets] Lower Qwen3.6-27B IQ3_XXS 16GB ctx-size to 100000
-- [Presets] Switch 16GB tier from fit-target to fit=off
+- [Presets] Switch Qwen3.6-27B IQ3_XXS 16GB entry from fit-target to fit=off
 - [Vendor] Bump llama.cpp submodule to b3fed31
 
 ### Removed
