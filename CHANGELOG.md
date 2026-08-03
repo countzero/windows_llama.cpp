@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [Documentation] Note that unpinned VRAM-tier presets span all visible CUDA devices
+- [Presets] Replace deprecated direct-io/no-mmap with load-mode = dio in all VRAM tiers
+- [Presets] Set image-min-tokens = 1024 on the 16 GB Qwen-VL entries
 
 
 ## [1.38.1] - 2026-06-30
@@ -37,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Retune dual-GPU 16GB+8GB ctx sizes (gemma-4-31B 102400, Qwen3.6-27B 200000)
 - [Presets] Lower gemma-4-31B 24GB ctx-size to 100000
 - [Presets] Lower Qwen3.6-27B IQ3_XXS 16GB ctx-size to 100000
-- [Presets] Switch 16GB tier from fit-target to fit=off
+- [Presets] Switch Qwen3.6-27B IQ3_XXS 16GB entry from fit-target to fit=off
 - [Vendor] Bump llama.cpp submodule to b3fed31
 
 ### Removed

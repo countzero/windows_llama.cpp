@@ -55,6 +55,25 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   `CUDA_VISIBLE_DEVICES` indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and
   therefore does *not* match `nvidia-smi` ordering; pass a GPU UUID to be unambiguous.
 
+- **All entries use `load-mode = dio`; never pair `direct-io` with `no-mmap` again.** Both spellings
+  are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
+  `LLAMA_LOAD_MODE_NONE` (`common/arg.cpp:2594`) while `--direct-io` sets
+  `LLAMA_LOAD_MODE_DIRECT_IO` (`:2603`) — so setting both means only whichever is parsed last wins.
+  Which one that is is *not* the INI order: `common/preset.cpp` emits `opt.args.back()` while
+  iterating an unordered map. It happened to resolve to DirectIO, but a container-order change would
+  silently downgrade to `NONE`, dropping DirectIO *and* mmap for plain buffered reads. `dio` is the
+  single equivalent of the old pair and also removes two deprecation warnings per launch. Valid
+  values are `none`, `mmap`, `mlock`, `mmap+mlock`, `dio` (`arg.cpp:2615-2619`) — anything else
+  throws at startup.
+
+- **Qwen-VL entries pin `image-min-tokens = 1024`.** `clip.cpp:1500` sets the per-image token limits
+  to `(8, 4096)`, so the default *minimum* is 8 tokens — 8192 px at `merge = 2` / `patch = 16` — and
+  `clip.cpp:1502-1506` warns on every load because upstream needs >= 1024 tokens (1024x1024 px) for
+  grounding (#16842). The key raises a floor only: images already above 1024 tokens are unchanged,
+  smaller ones get upscaled, which costs context and CLIP time on the CPU because the 16 GB tier
+  sets `no-mmproj-offload = true`. Applies to the `qwen3vl_merger` entries (Qwen3.6 and
+  Ternary-Bonsai); gemma-4 uses a different projector and must not get this key.
+
 - **`mmproj-offload = true` fails silently at startup on a saturated GPU.** CLIP's warmup
   compute buffer OOMs but the server keeps running — only image requests error at generation
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
