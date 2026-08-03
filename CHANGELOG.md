@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [Presets] Add Qwen3.6-27B-uncensored-heretic-v2 entry to dual-GPU 16GB+8GB tier
 - [Presets] Add Ternary-Bonsai-27B Q2_0 ternary entry to 16 GB tier
 
 ### Changed
