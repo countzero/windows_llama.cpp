@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Replace deprecated direct-io/no-mmap with load-mode = dio in all VRAM tiers
 - [Presets] Set image-min-tokens = 1024 on all Qwen-VL entries
 
+### Removed
+- [Presets] Drop dead gemma-4-31B-it entries from the 16 GB and 24 GB tiers
+
 
 ## [1.38.1] - 2026-06-30
 
