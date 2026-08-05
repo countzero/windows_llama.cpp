@@ -39,8 +39,40 @@ Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` 
 
 ## Presets
 
-VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`.
+VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`,
+`presets/models_16GB_8GB_VRAM.ini` (dual-GPU).
 See `presets/README.md` for the user-facing quick-start; notes below are for editing.
+
+- **Only `models_16GB_8GB_VRAM.ini` pins devices.** It sets `split-mode`, `main-gpu`, and
+  `tensor-split` in its `[*]` section; the other two tiers set none of the three, so on a host with
+  more than one CUDA device llama.cpp's default `split-mode = layer` spreads every entry across
+  *all* visible GPUs — the tier name is then a floor, not a cap. Pin with `CUDA_VISIBLE_DEVICES`
+  before launch, not `--device`: in router mode each child's argv is rebuilt from the preset
+  (`inst.meta.update_args`), so a parent `--device` never reaches the child, while the environment
+  is copied into every child (`tools/server/server-models.cpp:802`). Pinning is a throughput
+  decision, not only a memory one — `Ternary-Bonsai-27B-Q2_g64.gguf` measured 56.5 t/s tg and
+  1418 t/s pp on one 16 GB card versus 36.5 t/s and 998 t/s spread over a 16 GB plus an 8 GB card.
+  `CUDA_VISIBLE_DEVICES` indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and
+  therefore does *not* match `nvidia-smi` ordering; pass a GPU UUID to be unambiguous.
+
+- **All entries use `load-mode = dio`; never pair `direct-io` with `no-mmap` again.** Both spellings
+  are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
+  `LLAMA_LOAD_MODE_NONE` (`common/arg.cpp:2594`) while `--direct-io` sets
+  `LLAMA_LOAD_MODE_DIRECT_IO` (`:2603`) — so setting both means only whichever is parsed last wins.
+  Which one that is is *not* the INI order: `common/preset.cpp` emits `opt.args.back()` while
+  iterating an unordered map. It happened to resolve to DirectIO, but a container-order change would
+  silently downgrade to `NONE`, dropping DirectIO *and* mmap for plain buffered reads. `dio` is the
+  single equivalent of the old pair and also removes two deprecation warnings per launch. Valid
+  values are `none`, `mmap`, `mlock`, `mmap+mlock`, `dio` (`arg.cpp:2615-2619`) — anything else
+  throws at startup.
+
+- **Qwen-VL entries pin `image-min-tokens = 1024`.** `clip.cpp:1500` sets the per-image token limits
+  to `(8, 4096)`, so the default *minimum* is 8 tokens — 8192 px at `merge = 2` / `patch = 16` — and
+  `clip.cpp:1502-1506` warns on every load because upstream needs >= 1024 tokens (1024x1024 px) for
+  grounding (#16842). The key raises a floor only: images already above 1024 tokens are unchanged,
+  smaller ones get upscaled, which costs context and CLIP time on the CPU because the 16 GB tier
+  sets `no-mmproj-offload = true`. Applies to the `qwen3vl_merger` entries (Qwen3.6 and
+  Ternary-Bonsai); gemma-4 uses a different projector and must not get this key.
 
 - **`mmproj-offload = true` fails silently at startup on a saturated GPU.** CLIP's warmup
   compute buffer OOMs but the server keeps running — only image requests error at generation
@@ -83,6 +115,30 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   (`ctx-checkpoints` mitigates); do not add a preserve-thinking hack. If startup fails
   reading the template after a rebuild, check whether upstream moved
   `models/templates/` (same failure mode as the `gguf_dump.py` note above).
+
+- **Both Bonsai entries use the same `chat-template-file` pin as the Qwen 3.6 entries.**
+  `Ternary-Bonsai-27B` and `Bonsai-27B` ship from separate HF repos but are both Qwen3.6-27B
+  derivatives: arch `qwen35`, and their tokenizers are byte-identical to stock Qwen3.6-27B
+  (248320 tokens, same merges, `eos = 248046`) right down to the same 7764-byte embedded template —
+  which is exactly the upstream template the pin exists to replace. `general.sampling.temp = 1.0` is
+  embedded in both GGUFs and applied at `common/common.cpp:1194`, so `temp` has to be pinned in the
+  preset or generation runs at 1.0. The presets use `0.6` to match the sibling Qwen 3.6 entries;
+  Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar below, both weight files are
+  mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a tensor-offset
+  mismatch.
+
+- **The DSpark drafter shipped beside Ternary Bonsai 27B cannot be enabled on mainline.**
+  `Ternary-Bonsai-27B-dspark-Q4_1.gguf` has its `token_embd.weight` in `Q2_0` at Prism's
+  group-128 packing while mainline is group-64 (`QK2_0 64`, `ggml/src/ggml-common.h`), so
+  `gguf_init_from_reader` rejects the file on a tensor-offset mismatch before any architecture
+  dispatch. Repacking would not help: `general.architecture = 'dspark'` is unregistered
+  (`src/llama-arch.cpp:136` has only `dflash`), and mainline's DSpark is DeepSeek-V4
+  DFlash + Markov (`src/models/dflash.cpp`, tensors `markov_w1`/`markov_w2`/`conf_proj`,
+  requiring MLA and sqrtsoftplus MoE scoring), not Prism's 6-layer Qwen3.6-shaped drafter
+  (`dspark.fc`, `dspark.log_snr_fc*`, `dspark.markov_head_*`). Upstream confirmed on #25707
+  that it stays fork-only. The GGUF carries no MTP tensors either, so `draft-mtp` is out and
+  the entry uses `ngram-mod`. Only the group-64 pack is mainline-loadable — `Q2_0.gguf` and
+  `PQ2_0.gguf` in the same HF repo are group-128 fork packs.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`
