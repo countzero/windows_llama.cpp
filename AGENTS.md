@@ -175,23 +175,39 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   which is why the entry keeps `-1` explicitly. Note `--cpu-moe`'s pattern matches only
   `_exps`/`_chexps`, so shared experts would stay on GPU either way.
 
-- **`fit-target = 3072` is required on the DeepSeek entry; the 1024 MiB default OOMs.** `fit`
-  measures rather than guesses — it performs a `no_alloc` model load plus a real graph
-  reservation (`fit.cpp:56-75`), so its KV figure is byte-exact (942 MiB at 262144/`q8_0`) and
-  its compute figure is a genuine `ggml_gallocr` measurement. What it cannot see is the CUDA VMM
-  scratch pool (32 GiB of VA reserved, physical pages committed on demand,
-  `ggml/src/ggml-cuda/ggml-cuda.cu:536-656`), the lazy cuBLAS workspace, and CUDA graph
-  instances; none are reported to `memory_breakdown()`. It also takes a single `cudaMemGetInfo`
-  snapshot at t=0 (`fit.cpp:194`) and carries no WDDM or framebuffer allowance anywhere. At the
-  default margin fit kept blk.0 and blk.1 routed experts on the GPU (6.375 GiB — every one of the
-  43 layers carries 3.188 GiB of routed experts, there are no dense layers) and left only 1368 of
-  23139 usable MiB, which the untracked consumers exceeded. Because the CUDA buffer type declares
-  no `max_size` (`ggml-cuda.cu:928`, `ggml/src/ggml-alloc.c:1186`) the whole ~19 GiB weight set is
-  one single `cudaMalloc` that WDDM commits lazily, so the failure surfaces later as an OOM inside
-  `cudaEventSynchronize` at `src/llama-model-loader.cpp:1591` rather than at the allocation
-  itself. `3072` leaves 3497 MiB and costs one extra expert layer on CPU (~2.3% more expert
-  traffic). Do not raise it to 6144: that collapses `-ngl` to 38 and starts stranding whole
-  layers. `--fit-target` writes only `params.fit_params_target` and never `mparams`, so unlike
+- **`no-host = true` is mandatory on the DeepSeek entry, and this is the trap that actually stops
+  it loading.** Unless `no_host` is set, `make_cpu_buft_list()` prepends
+  `ggml_backend_dev_host_buffer_type()` to the CPU buffer list, so *every* CPU-resident tensor is
+  allocated in a `CUDA_Host` (page-locked) buffer (`src/llama-model.cpp:896-917`, wired from
+  `params.no_host` at `common/common.cpp:1611` and `include/llama.h:338`). For this model the
+  loader then reports one `CUDA_Host model buffer size = 137046.96 MiB` — a 133.8 GiB
+  `cudaMallocHost` on a 192 GB box. The reservation *succeeds*, so `ggml_cuda_host_malloc`'s
+  clean-failure fallback to an ordinary CPU buffer never fires; the failure happens later while
+  the pages are committed during the read and surfaces as `CUDA error: out of memory` inside
+  `cudaEventSynchronize` at `src/llama-model-loader.cpp:1591`. That makes a host-memory problem
+  look like a VRAM problem — raising `fit-target` does not help it, and neither does changing
+  `load-mode`. With `no-host = true` the same config loads in ~144 s at 18650 MiB VRAM and
+  ~124 GiB of ordinary host RAM. `GGML_CUDA_NO_PINNED=1` is the env-var equivalent. This applies
+  to any entry that pushes tens of GiB of experts to CPU, not only DeepSeek. The GPU upload
+  staging buffers are unaffected — the loader asks for those buffer types directly
+  (`src/llama-model-loader.cpp:1467`) rather than through `cpu_buft_list` — but expert weights
+  that `op-offload` ships to the GPU for large-batch matmuls now come from pageable memory, which
+  may cost some prompt-processing throughput. There is no way to keep that and still load.
+
+- **`fit-target = 3072` on the DeepSeek entry is a WDDM safety margin, not the fix for the load
+  failure** (that is `no-host` above). `fit` measures rather than guesses — it performs a
+  `no_alloc` model load plus a real graph reservation (`fit.cpp:56-75`), so its KV figure is
+  byte-exact (942 MiB at 262144/`q8_0`) and its compute figure is a genuine `ggml_gallocr`
+  measurement. What it cannot see is the CUDA VMM scratch pool (32 GiB of VA reserved, physical
+  pages committed on demand, `ggml/src/ggml-cuda/ggml-cuda.cu:536-656`), the lazy cuBLAS
+  workspace, and CUDA graph instances; none are reported to `memory_breakdown()`. It also takes a
+  single `cudaMemGetInfo` snapshot at t=0 (`fit.cpp:194`) and carries no WDDM or framebuffer
+  allowance anywhere. At the default 1024 MiB margin fit keeps blk.0 and blk.1 routed experts on
+  the GPU (6.375 GiB — every one of the 43 layers carries 3.188 GiB of routed experts, there are
+  no dense layers) and leaves only 1368 of 23139 usable MiB for those untracked consumers.
+  `3072` leaves 3497 MiB and costs one extra expert layer on CPU (~2.3% more expert traffic).
+  Do not raise it to 6144: that collapses `-ngl` to 38 and starts stranding whole layers.
+  `--fit-target` writes only `params.fit_params_target` and never `mparams`, so unlike
   `-ngl`/`-ncmoe`/`-ot` it cannot trip the aborts at `fit.cpp:374-397`.
 
 - **`cache-ram` is 16384 on the DeepSeek entry, not the 51200 used elsewhere.** `fit` reports

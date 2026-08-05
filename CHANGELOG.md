@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document DeepSeek-V4-Flash-0731 KV cache, fit, cache-ram, and chat template behavior
 
 ### Fixed
+- [Presets] Fix DeepSeek-V4-Flash-0731 failing to load by bypassing the pinned host buffer for CPU-resident experts
 - [Documentation] Correct the claim that load-mode = dio enables DirectIO on Windows
 
 
