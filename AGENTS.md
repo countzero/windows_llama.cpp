@@ -36,6 +36,7 @@ Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` 
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
 - **`speed-bench.ps1` drives a router-mode server**, not a single model — it shells out to the vendored `vendor/llama.cpp/tools/server/bench/speed-bench/speed_bench.py` (wiped/refreshed each rebuild, so it tracks the built binary) and sweeps the `-models` preset ids in order, pre-warming each via the router-only `/models/load` endpoint and lazy-swapping through `--models-max 1`. Comparison anchors on the first id; models that fail to load are excluded, not fatal. Needs the `datasets` package (deliberately not in the main requirements) plus network access for the `nvidia/SPEED-Bench` dataset. The router-only `/v1/models` and `/models/load` endpoints mean it does not work against a plain single-model server. If startup fails reading the script after a rebuild, check whether upstream moved `tools/server/bench/speed-bench/` (same failure mode as the `gguf_dump.py` note above).
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
+- **`load-mode = dio` does not enable DirectIO on Windows — it only disables mmap.** The Win32 `llama_file::impl` ctor takes `use_direct_io` as `[[maybe_unused]]` and just calls `ggml_fopen` (`vendor/llama.cpp/src/llama-mmap.cpp:86-95`); `FILE_FLAG_NO_BUFFERING` is never set and `read_alignment()` stays 1 (`:391`), so the loader's async staging buffers are 4 x 1 MiB of pinned host memory instead of the 4 x 64 MiB the aligned path would use (`src/llama-model-loader.cpp:1418`, `:1427`). `has_direct_io()` nevertheless returns a hardcoded `true` on Windows (`:173-175`). Net effect of `dio` on this platform: buffered reads, no mmap, and zero VRAM cost — it is never implicated in a CUDA OOM. Keep the key for the deprecation-warning reason documented under Presets, but do not reason about page-cache behaviour from it.
 
 ## Presets
 
@@ -174,9 +175,28 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   which is why the entry keeps `-1` explicitly. Note `--cpu-moe`'s pattern matches only
   `_exps`/`_chexps`, so shared experts would stay on GPU either way.
 
-- **`cache-ram` is 16384 on the DeepSeek entry, not the 51200 used elsewhere.** ~137 GiB of
-  routed experts stay resident in host RAM, and `load-mode = dio` means no page cache to share
-  them, so on a 192 GB box a 50 GiB prompt cache overcommits and pages. A full-context prompt
+- **`fit-target = 3072` is required on the DeepSeek entry; the 1024 MiB default OOMs.** `fit`
+  measures rather than guesses — it performs a `no_alloc` model load plus a real graph
+  reservation (`fit.cpp:56-75`), so its KV figure is byte-exact (942 MiB at 262144/`q8_0`) and
+  its compute figure is a genuine `ggml_gallocr` measurement. What it cannot see is the CUDA VMM
+  scratch pool (32 GiB of VA reserved, physical pages committed on demand,
+  `ggml/src/ggml-cuda/ggml-cuda.cu:536-656`), the lazy cuBLAS workspace, and CUDA graph
+  instances; none are reported to `memory_breakdown()`. It also takes a single `cudaMemGetInfo`
+  snapshot at t=0 (`fit.cpp:194`) and carries no WDDM or framebuffer allowance anywhere. At the
+  default margin fit kept blk.0 and blk.1 routed experts on the GPU (6.375 GiB — every one of the
+  43 layers carries 3.188 GiB of routed experts, there are no dense layers) and left only 1368 of
+  23139 usable MiB, which the untracked consumers exceeded. Because the CUDA buffer type declares
+  no `max_size` (`ggml-cuda.cu:928`, `ggml/src/ggml-alloc.c:1186`) the whole ~19 GiB weight set is
+  one single `cudaMalloc` that WDDM commits lazily, so the failure surfaces later as an OOM inside
+  `cudaEventSynchronize` at `src/llama-model-loader.cpp:1591` rather than at the allocation
+  itself. `3072` leaves 3497 MiB and costs one extra expert layer on CPU (~2.3% more expert
+  traffic). Do not raise it to 6144: that collapses `-ngl` to 38 and starts stranding whole
+  layers. `--fit-target` writes only `params.fit_params_target` and never `mparams`, so unlike
+  `-ngl`/`-ncmoe`/`-ot` it cannot trip the aborts at `fit.cpp:374-397`.
+
+- **`cache-ram` is 16384 on the DeepSeek entry, not the 51200 used elsewhere.** `fit` reports
+  133.8 GiB of `Host model` weights for this entry (measured at `fit-target = 3072`), so on a
+  192 GB box a 50 GiB prompt cache overcommits and pages. A full-context prompt
   state at 262144/`q8_0` is 931 MiB (`server-task.cpp:1671-1683` — an entry larger than the
   whole limit is silently skipped), so 16 GiB still holds ~17 of them. Context checkpoints are
   separate and cheap: 14.5 MiB each and independent of `ctx-size`, because a DSV4 checkpoint

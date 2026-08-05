@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Add DeepSeek-V4-Flash-0731 UD-Q8_K_XL entry to the 24 GB tier
 - [Documentation] Document DeepSeek-V4-Flash-0731 KV cache, fit, cache-ram, and chat template behavior
 
+### Fixed
+- [Documentation] Correct the claim that load-mode = dio enables DirectIO on Windows
+
 
 ## [1.39.0] - 2026-08-03
 
