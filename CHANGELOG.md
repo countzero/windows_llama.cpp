@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.40.0] - 2026-08-05
+
+### Added
+- [Presets] Add DeepSeek-V4-Flash-0731 UD-Q8_K_XL entry to the 24 GB tier
+- [Documentation] Document DeepSeek-V4-Flash-0731 KV cache, fit, cache-ram, and chat template behavior
+
+
 ## [1.39.0] - 2026-08-03
 
 ### Added
