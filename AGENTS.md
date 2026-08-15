@@ -290,11 +290,12 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   `function_calls`-absent test at `:2105`. Unsloth's additionally restores `reasoning_content`
   on tool calls, which the official template drops. Unlike gemma-4 there is no outdated-template
   rewrite path for `deepseek4` — detection is all-or-nothing, and a miss degrades to the generic
-  autoparser rather than being repaired. `reasoning_effort` has no CLI flag
-  (`server-common.cpp:1089-1095` honours only the literal `"none"`), so the only route is
-  `chat-template-kwargs = {"reasoning_effort":"high"}` (or `"max"`); left unset the template
-  defaults it to `none` and emits no effort block at all, and `reasoning = off` voids it
-  entirely. Do not set `reasoning-format`: the compiled default is already `deepseek`
+  autoparser rather than being repaired. The entry carries the effort as
+  `chat-template-kwargs = {"reasoning_effort":"high"}` (or `"max"`); `reasoning-effort = high` is
+  equivalent and simpler — `common/arg.cpp:3650` writes the same template kwarg, and the level
+  `xhigh` is listed in its help text. Only the *request* field special-cases the literal `"none"`
+  (`server-common.cpp:1296-1304`). Left unset the template defaults it to `none` and emits no
+  effort block at all, and `reasoning = off` voids it entirely. Do not set `reasoning-format`: the compiled default is already `deepseek`
   (`common.h:631`, despite the help text saying `auto`), and `none` leaks `</think>` into
   `content`.
 
@@ -311,6 +312,76 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   rebuild with `GGML_SCHED_MAX_SPLIT_INPUTS=48`, and it carries an open decode-time CUDA abort
   after ~2500 tokens (#26554). The regression that broke spec decoding on this arch (#26576,
   a 2D `wo_a` in `dflash.cpp` after #26531) is fixed by #26577 at `b10269`.
+
+- **`ctx-size` above the GGUF's `context_length` is dead VRAM unless `override-kv` lifts it too.**
+  `llama-context.cpp:131` never clamps `n_ctx`, so the KV cache really is allocated at the
+  requested size — but the server then caps every slot at `n_ctx_train`
+  (`tools/server/server-context.cpp:1201-1203`, applied as `slot.n_ctx = n_ctx_slot` at `:1255`)
+  and rejects any larger request outright at `:3100` / `:3111`. Both Muse Glimmer GGUFs ship
+  `muse-glimmer.context_length = 131072`, so the 24 GB entry's former `ctx-size = 262144`
+  allocated 262144 cells while no request could exceed 131072 — ~884 MiB of unreachable VRAM.
+  `override-kv = muse-glimmer.context_length=int:262144` raises `n_ctx_train` and is the only
+  lever; Meta documents 131072 as the default and 262144 as the maximum, so this is the
+  vendor-sanctioned ceiling, not an extrapolation hack. The startup line
+  `the slot context (...) exceeds the training context of the model (...) - capping` is expected
+  here (the pool is 524288 for two 262144 slots); what matters is
+  `initializing, n_slots = 2, n_ctx_slot = 262144`. If that reads 131072 the override did not
+  take. It also sets `n_ctx_orig_yarn = 262144` (`src/llama-model.cpp:1180`), inert at
+  `freq_scale 1`.
+
+- **Muse Glimmer has no architectural positional ceiling, so never add RoPE scaling.** Meta's
+  `config.json` sets `layer_rope_theta = 0` on all 13 `full_attention` layers (NoPE) and
+  `sliding_window = 2048` on the other 39; the GGUF's `sliding_window_pattern` confirms the
+  `[true, true, true, false]` x13 split. RoPE therefore never sees a relative position above 2048
+  at any context length — 131072 is a training length, not a limit, which is why Meta writes
+  "131,072+". Because the GGUF carries no `rope.scaling.*` keys the type defaults to `linear` with
+  `freq_scale 1` (`src/llama-model.cpp:1187-1189`), so a user `--rope-scale` is *applied*, not
+  ignored, and would compress local resolution on the SWA layers for no benefit. The
+  `--rope-scaling yarn` recipes circulating on the HF model page are wrong; only their
+  `--override-kv` half is load-bearing.
+
+- **Never set `swa-full` or `context-shift` on a Muse Glimmer entry.** `swa-full` collapses the
+  4608-cell SWA cache to the full `n_ctx` by the mechanism documented for DeepSeek above — a ~114x
+  blowup at `ctx-size = 524288`. `context-shift` is the more dangerous one, and it is the exact
+  inverse of the `deepseek4` case: `llama_hparams::has_rope()` knows only about `router_layer`
+  (`src/llama-hparams.cpp:287-295`), so a K-shift rotates 128 dims on all 52 layers including the
+  13 NoPE ones, while `get_can_shift()` returns true. Silent corruption rather than a refusal. It
+  is dormant only because `ctx_shift` defaults false (`common/common.h:561`) and loading an mmproj
+  force-disables it (`server-context.cpp:1163-1171`); dropping the mmproj would make it reachable.
+
+- **`spec-draft-n-max = 15` is `block_size - 1`, and the absent `chat-template-file` and
+  `reasoning` keys are both deliberate.** The drafter carries `dflash.block_size = 16` and spends
+  block position 0 on the committed anchor, so 15 is the maximum legal draft
+  (`common/speculative.cpp:970-978`, no clamp and no warning); the upstream default is 3
+  (`common/common.h:325`), so leaving it unset discards 80% of a block that is decoded in one
+  forward pass regardless. Judge it by `mean len` in the slot timings
+  (`1 + n_accepted / n_verif_steps`, `server-context.cpp:620`), never by `draft acceptance` — that
+  ratio is a percentage of *drafted* tokens and is meaningless for block diffusion, where
+  unaccepted drafts cost nothing. Measured ~3.4 tokens per target pass at short context, ~3.0 at
+  4.3k. No template may be pinned: `common/chat.cpp:3276` selects the native Muse Glimmer handler
+  on `<atem:function_calls>` + `<|eom|>` in the template source, and there is no bundled file to
+  pin. `reasoning = on` is a no-op — neither the handler nor the GGUF's embedded template reads
+  `enable_thinking`; reasoning here is the structural ` to=self<|message|>...<|eom|>` channel,
+  gated on `reasoning_format` (`chat.cpp:3141`). The template already defaults to
+  `Reasoning strength: high` (`models/templates/muse-glimmer.jinja:84`), which matches Meta's
+  recommendation, and `--reasoning-effort` reaches it only through the
+  `reasoning_effort` -> `reasoning_strength` alias at `common/jinja/caps.cpp:29-33`.
+  `--reasoning-budget` is inert: the handler sets no `thinking_end_tags`
+  (`server-common.cpp:1343`).
+
+- **Compute buffers dominate this entry's headroom and cannot be derived from KV arithmetic.**
+  Measured on a 24463 MiB card at `ctx-size = 524288` / `parallel = 2` / `q5_0` K + `q4_1` V:
+  13488.92 MiB target weights, 1371.40 draft, 1956.60 CLIP, 2271.12 KV (2184.00 non-SWA +
+  57.59 SWA + 29.53 draft) and **2655.59 MiB of compute buffers** (1135.67 target + 803.03
+  spec-context + 407.62 draft + 309.27 CLIP) — 21743.63 MiB total, leaving ~1.0 GiB free. The
+  compute term is larger than the whole KV cache and grew 1070.67 -> 1135.67 MiB once a real
+  request arrived, so budget it explicitly instead of sizing `ctx-size` off KV alone. Note the
+  SWA cache scales with `parallel`, not `ctx-size`
+  (`PAD(min(n_ctx, n_swa * n_seq_max + n_ubatch), 256)` = 4608 cells), so raising `parallel`
+  is cheap while raising `ctx-size` is not. `mmproj-offload = true` survives this margin (CLIP
+  warmup reserves 309.27 MiB and real images decode), but it is the first thing to disable if the
+  margin shrinks — see the silent-OOM note above. Context checkpoints are host-side, ~38.8 MiB
+  each at `max = 32`.
 
 **ngram-mod speculative decoding** (`--spec-type ngram-mod`): model-agnostic, works on any model.
 - All models: `spec-ngram-mod-n-match = 24`, `spec-ngram-mod-n-min = 48`, `spec-ngram-mod-n-max = 64`

@@ -11,12 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Add Qwen3.8-27B IQ4_XS entry to the 24 GB tier
 - [Documentation] Document why Qwen3.8-27B keeps its GGUF-embedded chat template
 - [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
+- [Documentation] Document that ctx-size above the GGUF context_length is dead VRAM without override-kv
+- [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
+- [Documentation] Document the Muse-Glimmer-30B DFlash drafter, chat template, and reasoning strength defaults
+- [Documentation] Document the measured Muse-Glimmer-30B 24 GB compute buffer and VRAM breakdown
+
+### Changed
+- [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
+- [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
+- [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V
 
 ### Removed
 - [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
 
 ### Fixed
 - [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
+- [Documentation] Correct the claim that reasoning_effort has no CLI flag
 
 
 ## [1.40.0] - 2026-08-05
