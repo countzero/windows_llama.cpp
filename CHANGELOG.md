@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [Presets] Add Qwen3.8-27B IQ4_XS entry to the 24 GB tier
-- [Documentation] Document why Qwen3.8-27B keeps its GGUF-embedded chat template
+- [Presets] Pin chat-template-file on the Qwen3.8-27B entry
+- [Presets] Pin reasoning-effort to medium on all Qwen 3.6 and Bonsai entries
+- [Documentation] Document why Qwen3.8-27B now pins the vendored chat template
+- [Documentation] Document the reasoning-effort steering added by chat template v22
+- [Documentation] Document the tools serialization and think-tag spacing fixes in chat template v22
 - [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
 - [Documentation] Document that ctx-size above the GGUF context_length is dead VRAM without override-kv
 - [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
@@ -17,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document the measured Muse-Glimmer-30B 24 GB compute buffer and VRAM breakdown
 
 ### Changed
+- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22
 - [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
 - [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
 - [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V

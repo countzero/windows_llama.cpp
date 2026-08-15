@@ -80,45 +80,73 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   compute buffer OOMs but the server keeps running — only image requests error at generation
   time. Set `false` on tiers where LLM + KV already saturate VRAM.
 
-- **All Qwen 3.6 entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
+- **All Qwen 3.6, Qwen 3.8 and Bonsai entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
   Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces*
   the GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
   `params.chat_template = read_file(value)`). The upstream embedded template has
   documented issues with tool calls, role handling, `<think>` block rendering,
   agentic loops, and llama.cpp KV-prefix cache stability; the vendored template
   fixes all of them (full list in `vendor/Qwen-Fixed-Chat-Templates/README.md`).
-  Since v19 the template is a single unified file covering both Qwen 3.5 and 3.6
-  variants (the old `qwen3.5/` and `qwen3.6/` subdirectories now live under
+  Since v19 the template is a single unified file, and since v22 it covers Qwen 3.5,
+  3.6 *and* 3.8 (the old `qwen3.5/` and `qwen3.6/` subdirectories now live under
   `archive/`). The template adds a `<|think_on|>` / `<|think_off|>` toggle, and
-  v19 defaults `preserve_thinking` to `true` (past `<think>` blocks are kept
+  defaults `preserve_thinking` to `true` (past `<think>` blocks are kept
   chronologically for 100% KV prefix cache stability and agentic reasoning
   continuity). To strip past `<think>` blocks instead, set
   `chat-template-kwargs = {"preserve_thinking":false}` — at the cost of a lower
-  KV cache hit rate. Path is repo-relative, so `llama-server` must be launched
-  from the repo root — `read_file()` resolves against the process CWD, not the
-  INI file's directory. `Qwen3-Coder-Next` entries deliberately keep their
-  GGUF-embedded template; froggeric's README only claims compatibility for
-  Qwen 3.5 / 3.6 variants.
+  KV cache hit rate. v22 also honours `preserve_reasoning`, so `--reasoning-preserve`
+  (`common/arg.cpp:3677-3689`) works as the CLI equivalent. Path is repo-relative,
+  so `llama-server` must be launched from the repo root — `read_file()` resolves
+  against the process CWD, not the INI file's directory. `Qwen3-Coder-Next` entries
+  deliberately keep their GGUF-embedded template; froggeric's README claims
+  compatibility only for Qwen 3.5 / 3.6 / 3.8 variants.
 
-- **`Qwen3.8-27B` also keeps its GGUF-embedded template — do not "fix" the missing pin.**
+- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entry does not.**
+  v22 added Qwen 3.8's reasoning-effort steering but gates it on nothing — the default
+  resolves to `xhigh` for *every* model the template serves, injecting a ~45-token
+  "Reasoning effort is set to xhigh..." paragraph at the top of the system prompt.
+  Qwen 3.6 has no trained notion of the concept, so the entries pin `medium`, the one
+  level for which v22 emits no instruction text at all. Qwen 3.8 *is* trained on it and
+  its own template defaults to `xhigh`, so that entry leaves the key unset and inherits
+  the same default it had before the pin. `--reasoning-effort` writes only a template
+  kwarg (`common/arg.cpp:3650-3660`), which a request can still override
+  (`tools/server/server-common.cpp:1296-1303`). Unlike the GGUF-embedded 3.8 template,
+  v22 never raises on an unknown level — `high` is aliased to `xhigh` and anything else
+  falls back to it.
+
+- **`Qwen3.8-27B` pins the template too — v22 removed the reason it used to be the exception.**
   Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
   Qwen3.6-27B (65 blocks, 866 tensors, same `ssm.*`, same 248320-token tokenizer,
-  `eos = 248046`), so the tier entry is a near-clone of the 3.6 one. The template is the
-  exception: 3.8 embeds a *different, newer* 8952-byte file, not the 7764-byte one the
-  pin exists to replace. It already applies the fix the pin is for — `preserve_thinking`
-  now defaults on (`preserve_thinking is undefined or preserve_thinking is true or ...`)
-  — and it adds `reasoning_effort`, which lives *only* in the model's own template.
-  Pinning froggeric's file would therefore silently downgrade the template *and* turn
-  `--reasoning-effort` into a no-op, because that flag only writes a template kwarg
-  (`common/arg.cpp:3649-3660`) and never reaches the parser. Valid values here are
-  `xhigh` (default) / `medium` / `low` only — the template calls `raise_exception` on
-  anything else, so the `"high"` used by the DeepSeek entry is startup-fatal on Qwen.
-  With `reasoning = on` the default already resolves to `xhigh`, so the entry sets no
-  `reasoning-effort` key. Tool-call parsing is unaffected either way: the qwen3_coder
-  XML handler is selected purely on `<tool_call>` + `<function=` + `<parameter=` being
-  present in the template source (`common/chat.cpp:3364-3369`), which both files satisfy.
-  What is lost versus the pin are froggeric's agentic extras (two-tier tool-error
-  escalation, `<|think_on|>` / `<|think_off|>`, `developer` role).
+  `eos = 248046`), but it embeds a *different, newer* 8952-byte template, not the
+  7764-byte one shared by Qwen3.6-27B and both Bonsai variants. That newer file already
+  defaults `preserve_thinking` on and adds `reasoning_effort`, which is why the entry
+  shipped unpinned until v22 supported 3.8. Three defects justify pinning anyway, all
+  reproducible by rendering the embedded template directly: tool calls whose `arguments`
+  arrive as a JSON *string* (what most OpenAI-compatible clients send) abort with
+  `Can only get item pairs from a mapping`; history carrying reasoning inside `content`
+  rather than `reasoning_content` renders a duplicate blank `<think>\n\n</think>` ahead
+  of the real block, because 3.8 dropped the in-content parser; and `reasoning_effort`
+  accepts only `xhigh` / `medium` / `low`, calling `raise_exception` on `high`,
+  `minimal` and `max` — three of the six levels `common/arg.cpp:3651` advertises.
+  v22 handles all three and its `xhigh` instruction text is byte-identical to the
+  official one, so `reasoning = on` with no `reasoning-effort` key reproduces the
+  pre-pin prompt. Tool-call parsing is unaffected: the qwen3_coder XML handler is
+  selected purely on `<tool_call>` + `<function=` + `<parameter=` being present in the
+  template source (`common/chat.cpp:3364-3369`), which both files satisfy, and the PEG
+  parser is built from `inputs.tools` rather than the rendered `<tools>` block. The pin
+  additionally brings froggeric's agentic extras (two-tier tool-error escalation,
+  `<|think_on|>` / `<|think_off|>`, `developer` role, payload truncation).
+
+- **v22 fixed two v19 deviations from the official Qwen prompt format, so the bump changed
+  every pinned entry, not just the new 3.8 one.** v19 serialized `<tools>` entries
+  *unwrapped* (`{"description": ..., "name": ..., "parameters": ...}`); v22 emits the
+  wrapped OpenAI form (`{"function": {...}, "type": "function"}`), which is what
+  Qwen3.6-27B's own 7764-byte template and Qwen 3.8's 8952-byte one both produce — v19
+  was the outlier. v19 also rendered `</think>\n` before assistant content where the
+  official templates and llama.cpp's own generation prompt use `</think>\n\n`
+  (`common/chat.cpp:1163`). Both are corrections, but they change prompt bytes, so the
+  bump invalidates existing KV prefix caches once; `reasoning-effort = medium` suppresses
+  only the new steering paragraph and does not restore v19 output.
 
 - **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` used by the Qwen 3.6 entries.**
   1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself

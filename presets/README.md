@@ -69,19 +69,21 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.6-*` and `Ternary-Bonsai-27B` entries set `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
+> All `Qwen3.6-*`, `Qwen3.8-*`, `Ternary-Bonsai-27B` and `Bonsai-27B` entries set
+> `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
 > overriding the buggy template embedded in the GGUF. The vendored template is a
-> single unified file that handles both Qwen 3.5 and 3.6 variants; Ternary Bonsai 27B is a
-> Qwen3.6-27B derivative with a byte-identical tokenizer and embedded template. The path is
+> single unified file that handles Qwen 3.5, 3.6 and 3.8 variants; both Bonsai models are
+> Qwen3.6-27B derivatives with a byte-identical tokenizer and embedded template. The path is
 > repo-relative, so launch `llama-server` from the repository root (as the examples above do).
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
 > first — otherwise startup fails with a missing-file error.
 >
-> `Qwen3.8-27B` deliberately does **not** pin it. Qwen 3.8 embeds a different, newer
-> template than the one the pin replaces: it already defaults `preserve_thinking` to
-> true and adds `reasoning_effort` (`xhigh`/`medium`/`low`), which exists only in the
-> model's own template. Pinning the vendored file here would silently turn
-> `--reasoning-effort` into a no-op.
+> The Qwen 3.6 and Bonsai entries additionally set `reasoning-effort = medium`. The vendored
+> template defaults to `xhigh`, which prepends a "Reasoning effort is set to xhigh..."
+> paragraph to the system prompt; `medium` is the one level that emits no instruction text,
+> and Qwen 3.6 has no trained notion of the concept. `Qwen3.8-27B` leaves the key unset
+> because it *is* trained on it and `xhigh` is its own template's default too. Clients can
+> still override per request via the OpenAI `reasoning_effort` field.
 >
 > All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
 > the official Google template bundled with llama.cpp itself, kept in lock-step with
