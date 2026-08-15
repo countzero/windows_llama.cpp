@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.42.0] - 2026-08-15
+
+### Added
+- [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
+
+### Changed
+- [Presets] Switch the Qwen3.8-27B vision projector to Q8_0
+
+### Removed
+- [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
+
+
 ## [1.41.0] - 2026-08-15
 
 ### Added

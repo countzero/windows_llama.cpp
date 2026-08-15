@@ -72,7 +72,8 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   `clip.cpp:1502-1506` warns on every load because upstream needs >= 1024 tokens (1024x1024 px) for
   grounding (#16842). The key raises a floor only: images already above 1024 tokens are unchanged,
   smaller ones get upscaled, which costs context and CLIP time on the CPU because the 16 GB tier
-  sets `no-mmproj-offload = true`. Applies to the `qwen3vl_merger` entries (Qwen3.6 and
+  sets `no-mmproj-offload = true`; the 24 GB `Qwen3.8-27B` entry offloads CLIP to the GPU and
+  pays it there instead. Applies to the `qwen3vl_merger` entries (Qwen3.6, Qwen3.8 and
   Ternary-Bonsai); gemma-4 uses a different projector and must not get this key.
 
 - **`mmproj-offload = true` fails silently at startup on a saturated GPU.** CLIP's warmup
@@ -102,7 +103,7 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
 - **`Qwen3.8-27B` also keeps its GGUF-embedded template — do not "fix" the missing pin.**
   Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
   Qwen3.6-27B (65 blocks, 866 tensors, same `ssm.*`, same 248320-token tokenizer,
-  `eos = 248046`), so the tier entry is a clone of the 3.6 one. The template is the
+  `eos = 248046`), so the tier entry is a near-clone of the 3.6 one. The template is the
   exception: 3.8 embeds a *different, newer* 8952-byte file, not the 7764-byte one the
   pin exists to replace. It already applies the fix the pin is for — `preserve_thinking`
   now defaults on (`preserve_thinking is undefined or preserve_thinking is true or ...`)
@@ -138,6 +139,28 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   local IQ4_XS files; a 4-bit MTP head is reported to collapse acceptance to 0% on this
   model family, so check the server's acceptance rate before trusting the speedup —
   the fix would be a re-quant keeping `blk.64` at `Q5_K` or above, not a preset change.
+
+- **`Qwen3.8-27B` is the only 24 GB Qwen entry on a `Q8_0` projector instead of `BF16`.**
+  600 MiB rather than 888 MiB of VRAM, and that saving is what keeps `mmproj-offload = true`
+  affordable at `ctx-size = 262144`: the entry lands at ~19.95 GiB of ~22.6 GiB usable, just
+  under the Qwen3.6-27B entry's ~20.23 GiB, which leaves room for the CLIP compute buffer.
+  Spending the saving elsewhere is what breaks it — raising the KV cache to `q5_0` K / `q4_1` V
+  costs ~0.80 GiB at this context and pushes the total above the 3.6 entry, into the
+  silent-OOM window described above. Quality is not the tradeoff: Qwen ships this family's
+  projector as FP16 *and* `Q8_0` officially, and only 83 of the file's 110 weight tensors are
+  actually 8-bit — every `ffn_down` stays `F16`.
+
+- **Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from `Qwen/Qwen3.8-27B-FP8`.** BF16 is
+  this model's native precision and the FP8 repo is a derived, post-training artifact (HF model
+  tree: base model `Qwen3.8-27B`, "Quantized"), so it is already lossy — its card claims only
+  "nearly identical" metrics. Quantizing from it would fit the quantizer and the imatrix to
+  degraded weights. This is the opposite of DeepSeek-V3/V4, which were *trained* in FP8, making
+  their FP8 checkpoint the original and its dequant to BF16 exact; `convert_hf_to_gguf.py:156`
+  (`--fp8-as-q8`) exists for that case, not this one. The mmproj is the one exception where the
+  source does not matter: the FP8 repo leaves the whole vision tower unquantized (0 of 333
+  `model.visual.*` tensors carry `weight_scale_inv`), so it is byte-identical either way. The
+  MTP head is not — `mtp.layers.0`'s attention and MLP projections are FP8 there, so any
+  re-quant raising `blk.64` above 4-bit must also come from the BF16 repo.
 
 - **All gemma-4 entries pin `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja`.**
   This is Google's fixed official template as aligned by upstream (#21704) — the exact
