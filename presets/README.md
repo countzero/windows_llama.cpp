@@ -77,6 +77,12 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
 > first — otherwise startup fails with a missing-file error.
 >
+> `Qwen3.8-27B` deliberately does **not** pin it. Qwen 3.8 embeds a different, newer
+> template than the one the pin replaces: it already defaults `preserve_thinking` to
+> true and adds `reasoning_effort` (`xhigh`/`medium`/`low`), which exists only in the
+> model's own template. Pinning the vendored file here would silently turn
+> `--reasoning-effort` into a no-op.
+>
 > All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
 > the official Google template bundled with llama.cpp itself, kept in lock-step with
 > its built-in Gemma 4 parser. The same repo-root launch caveat applies.

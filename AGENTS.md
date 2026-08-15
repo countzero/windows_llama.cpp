@@ -99,6 +99,46 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   GGUF-embedded template; froggeric's README only claims compatibility for
   Qwen 3.5 / 3.6 variants.
 
+- **`Qwen3.8-27B` also keeps its GGUF-embedded template — do not "fix" the missing pin.**
+  Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
+  Qwen3.6-27B (65 blocks, 866 tensors, same `ssm.*`, same 248320-token tokenizer,
+  `eos = 248046`), so the tier entry is a clone of the 3.6 one. The template is the
+  exception: 3.8 embeds a *different, newer* 8952-byte file, not the 7764-byte one the
+  pin exists to replace. It already applies the fix the pin is for — `preserve_thinking`
+  now defaults on (`preserve_thinking is undefined or preserve_thinking is true or ...`)
+  — and it adds `reasoning_effort`, which lives *only* in the model's own template.
+  Pinning froggeric's file would therefore silently downgrade the template *and* turn
+  `--reasoning-effort` into a no-op, because that flag only writes a template kwarg
+  (`common/arg.cpp:3649-3660`) and never reaches the parser. Valid values here are
+  `xhigh` (default) / `medium` / `low` only — the template calls `raise_exception` on
+  anything else, so the `"high"` used by the DeepSeek entry is startup-fatal on Qwen.
+  With `reasoning = on` the default already resolves to `xhigh`, so the entry sets no
+  `reasoning-effort` key. Tool-call parsing is unaffected either way: the qwen3_coder
+  XML handler is selected purely on `<tool_call>` + `<function=` + `<parameter=` being
+  present in the template source (`common/chat.cpp:3364-3369`), which both files satisfy.
+  What is lost versus the pin are froggeric's agentic extras (two-tier tool-error
+  escalation, `<|think_on|>` / `<|think_off|>`, `developer` role).
+
+- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` used by the Qwen 3.6 entries.**
+  1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
+  embeds as `general.sampling.temp`, applied at `common/common.cpp:1264` unless the
+  preset overrides it. The rest of the sampler block (`top-p 0.95`, `top-k 20`,
+  `min-p 0.0`, `presence-penalty 0`) is unchanged from the 3.6 entries. Qwen 3.8's
+  non-thinking mode wants a different set (`temp 0.7`, `top-p 0.8`,
+  `presence-penalty 1.5`); the preset does not cover it because `reasoning = on`.
+
+- **Qwen 3.8's MTP head is multi-step trained, so `spec-draft-n-max = 3` is a measured
+  peak rather than an inherited default.** A day-0 `n_max` sweep of 2/3/4/6 on this model
+  put the maximum at 3 — acceptance falls monotonically with depth, but through 3 the
+  extra tokens per iteration win. This overturns the Qwen 3.6 rule of thumb that 2 was
+  optimal. 3 also happens to be the upstream default (`common/common.h:325`). Note the
+  cost: `draft-mtp` sets `n_rs_seq = spec-draft-n-max` (`common/common.cpp:1699`), which
+  multiplies the recurrent-state buffer by `1 + n_max` — ~150 MiB becomes ~600 MiB at 3.
+  Both `Qwen3.8-27B` and `Qwen3.6-27B` carry `blk.64` (the MTP head) at `Q4_0` in the
+  local IQ4_XS files; a 4-bit MTP head is reported to collapse acceptance to 0% on this
+  model family, so check the server's acceptance rate before trusting the speedup —
+  the fix would be a re-quant keeping `blk.64` at `Q5_K` or above, not a preset change.
+
 - **All gemma-4 entries pin `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja`.**
   This is Google's fixed official template as aligned by upstream (#21704) — the exact
   file upstream's `tests/test-chat.cpp` locks against the native gemma4 chat handler
@@ -122,7 +162,7 @@ See `presets/README.md` for the user-facing quick-start; notes below are for edi
   derivatives: arch `qwen35`, and their tokenizers are byte-identical to stock Qwen3.6-27B
   (248320 tokens, same merges, `eos = 248046`) right down to the same 7764-byte embedded template —
   which is exactly the upstream template the pin exists to replace. `general.sampling.temp = 1.0` is
-  embedded in both GGUFs and applied at `common/common.cpp:1194`, so `temp` has to be pinned in the
+  embedded in both GGUFs and applied at `common/common.cpp:1264`, so `temp` has to be pinned in the
   preset or generation runs at 1.0. The presets use `0.6` to match the sibling Qwen 3.6 entries;
   Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar below, both weight files are
   mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a tensor-offset

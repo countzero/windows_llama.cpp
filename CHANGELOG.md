@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.41.0] - 2026-08-15
+
+### Added
+- [Presets] Add Qwen3.8-27B IQ4_XS entry to the 24 GB tier
+- [Documentation] Document why Qwen3.8-27B keeps its GGUF-embedded chat template
+
+### Fixed
+- [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
+
+
 ## [1.40.0] - 2026-08-05
 
 ### Added
