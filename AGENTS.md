@@ -21,20 +21,17 @@ Get-Help -Detailed ./examples/server.ps1         # full option list
 
 Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` (Python 3.12) must already exist — the scripts call `conda activate llama.cpp` themselves.
 
+Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), `speculative_decoding.ps1`, `speed-bench.ps1` (router-mode throughput sweep), `mtp-bench.py`. `README.md` -> *Usage* is the end-user inventory of what they do; don't restate their flags here. `Get-Help` works on `server.ps1`, `speed-bench.ps1` and `count_tokens.ps1` only — the other two carry no comment-based help.
+
 **No tests, no linter.** Verify changes by running an example script against a real GGUF model.
 
 ## Non-obvious behavior
 
 - **The submodule always shows dirty.** `rebuild_llama.cpp.ps1` prepends an idempotent OpenBLAS linking shim to `vendor/llama.cpp/CMakeLists.txt`; `.gitmodules` sets `ignore = dirty` for it. Don't "clean it up." `docs/build_system.md` -> *Submodule lifecycle*
 - **Each build wipes `vendor/llama.cpp`** back to `origin/master` then checks out the requested `-version` / PR, so local edits there are lost by design. Other submodules are never advanced by the build script and must be bumped by hand. `docs/build_system.md` -> *Submodule lifecycle*
-- **`ml64.exe` (MASM) must be passed as `-DCMAKE_ASM_COMPILER`**, located via `vswhere.exe` with both `-latest` and `-requires ...VC.Tools.x86.x64`. Don't remove either. `docs/build_system.md` -> *Toolchain detection*
 - **CUDA is selected iff *both* `nvidia-smi` and `nvcc` are on PATH.** Missing either silently falls back to OpenBLAS.
-- **CUDA builds pass `-DGGML_CUDA_FA_ALL_QUANTS=ON`.** Without it any asymmetric or non-`f16`/`q4_0`/`q8_0`/`bf16` KV pair aborts at runtime, and the presets use `q5_0` K + `q4_1` V. Costs extra `nvcc` time. `docs/build_system.md` -> *CUDA build flags*
-- **Build parallelism is SMT-aware** and is the single cap on concurrent `cl.exe`/`nvcc`: physical cores on SMT CPUs, 80% of them on non-SMT hybrids. Override with `-parallelJobs N`. `docs/build_system.md` -> *Build parallelism*
-- **`requirements_override.txt` layers on top of upstream `vendor/llama.cpp/requirements.txt`**, pinning `torch` (cu126), `transformers`, `numpy`, and adding `tiktoken`. When bumping any of them, verify both constraints still hold. `docs/build_system.md` -> *Python requirements layering*
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
-- **`speed-bench.ps1` drives a router-mode server**, not a single model, and needs the `datasets` package plus network access. It does not work against a plain single-model server. `docs/build_system.md` -> *Upstream path dependencies*
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
 
 ## Presets
@@ -77,6 +74,6 @@ Deep reference documentation lives under `docs/` and is **read on demand**, not 
 
 | Document               | When to read                                                                                                                                                                  |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/build_system.md` | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, and the hardcoded upstream paths. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`.** |
+| `docs/build_system.md` | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
 | `docs/presets.md`      | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `mmproj-offload`, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
 | `docs/model_tuning.md` | Per-family rationale and measured VRAM/throughput numbers for Qwen 3.6 and 3.8, gemma-4, Bonsai and DSpark, DeepSeek-V4-Flash, and Muse Glimmer. **Read before adding, retuning or removing a model entry.** |

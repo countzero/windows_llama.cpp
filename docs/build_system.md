@@ -38,9 +38,11 @@ This repo hardcodes three paths inside `vendor/llama.cpp/`. Each build resets th
 | `tools/server/bench/speed-bench/speed_bench.py` | `examples/speed-bench.ps1` | script not found at startup |
 | `models/templates/google-gemma-4-31B-it.jinja` | gemma-4 preset entries | template read fails at model load |
 
-- **`server.ps1` reads GGUF metadata** by shelling out to `vendor/llama.cpp/gguf-py/gguf/scripts/gguf_dump.py`. Upstream has moved this path before (CHANGELOG 1.24.0) — if server startup fails with "Failed to extract model details", check the path first.
+This is not hypothetical: upstream already relocated `gguf_dump.py` once, which is what CHANGELOG 1.24.0 records.
 
-- **`speed-bench.ps1` drives a router-mode server**, not a single model — it shells out to the vendored `vendor/llama.cpp/tools/server/bench/speed-bench/speed_bench.py` (wiped/refreshed each rebuild, so it tracks the built binary) and sweeps the `-models` preset ids in order, pre-warming each via the router-only `/models/load` endpoint and lazy-swapping through `--models-max 1`. Comparison anchors on the first id; models that fail to load are excluded, not fatal. Needs the `datasets` package (deliberately not in the main requirements) plus network access for the `nvidia/SPEED-Bench` dataset. The router-only `/v1/models` and `/models/load` endpoints mean it does not work against a plain single-model server. If startup fails reading the script after a rebuild, check whether upstream moved `tools/server/bench/speed-bench/` (same failure mode as the `gguf_dump.py` note above).
+## speed-bench
+
+- **`speed-bench.ps1` drives a router-mode server**, not a single model — it shells out to the vendored `vendor/llama.cpp/tools/server/bench/speed-bench/speed_bench.py` (wiped/refreshed each rebuild, so it tracks the built binary) and sweeps the `-models` preset ids in order, pre-warming each via the router-only `/models/load` endpoint and lazy-swapping through `--models-max 1`. Comparison anchors on the first id; models that fail to load are excluded, not fatal. Needs the `datasets` package (deliberately not in the main requirements) plus network access for the `nvidia/SPEED-Bench` dataset. The router-only `/v1/models` and `/models/load` endpoints mean it does not work against a plain single-model server.
 
 ## Script argument parsing
 
