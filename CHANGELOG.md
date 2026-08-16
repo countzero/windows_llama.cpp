@@ -19,13 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
 - [Documentation] Document the Muse-Glimmer-30B DFlash drafter, chat template, and reasoning strength defaults
 - [Documentation] Document the measured Muse-Glimmer-30B 24 GB compute buffer and VRAM breakdown
+- [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
+- [Agents] Add session-retrospective skill for routing session learnings into AGENTS.md and docs/
+- [Agents] Inject SESSION_ID at session start for Claude Code and OpenCode
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
 - [Documentation] Move the build-system rationale out of AGENTS.md into docs/build_system.md
-- [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
-- [Agents] Inject SESSION_ID at session start for Claude Code and OpenCode
-- [Agents] Stop tracking .claude/settings.local.json
 - [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22
 - [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
 - [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
+- [Agents] Stop tracking .claude/settings.local.json
 
 ### Fixed
 - [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
