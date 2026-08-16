@@ -69,7 +69,7 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 
 ## Scratch Files
 
-Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is `SESSION_ID` when the platform injects it, otherwise a minted `YYYYMMDD-HHMMSS-<random6>`. Never write scratch files to `.claude/`, the repo root, or `vendor/`.
+Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is the `SESSION_ID` injected into context at session start — by the `SessionStart` hook in `.claude/settings.json` under Claude Code, by `.opencode/plugins/session-id-injector.js` under OpenCode. If neither fired and no `SESSION_ID` is in context, mint `YYYYMMDD-HHMMSS-<random6>` instead. Never write scratch files to `.claude/`, the repo root, or `vendor/`.
 
 ## Reference
 
