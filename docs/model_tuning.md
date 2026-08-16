@@ -143,8 +143,7 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   Gemma 4 is trained that way — so cross-turn KV-prefix invalidation is inherent
   (`ctx-checkpoints` mitigates); do not add a preserve-thinking hack. If startup fails
   reading the template after a rebuild, check whether upstream moved
-  `models/templates/` (same failure mode as the `gguf_dump.py` note in AGENTS.md
-  "Non-obvious behavior").
+  `models/templates/` — see `docs/build_system.md` -> *Upstream path dependencies*.
 
 ## Bonsai and DSpark
 
