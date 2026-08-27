@@ -36,18 +36,40 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   deliberately keep their GGUF-embedded template; froggeric's README claims
   compatibility only for Qwen 3.5 / 3.6 / 3.8 variants.
 
-- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entry does not.**
-  v22 added Qwen 3.8's reasoning-effort steering but gates it on nothing — the default
-  resolves to `xhigh` for *every* model the template serves, injecting a ~45-token
-  "Reasoning effort is set to xhigh..." paragraph at the top of the system prompt.
-  Qwen 3.6 has no trained notion of the concept, so the entries pin `medium`, the one
-  level for which v22 emits no instruction text at all. Qwen 3.8 *is* trained on it and
-  its own template defaults to `xhigh`, so that entry leaves the key unset and inherits
-  the same default it had before the pin. `--reasoning-effort` writes only a template
-  kwarg (`common/arg.cpp:3650-3660`), which a request can still override
-  (`tools/server/server-common.cpp:1296-1303`). Unlike the GGUF-embedded 3.8 template,
-  v22 never raises on an unknown level — `high` is aliased to `xhigh` and anything else
-  falls back to it.
+- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entry pins
+  `xhigh`.** v22 defaulted the level to `xhigh` for *every* model the template serves, injecting
+  a ~45-token "Reasoning effort is set to xhigh..." paragraph at the top of the system prompt.
+  v22.1 moved that default to `medium`, the one level that injects no instruction text at all.
+  Qwen 3.6 has no trained notion of the concept, so its entries pin `medium` — under v22 that
+  overrode a wrong default, under v22.1 it restates the right one, and either way the pin is what
+  makes the level independent of the template version. Qwen 3.8 *is* trained on it and Qwen's own
+  template defaults to `xhigh`, so that entry pins `xhigh` explicitly: leaving the key unset
+  silently downgraded it to `medium` at the v22.1 bump. Never rely on the template default here.
+  `--reasoning-effort` writes only a template kwarg (`common/arg.cpp:3650-3660`), which a request
+  can still override (`tools/server/server-common.cpp:1312-1319`), as can a `<|think_low|>` /
+  `<|think_medium|>` / `<|think_xhigh|>` tag typed inside a message (new in v22.1, stripped before
+  rendering). Unlike the GGUF-embedded 3.8 template, the vendored one never raises on an unknown
+  level — v22.1 maps `high` and `max` to `xhigh`, `minimal` to `low`, `none` to thinking off, and
+  anything else *down* to `medium` rather than up to `xhigh` as v22 did.
+
+- **`xhigh` is kept on `Qwen3.8-27B`, and `--reasoning-budget` — not a lower level — is the guard
+  rail for it.** Qwen publishes no per-level benchmarks; every number on the 27B card is at the
+  `xhigh` default, and the card warns that in multi-turn agentic tasks lower effort "can also lead
+  to insufficient analysis, more failures, and repeated retries". The entire mechanism is one
+  injected sentence: 123 rendered chars at `medium` against 332 at `xhigh` — no token, no sampling
+  change, no budget. The failure that moved froggeric's default to `medium` is a truncation
+  artifact rather than a quality result: with a finite `max_tokens` and no budget, `xhigh` ran
+  26,000 tokens and returned `content_len = 0` because truncation landed inside `<think>`, while
+  the same rig at `xhigh` with a 1500-token thinking budget returned 18,512 chars of working code,
+  more than `medium` produced. There is no rung between the two — `high` aliases to `xhigh`.
+  `--reasoning-budget N` (`common/arg.cpp:3662-3668`) is live on this entry and deliberately left
+  unset: the qwen3_coder handler supplies `<think>` and `{"</think>", "<tool_call>"}`
+  (`common/chat.cpp:1181-1184`), the server forwards them (`server-common.cpp:1360-1366`), and on
+  exhaustion the sampler masks every logit but the forced `</think>`
+  (`common/reasoning-budget.cpp:119-131`, `:178-185`) so the model concludes instead of being cut
+  off, re-arming per thinking block (`:146-161`). Unlike `max_tokens` it counts only tokens inside
+  the block. Set it if an agentic client that sends its own `max_tokens` starts returning empty
+  content; a request can override it per call via `reasoning_budget_tokens`.
 
 - **`Qwen3.8-27B` pins the template too — v22 removed the reason it used to be the exception.**
   Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
@@ -63,11 +85,11 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   of the real block, because 3.8 dropped the in-content parser; and `reasoning_effort`
   accepts only `xhigh` / `medium` / `low`, calling `raise_exception` on `high`,
   `minimal` and `max` — three of the six levels `common/arg.cpp:3651` advertises.
-  v22 handles all three and its `xhigh` instruction text is byte-identical to the
-  official one, so `reasoning = on` with no `reasoning-effort` key reproduces the
+  v22.1 handles all three and its `xhigh` instruction text is byte-identical to the
+  official one, so `reasoning = on` with `reasoning-effort = xhigh` reproduces the
   pre-pin prompt. Tool-call parsing is unaffected: the qwen3_coder XML handler is
   selected purely on `<tool_call>` + `<function=` + `<parameter=` being present in the
-  template source (`common/chat.cpp:3364-3369`), which both files satisfy, and the PEG
+  template source (`common/chat.cpp:3590-3594`), which both files satisfy, and the PEG
   parser is built from `inputs.tools` rather than the rendered `<tools>` block. The pin
   additionally brings froggeric's agentic extras (two-tier tool-error escalation,
   `<|think_on|>` / `<|think_off|>`, `developer` role, payload truncation).
@@ -100,8 +122,14 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   multiplies the recurrent-state buffer by `1 + n_max` — ~150 MiB becomes ~600 MiB at 3.
   Both `Qwen3.8-27B` and `Qwen3.6-27B` carry `blk.64` (the MTP head) at `Q4_0` in the
   local IQ4_XS files; a 4-bit MTP head is reported to collapse acceptance to 0% on this
-  model family, so check the server's acceptance rate before trusting the speedup —
-  the fix would be a re-quant keeping `blk.64` at `Q5_K` or above, not a preset change.
+  model family, so check the server's acceptance rate before trusting the speedup. Two
+  remedies exist: a re-quant keeping `blk.64` at `Q5_K` or above, or — since 2026-08-14 —
+  pointing `spec-draft-model` at `ggml-org/Qwen3.8-27B-GGUF`'s standalone
+  `mtp-Qwen3.8-27B-Q8_0.gguf`. Neither is taken. The sidecar is 3.16 GB against the
+  ~2.65 GiB of headroom measured below, the `Q4_0` sidecar is the same precision as the
+  embedded head, and `mparams.load_mtp` is set from the *type list* rather than from the
+  presence of a draft path (`common/common.cpp:1689`, `src/models/qwen35.cpp:42`), so the
+  target keeps loading its own `blk.64` and an external sidecar double-pays.
 
 - **`Qwen3.8-27B` is the only 24 GB Qwen entry on a `Q8_0` projector instead of `BF16`.**
   600 MiB rather than 888 MiB of VRAM, and that saving is what keeps `mmproj-offload = true`
@@ -313,16 +341,19 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   (`1 + n_accepted / n_verif_steps`, `server-context.cpp:620`), never by `draft acceptance` — that
   ratio is a percentage of *drafted* tokens and is meaningless for block diffusion, where
   unaccepted drafts cost nothing. Measured ~3.4 tokens per target pass at short context, ~3.0 at
-  4.3k. No template may be pinned: `common/chat.cpp:3276` selects the native Muse Glimmer handler
-  on `<atem:function_calls>` + `<|eom|>` in the template source, and there is no bundled file to
-  pin. `reasoning = on` is a no-op — neither the handler nor the GGUF's embedded template reads
+  4.3k. The template is deliberately not pinned: `common/chat.cpp:3494` selects the native Muse
+  Glimmer handler on `<atem:function_calls>` + `<|eom|>` in the template source, and the bundled
+  `models/templates/muse-glimmer.jinja` is a test fixture added alongside a `chat.cpp` parser fix
+  (#26879, locked by `tests/test-chat.cpp:5951`) that mirrors the GGUF-embedded template — unlike
+  gemma-4, where the pin exists to replace genuinely outdated conversions.
+  `reasoning = on` is a no-op — neither the handler nor the GGUF's embedded template reads
   `enable_thinking`; reasoning here is the structural ` to=self<|message|>...<|eom|>` channel,
   gated on `reasoning_format` (`chat.cpp:3141`). The template already defaults to
   `Reasoning strength: high` (`models/templates/muse-glimmer.jinja:84`), which matches Meta's
   recommendation, and `--reasoning-effort` reaches it only through the
   `reasoning_effort` -> `reasoning_strength` alias at `common/jinja/caps.cpp:29-33`.
   `--reasoning-budget` is inert: the handler sets no `thinking_end_tags`
-  (`server-common.cpp:1343`).
+  (`server-common.cpp:1360`).
 
 - **Compute buffers dominate this entry's headroom and cannot be derived from KV arithmetic.**
   Measured on a 24463 MiB card at `ctx-size = 524288` / `parallel = 2` / `q5_0` K + `q4_1` V:

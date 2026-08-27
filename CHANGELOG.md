@@ -11,9 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Add Qwen3.8-27B IQ4_XS entry to the 24 GB tier
 - [Presets] Pin chat-template-file on the Qwen3.8-27B entry
 - [Presets] Pin reasoning-effort to medium on all Qwen 3.6 and Bonsai entries
+- [Presets] Pin reasoning-effort to xhigh on the Qwen3.8-27B entry
 - [Documentation] Document why Qwen3.8-27B now pins the vendored chat template
-- [Documentation] Document the reasoning-effort steering added by chat template v22
-- [Documentation] Document the tools serialization and think-tag spacing fixes in chat template v22
+- [Documentation] Document the reasoning-effort steering added by chat template v22.1
+- [Documentation] Document the tools serialization and think-tag spacing fixes in chat template v22.1
+- [Documentation] Document why Qwen3.8-27B keeps xhigh reasoning and how reasoning-budget bounds it
+- [Documentation] Document the standalone Qwen3.8-27B MTP sidecars as an alternative to a re-quant
+- [Documentation] Document the GGML_SCHED_MAX_COPIES=1 CUDA build flag
 - [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
 - [Documentation] Document that ctx-size above the GGUF context_length is dead VRAM without override-kv
 - [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
@@ -33,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Move the build-system rationale out of AGENTS.md into docs/build_system.md
 - [Documentation] Drop the build-configuration summaries from AGENTS.md that docs/build_system.md already carries
 - [Documentation] List the remaining examples scripts and their help coverage in AGENTS.md
-- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22
+- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22.1
 - [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
 - [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
 - [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V
@@ -46,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
 - [Documentation] Correct the claim that reasoning_effort has no CLI flag
 - [Documentation] Correct the stated cause of the gguf-py row-group conversion slowdown
+- [Documentation] Correct the GGML_CUDA_FA_ALL_QUANTS failure mode from an abort to a silent CPU fallback
+- [Documentation] Correct the claim that Muse-Glimmer-30B has no bundled chat template
+- [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
 - [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
 - [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
 
