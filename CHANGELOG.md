@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V
 - [Vendor] Bump llama.cpp submodule to b10660 for Qwen3.8-Flash-Next support #27742
 - [Documentation] Extend the no-host and fit traps in AGENTS.md to Qwen3.8-Flash-Next
+- [Presets] Raise Qwen3.8-Flash-Next parallel to 4 and lower ctx-checkpoints to 8
+- [Documentation] Document the measured Qwen3.8-Flash-Next 24 GB VRAM and throughput figures
+- [Documentation] Document that a Qwen3.8-Flash-Next context checkpoint is the whole recurrent state
+- [Documentation] Document why a 1M cell pool does not fit Qwen3.8-Flash-Next on 24 GB
 
 ### Removed
 - [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
@@ -65,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
 - [Documentation] Correct the presets README claim that Qwen3.8-27B leaves reasoning-effort unset
 - [Documentation] Correct the presets README claim that the vendored chat template defaults to xhigh
+- [Documentation] Refresh the stale server-context line references for the n_ctx_train slot cap
 - [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
 - [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
 

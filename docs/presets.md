@@ -57,8 +57,8 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
 - **`ctx-size` above the GGUF's `context_length` is dead VRAM unless `override-kv` lifts it too.**
   `llama-context.cpp:131` never clamps `n_ctx`, so the KV cache really is allocated at the
   requested size — but the server then caps every slot at `n_ctx_train`
-  (`tools/server/server-context.cpp:1201-1203`, applied as `slot.n_ctx = n_ctx_slot` at `:1255`)
-  and rejects any larger request outright at `:3100` / `:3111`. Both Muse Glimmer GGUFs ship
+  (`tools/server/server-context.cpp:1209-1214`, applied as `slot.n_ctx = n_ctx_slot` at `:1274`)
+  and rejects any larger request outright. Both Muse Glimmer GGUFs ship
   `muse-glimmer.context_length = 131072`, so the 24 GB entry's former `ctx-size = 262144`
   allocated 262144 cells while no request could exceed 131072 — ~884 MiB of unreachable VRAM.
   `override-kv = muse-glimmer.context_length=int:262144` raises `n_ctx_train` and is the only

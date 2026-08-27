@@ -223,9 +223,45 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   both hardcoded `GGML_TYPE_F32` (`src/llama-model.cpp:2513-2514`) so no cache type shrinks them,
   and one row per sequence because `qwen4exp` is absent from `llm_arch_supports_rs_rollback`
   (`src/llama-arch.cpp:1099-1113`) and `n_rs_seq` is clamped to 0 at
-  `src/llama-context.cpp:105-108`. The entry still keeps `parallel = 1`: with `kv-unified = true`
-  `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`), so extra slots share one pool rather than
-  extending it.
+  `src/llama-context.cpp:105-108`. The entry runs `parallel = 4` on the strength of that: with
+  `kv-unified = true` `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`), so four slots *share*
+  the 262144-cell pool rather than each being given one, the KV cost is unchanged, and the only
+  VRAM the extra slots add is three more recurrent rows — 336.7 MiB. A single long conversation can
+  still occupy the whole pool.
+
+- **A context checkpoint here is the entire recurrent state, ~112 MiB, and checkpoints are per
+  slot — which is why `ctx-checkpoints` is 8 and not 32.** Checkpoints are written with
+  `LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY`, and that flag skips both the attention cache
+  (`src/llama-memory-hybrid.cpp:191-192`) and the indexer cache
+  (`src/llama-memory-hybrid-idx.cpp:204-206`), leaving only
+  `llama_memory_recurrent::state_write` (`src/llama-memory-hybrid.cpp:194`). So the blob is the full
+  112.219 MiB rather than the 14.5 MiB a DSV4 checkpoint costs, and because
+  `slot.prompt.checkpoints` is per slot (`tools/server/server-context.cpp:2283`) the host budget is
+  `parallel x ctx-checkpoints x 112 MiB`. At `parallel = 4`, 32 checkpoints would reserve up to
+  14.3 GiB of host RAM; 8 holds it at the ~3.6 GiB that `parallel = 1` with 32 would have cost.
+  Raising `parallel` again means lowering this in step.
+
+- **Measured on a 24463 MiB card at `ctx-size = 262144` / `parallel = 1` / `q8_0` K + V, CLIP on
+  CPU: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short context.** The free figure tracks
+  `fit-target = 3072` plus ~0.9 GiB of slack, so the margin is doing its job and is not obviously
+  over-provisioned. Throughput is expert-traffic bound, not attention bound: every token reads
+  10 of 512 experts across all 48 layers, ~26.1 MiB per layer at IQ4_XS, so the ~1.25 GiB per token
+  that is not resident on the GPU is what sets the rate. That is the currency `ctx-size` is spent
+  in — 1,300 MiB of KV is one expert layer is roughly 2 % of tg.
+
+- **A 1,048,576-cell pool does not fit, and the ceiling is arithmetic rather than a tuning
+  question.** Going from 262144 to 1048576 takes the KV cache from 4,488 to 17,952 MiB at `q8_0`,
+  `+13,464 MiB`, against 3,964 MiB measured free plus at most ~9 GiB recoverable by moving every
+  remaining expert layer to the CPU — and the QSA bias tensors are sized `[n_kv, n_tokens]`
+  (`src/llama-memory-hybrid-idx.h:132-138`), so the compute buffer grows by the same factor of four
+  on top. Even if it squeezed in it would be a regression, because zero expert layers on the GPU is
+  strictly slower than the current split. `parallel` is not a way around it: under `kv-unified` the
+  slots share one pool, so "four slots of 262144" *is* 1,048,576 cells at identical cost. The only
+  route to a 1 M pool on 24 GB is `q4_0` K and V, which halves it to 9,504 MiB, and `cache-type-k`
+  is precisely the value that should not drop because it types the indexer. Note that a large pool
+  needs no `override-kv`: `n_ctx_train` is 262144, so the server caps each slot there
+  (`tools/server/server-context.cpp:1209-1214`, applied at `:1274`) and the `- capping` line is
+  expected rather than a misconfiguration.
 
 - **No MTP head, and context shift and cache-reuse are structurally impossible — which is what makes
   `ctx-checkpoints` load-bearing.** `conversion/qwen4exp.py:28-30` drops the MTP block ("a separate
