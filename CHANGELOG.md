@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
 - [Agents] Add session-retrospective skill for routing session learnings into AGENTS.md and docs/
 - [Agents] Inject SESSION_ID at session start for Claude Code and OpenCode
+- [Build] Apply patches from ./patches to the llama.cpp submodule after checkout
+- [Build] Abort the build when a local patch no longer applies
+- [Documentation] Document the local patch mechanism in the build system reference
+- [Documentation] Document the gguf-py row-group fix and how it was verified
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
@@ -40,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
 - [Documentation] Correct the claim that reasoning_effort has no CLI flag
+- [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
+- [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
 
 
 ## [1.40.0] - 2026-08-05

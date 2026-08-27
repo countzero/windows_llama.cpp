@@ -1,0 +1,37 @@
+diff --git a/gguf-py/gguf/quants.py b/gguf-py/gguf/quants.py
+index 80966b6ef..f4495760e 100644
+--- a/gguf-py/gguf/quants.py
++++ b/gguf-py/gguf/quants.py
+@@ -33,9 +33,17 @@ def _apply_over_grouped_rows(func: Callable[[np.ndarray], np.ndarray], arr: np.n
+     for dim in oshape:
+         osize *= dim
+     out = np.empty(shape=osize, dtype=otype)
+-    # compute over groups of 16 rows (arbitrary, but seems good for performance)
+-    n_groups = (rows.shape[0] // 16) or 1
+-    np.concatenate([func(group).ravel() for group in np.array_split(rows, n_groups)], axis=0, out=out)
++    # group by bytes, not by row count, so one group stays in L2 for any row length
++    row_bytes = rows.shape[1] * arr.dtype.itemsize
++    n_per_group = max(1, (160 * 1024) // row_bytes) if row_bytes else 1
++    # write each group straight into out. collecting the groups for a final
++    # np.concatenate keeps them all alive, which is very slow for big tensors
++    pos = 0
++    for start in range(0, rows.shape[0], n_per_group):
++        group = func(rows[start:start + n_per_group]).ravel()
++        out[pos:pos + group.size] = group
++        pos += group.size
++    assert pos == osize
+     return out.reshape(oshape)
+ 
+ 
+@@ -209,8 +217,9 @@ class BF16(__Quant, qtype=GGMLQuantizationType.BF16):
+         n = blocks.view(np.uint32)
+         # force nan to quiet
+         n = np.where((n & 0x7fffffff) > 0x7f800000, (n & np.uint32(0xffff0000)) | np.uint32(64 << 16), n)
+-        # round to nearest even
+-        n = (np.uint64(n) + (0x7fff + ((n >> 16) & 1))) >> 16
++        # round to nearest even. the nan fixup above caps n, so this cannot
++        # overflow and does not need to widen the whole array to uint64
++        n = (n + np.uint32(0x7fff) + ((n >> np.uint32(16)) & np.uint32(1))) >> np.uint32(16)
+         return n.astype(np.uint16).view(np.uint8)
+ 
+     @classmethod

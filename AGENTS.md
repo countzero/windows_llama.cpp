@@ -29,6 +29,7 @@ Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), 
 
 - **The submodule always shows dirty.** `rebuild_llama.cpp.ps1` prepends an idempotent OpenBLAS linking shim to `vendor/llama.cpp/CMakeLists.txt`; `.gitmodules` sets `ignore = dirty` for it. Don't "clean it up." `docs/build_system.md` -> *Submodule lifecycle*
 - **Each build wipes `vendor/llama.cpp`** back to `origin/master` then checks out the requested `-version` / PR, so local edits there are lost by design. Other submodules are never advanced by the build script and must be bumped by hand. `docs/build_system.md` -> *Submodule lifecycle*
+- **`./patches/*.patch` is the only supported way to carry a local change into the submodule.** It is re-applied after every checkout and the build aborts if a patch no longer applies. Currently one patch, which keeps GGUF conversion of large short-row tensors from running 26x too slow. `docs/build_system.md` -> *Local patches*
 - **CUDA is selected iff *both* `nvidia-smi` and `nvcc` are on PATH.** Missing either silently falls back to OpenBLAS.
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
