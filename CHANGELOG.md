@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Build] Abort the build when a local patch no longer applies
 - [Documentation] Document the local patch mechanism in the build system reference
 - [Documentation] Document the gguf-py row-group fix and how it was verified
+- [Documentation] Document that the gguf-py row-group fix is a throughput fix and not the PLE table OOM fix
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
 - [Documentation] Correct the claim that reasoning_effort has no CLI flag
+- [Documentation] Correct the stated cause of the gguf-py row-group conversion slowdown
 - [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
 - [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
 
