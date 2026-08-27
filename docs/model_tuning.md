@@ -153,6 +153,116 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   MTP head is not — `mtp.layers.0`'s attention and MLP projections are FP8 there, so any
   re-quant raising `blk.64` above 4-bit must also come from the BF16 repo.
 
+## Qwen3.8-Flash-Next
+
+Arch `qwen4exp` (upstream #27742, merged at `b10660`), a separate architecture from the `qwen35`
+family above and tuned on different grounds. 48 blocks: 12 full-attention layers carrying QSA
+block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 experts with 10 used,
+`context_length = 262144`, `qwen3vl_merger` projector.
+
+- **`load-mode = mmap` and `no-host = true` are one mechanism, not two independent choices.** The
+  26.822 GiB `per_layer_token_embd` n-gram hash table (`Q4_0`, 160 x 320,001,536) is created with
+  `TENSOR_READ_LAZY` (`src/models/qwen4exp.cpp:139-140`), and the loader gates that flag on
+  `use_mmap` (`src/llama-model-loader.cpp:1290`), which only `mmap` / `mmap+mlock` / `auto` set
+  (`:559`). The `auto` threshold is 4 GiB (`:1292`), so the table qualifies without pinning
+  `tensor-read-lazy`. A token gathers `ple_n_heads = (ngram_size - 1) * heads_per_ngram` = 16 rows
+  (`src/models/qwen4exp.cpp:64`, gather at `:1106-1112`), so a session touches a vanishing fraction
+  of the 320 M rows and mmap — which aliases the file rather than copying it
+  (`src/llama-model-loader.cpp:1578-1602`) — keeps the resident working set in the hundreds of MiB.
+  `dio` reads and holds all 26.822 GiB for nothing; this is the one entry in the tier that must not
+  use it. `no-host` is what keeps that path reachable: without it `make_cpu_buft_list` prepends
+  `CUDA_Host` to the CPU list (`src/llama-model.cpp:1047-1049`), the chosen buft then fails the
+  `is_default_buft` test at `:1715`, the mmap-aliasing branch at `:1718` is skipped entirely, and
+  every CPU-resident tensor — tens of GiB of experts plus the 26.822 GiB table — goes through
+  `cudaMallocHost`, which is the misleading CUDA OOM documented for DeepSeek below. `mmap+mlock` is
+  the other wrong answer: it forces the whole table resident
+  (`src/llama-model-loader.cpp:1595-1598`).
+
+- **The table can never be offloaded, so `-ngl` is not the lever and the entire budget question is
+  expert layers.** `LLM_TENSOR_PER_LAYER_TOKEN_EMBD` is classified `LLM_TENSOR_LAYER_INPUT`
+  (`src/llama-arch.cpp:887`) and `src/llama-model.cpp:1482-1483` pins every input tensor to
+  `cpu_buft_list` regardless of `-ngl` ("there is very little benefit to offloading the input
+  layer"); only an explicit `-ot` could move it. Composition of the local IQ4_XS (90.635 GiB, 1224
+  tensors): 26.822 GiB PLE table plus 0.333 GiB `token_embd` on the CPU by construction, 60.938 GiB
+  of routed experts (1.270 GiB per layer x 48) for `fit` to place, and 2.542 GiB of everything else
+  on the GPU. The GPU-side floor is therefore small, and how many of the 48 expert layers survive
+  beside the KV cache is the only thing that moves throughput.
+
+- **`fit = on` with an explicit `ctx-size`, and fit is blind in two ways here.** Fit reduces context
+  only when the user left it unset (`common/fit.cpp:197` `n_ctx_auto = n_ctx == 0`, used at `:392`),
+  so `ctx-size = 262144` is honoured and step 3 spends the remainder on expert fractions — its
+  overflow pattern `blk\.N\.ffn_(up|down|gate_up|gate)_(ch|)exps` (`common/fit.cpp:522`) matches
+  exactly what this arch names them (`src/models/qwen4exp.cpp:202-203`). Blind spot one: fit assumes
+  host memory is unlimited (`common/fit.h:24`) and never consults the CPU slot once a GPU is present
+  (`common/fit.cpp:331-347`). Blind spot two: it measures with `load_mode = LLAMA_LOAD_MODE_NONE`
+  (`common/fit.cpp:57`), so lazy read is off during measurement and its host figure counts the full
+  PLE table — a number the real run never produces. Neither matters on a 191 GiB box, but they are
+  why the split cannot be sanity-checked from fit's own host accounting. Setting `n-gpu-layers` to
+  anything but `-1`, or any `-ot` / `--cpu-moe` / `--n-cpu-moe`, throws inside fit
+  (`common/fit.cpp:462-464`, `:483-485`) and is downgraded to a warning at `:893-895`: fit silently
+  does nothing and the model no longer fits at all.
+
+- **`cache-type-k` also types the QSA indexer cache, which is why K stays at `q8_0`.**
+  `src/llama-model.cpp:2506-2507` hands `params.type_k` / `type_v` to `llama_memory_hybrid_idx`,
+  which forwards them unchanged to the indexer cache (`src/llama-memory-hybrid-idx.cpp:56`).
+  Indexer K is what `ggml_top_k` ranks blocks on (`src/models/qwen4exp.cpp:599-601`), so cheapening
+  it degrades *which* tokens are attended, not just their values. Per-token cost at
+  `kv-unified = true`: 12 attention layers x 1024 elements (`n_head_kv = 2` x `head = 256`, K and V)
+  plus 12 indexer layers x 384 elements = 17,952 B at `q8_0`, i.e. 4,488 MiB at 262144. Two thirds
+  of the indexer share is dead — `src/llama-memory-hybrid-idx.cpp:50-51` sets `n_embd_head_k_full`
+  but not `n_embd_head_v_full`, so `is_mla()` is false, `src/llama-kv-cache.cpp:232-235` allocates a
+  256-wide V, and the graph only ever calls `cpy_k` / `get_k` (`src/models/qwen4exp.cpp:530`,
+  `:533`). Dropping `cache-type-v` to `q4_0` would recover 1,152 MiB at this context with the
+  quality cost paid only by the 12 real attention layers; worth trying, not taken. Unlike
+  `deepseek4` the two types may legally differ — the equality guard at
+  `src/llama-context.cpp:3592-3595` fires only for `is_mla()` or `LLM_ARCH_DEEPSEEK4`.
+
+- **Recurrent state is 112.219 MiB per sequence and independent of `ctx-size`, so `parallel` is the
+  cheap knob and context the expensive one.** 36 gated-delta-net layers at
+  `n_embd_r = 3 x 10240` and `n_embd_s = 128 x 6144` elements (`src/llama-hparams.cpp:204`, `:232`),
+  both hardcoded `GGML_TYPE_F32` (`src/llama-model.cpp:2513-2514`) so no cache type shrinks them,
+  and one row per sequence because `qwen4exp` is absent from `llm_arch_supports_rs_rollback`
+  (`src/llama-arch.cpp:1099-1113`) and `n_rs_seq` is clamped to 0 at
+  `src/llama-context.cpp:105-108`. The entry still keeps `parallel = 1`: with `kv-unified = true`
+  `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`), so extra slots share one pool rather than
+  extending it.
+
+- **No MTP head, and context shift and cache-reuse are structurally impossible — which is what makes
+  `ctx-checkpoints` load-bearing.** `conversion/qwen4exp.py:28-30` drops the MTP block ("a separate
+  draft head; vLLM drops it too"), so the GGUF carries no `nextn` tensors and `spec-type =
+  draft-mtp` fails at `src/llama-context.cpp:3637-3642`; `ngram-mod` is the only speculative type
+  available. `get_can_shift()` is false because IMRoPE gives `n_pos_per_embd() == 4`
+  (`src/llama-kv-cache.cpp:1194-1196`, rope type at `src/llama-model.cpp:2951-2955`), so the server
+  force-disables context shift *and* cache-reuse with two warnings at
+  `tools/server/server-context.cpp:1185-1195` — both are expected on startup, not a
+  misconfiguration. Speculative rollback then goes through checkpoints
+  (`tools/server/server-context.cpp:1224-1226`), so `ctx-checkpoints = 32` is required for
+  `ngram-mod` to be useful rather than being an optimisation. `swa-full` is inert: `swa_type` is
+  `NONE`, which is why the model takes the `hybrid_idx` path at `src/llama-model.cpp:2502` at all,
+  and the server clears the flag at `:1197-1202`.
+
+- **The template pin is the same file as `Qwen3.8-27B`'s, byte for byte.** The embedded template is
+  8952 bytes with sha256 `c3cf9e34abf4f9e3...` — identical to Qwen3.8-27B's — so the three defects
+  documented above (tool-call `arguments` arriving as a JSON string, a duplicate blank
+  `<think>\n\n</think>` from history, `raise_exception` on `high` / `minimal` / `max`) apply
+  unchanged, and so does the fix. `reasoning-effort = xhigh` for the same reason; `--reasoning-budget`
+  remains the guard rail rather than a lower level. Pinning costs no vision: the vendored template
+  renders `<|vision_start|><|image_pad|><|vision_end|>`
+  (`vendor/Qwen-Fixed-Chat-Templates/chat_template.jinja:67-88`). The projector is
+  `qwen3vl_merger`, so `image-min-tokens = 1024` applies as it does to the other Qwen-VL entries.
+  The sampler block restates the GGUF's own `general.sampling.*` (`temp 1.0`, `top-p 0.95`,
+  `top-k 20`), matching Qwen3.8-27B.
+
+- **`no-mmproj-offload = true`, because CLIP is exactly what `fit` cannot see.** Fit measures the
+  language model alone and commits the expert split before `mtmd` loads the projector, so a
+  `mmproj-offload = true` here lands in the silent-OOM window described in `docs/presets.md` ->
+  *mmproj-offload* with no margin left to absorb it — the 588 MiB of `Q8_0` weights plus ~310 MiB of
+  CLIP compute would have to be reserved by hand through `fit-target`. `fit-target = 3072` is the
+  same WDDM-plus-untracked-CUDA-scratch margin as the DeepSeek entry on the same card, for the same
+  reasons. `cache-ram = 32768` rather than the 51200 used by the small entries: a full-context
+  prompt state is ~4.6 GiB here (4,488 MiB KV plus the recurrent rows), and the host is already
+  backing most of a 90.635 GiB file through the page cache plus a PLE working set that only grows.
+
 ## gemma-4
 
 - **All gemma-4 entries pin `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja`.**

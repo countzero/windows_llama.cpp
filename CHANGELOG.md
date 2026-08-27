@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document the local patch mechanism in the build system reference
 - [Documentation] Document the gguf-py row-group fix and how it was verified
 - [Documentation] Document that the gguf-py row-group fix is a throughput fix and not the PLE table OOM fix
+- [Presets] Add Qwen3.8-Flash-Next IQ4_XS entry to the 24 GB tier
+- [Documentation] Document the Qwen3.8-Flash-Next per_layer_token_embd table and its lazy read path
+- [Documentation] Document why the Qwen3.8-Flash-Next entry needs load-mode = mmap instead of dio
+- [Documentation] Document why no-host keeps the Qwen3.8-Flash-Next mmap aliasing path reachable
+- [Documentation] Document the Qwen3.8-Flash-Next weight split and the two fit blind spots
+- [Documentation] Document the Qwen3.8-Flash-Next QSA indexer cache and its unused V allocation
+- [Documentation] Document that Qwen3.8-Flash-Next has no MTP head and cannot shift context or reuse cache
+- [Documentation] Document the Qwen3.8-Flash-Next recurrent state cost and why parallel is the cheap knob
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
@@ -41,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
 - [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
 - [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V
+- [Vendor] Bump llama.cpp submodule to b10660 for Qwen3.8-Flash-Next support #27742
+- [Documentation] Extend the no-host and fit traps in AGENTS.md to Qwen3.8-Flash-Next
 
 ### Removed
 - [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
@@ -53,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Correct the GGML_CUDA_FA_ALL_QUANTS failure mode from an abort to a silent CPU fallback
 - [Documentation] Correct the claim that Muse-Glimmer-30B has no bundled chat template
 - [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
+- [Documentation] Correct the presets README claim that Qwen3.8-27B leaves reasoning-effort unset
+- [Documentation] Correct the presets README claim that the vendored chat template defaults to xhigh
 - [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
 - [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
 

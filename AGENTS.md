@@ -45,13 +45,13 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
 
 Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Each is stated here without rationale so it is always in context; read the linked section before acting on one. These lines are a deliberate projection of `docs/` — when a trap changes, both move together.
 
-- Never pair `direct-io` with `no-mmap`; use `load-mode = dio`. `docs/presets.md` -> *load-mode*
+- Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next`, which must keep `load-mode = mmap`. `docs/presets.md` -> *load-mode*
 - Never set `mmproj-offload = true` on a tier where LLM + KV already saturate VRAM. `docs/presets.md` -> *mmproj-offload*
 - Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Muse Glimmer*
 - Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning.md` -> *Muse Glimmer*
 - Never add RoPE scaling to a Muse Glimmer entry. `docs/model_tuning.md` -> *Muse Glimmer*
-- `no-host = true` is mandatory on the DeepSeek entry; without it the load fails as a misleading CUDA OOM. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*
-- Keep `fit = on` on the DeepSeek entry; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1`. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*
+- `no-host = true` is mandatory on the DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Qwen3.8-Flash-Next*
+- Keep `fit = on` on the DeepSeek and `Qwen3.8-Flash-Next` entries; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Qwen3.8-Flash-Next*
 - `cache-type-k` and `cache-type-v` must be identical on `deepseek4`; differing values are startup-fatal. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*
 - Never set `image-min-tokens` on a gemma-4 entry; it is a `qwen3vl_merger` key only. `docs/model_tuning.md` -> *Qwen 3.6 and 3.8*
 - Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning.md`

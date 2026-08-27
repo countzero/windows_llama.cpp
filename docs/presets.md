@@ -36,6 +36,14 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
   values are `none`, `mmap`, `mlock`, `mmap+mlock`, `dio` (`arg.cpp:2615-2619`) — anything else
   throws at startup.
 
+- **`Qwen3.8-Flash-Next` is the one entry that must use `load-mode = mmap` instead.** Its 26.8 GiB
+  `per_layer_token_embd` n-gram hash table is created with `TENSOR_READ_LAZY`
+  (`src/models/qwen4exp.cpp:139-140`) and the loader gates that flag on `use_mmap`
+  (`src/llama-model-loader.cpp:1290`), which every non-mmap `load-mode` clears (`:559`). A session
+  touches 8 of the table's 320 million rows per token, so under `mmap` the resident working set
+  stays in the hundreds of MiB while `dio` reads and holds all 26.8 GiB. `no-host = true` is part
+  of the same mechanism, not an independent choice — see `docs/model_tuning.md` -> *Qwen3.8-Flash-Next*.
+
 - **`load-mode = dio` does not enable DirectIO on Windows — it only disables mmap.** The Win32 `llama_file::impl` ctor takes `use_direct_io` as `[[maybe_unused]]` and just calls `ggml_fopen` (`vendor/llama.cpp/src/llama-mmap.cpp:86-95`); `FILE_FLAG_NO_BUFFERING` is never set and `read_alignment()` stays 1 (`:391`), so the loader's async staging buffers are 4 x 1 MiB of pinned host memory instead of the 4 x 64 MiB the aligned path would use (`src/llama-model-loader.cpp:1418`, `:1427`). `has_direct_io()` nevertheless returns a hardcoded `true` on Windows (`:173-175`). Net effect of `dio` on this platform: buffered reads, no mmap, and zero VRAM cost — it is never implicated in a CUDA OOM. Keep the key for the deprecation-warning reason documented above, but do not reason about page-cache behaviour from it.
 
 ## mmproj-offload
