@@ -29,28 +29,30 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   chronologically for 100% KV prefix cache stability and agentic reasoning
   continuity). To strip past `<think>` blocks instead, set
   `chat-template-kwargs = {"preserve_thinking":false}` — at the cost of a lower
-  KV cache hit rate. v22 also honours `preserve_reasoning`, so `--reasoning-preserve`
+  KV cache hit rate. It also honours `preserve_reasoning`, so `--reasoning-preserve`
   (`common/arg.cpp:3677-3689`) works as the CLI equivalent. Path is repo-relative,
   so `llama-server` must be launched from the repo root — `read_file()` resolves
   against the process CWD, not the INI file's directory. `Qwen3-Coder-Next` entries
   deliberately keep their GGUF-embedded template; froggeric's README claims
   compatibility only for Qwen 3.5 / 3.6 / 3.8 variants.
 
-- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entry pins
-  `xhigh`.** v22 defaulted the level to `xhigh` for *every* model the template serves, injecting
-  a ~45-token "Reasoning effort is set to xhigh..." paragraph at the top of the system prompt.
-  v22.1 moved that default to `medium`, the one level that injects no instruction text at all.
-  Qwen 3.6 has no trained notion of the concept, so its entries pin `medium` — under v22 that
-  overrode a wrong default, under v22.1 it restates the right one, and either way the pin is what
-  makes the level independent of the template version. Qwen 3.8 *is* trained on it and Qwen's own
-  template defaults to `xhigh`, so that entry pins `xhigh` explicitly: leaving the key unset
-  silently downgraded it to `medium` at the v22.1 bump. Never rely on the template default here.
-  `--reasoning-effort` writes only a template kwarg (`common/arg.cpp:3650-3660`), which a request
-  can still override (`tools/server/server-common.cpp:1312-1319`), as can a `<|think_low|>` /
-  `<|think_medium|>` / `<|think_xhigh|>` tag typed inside a message (new in v22.1, stripped before
-  rendering). Unlike the GGUF-embedded 3.8 template, the vendored one never raises on an unknown
-  level — v22.1 maps `high` and `max` to `xhigh`, `minimal` to `low`, `none` to thinking off, and
-  anything else *down* to `medium` rather than up to `xhigh` as v22 did.
+- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entries pin
+  `xhigh`. Never leave the key unset.** The level is one injected paragraph at the top of the
+  system prompt — ~45 tokens of "Reasoning effort is set to xhigh..." — and `medium` is the single
+  level that injects nothing at all (`chat_template.jinja:53-59`). Qwen 3.6 has no trained notion of
+  the concept, so its entries pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own template
+  defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
+  `_default_reasoning_effort` variable at the top of the file (`chat_template.jinja:17`), currently
+  `medium`, and it has moved between template releases before. That is the whole reason to pin:
+  an unpinned entry silently changes reasoning level at a template bump, and a pinned one renders
+  byte-identically across bumps. `--reasoning-effort` writes only a template kwarg
+  (`common/arg.cpp:3650-3660`), which a request can still override
+  (`tools/server/server-common.cpp:1312-1319`), as can a `<|think_low|>` / `<|think_medium|>` /
+  `<|think_xhigh|>` tag typed inside a message (stripped before rendering). Unlike the
+  GGUF-embedded 3.8 template, the vendored one never raises on an unknown level: it maps `high`,
+  `max`, `ultracode` and `extreme` to `xhigh`, `minimal` to `low`, `none` and `off` to thinking
+  off, and anything else *down* to `medium` (`chat_template.jinja:21-26`). The `ultracode` and
+  `extreme` aliases exist for Claude Code, Cursor and Cline.
 
 - **`xhigh` is kept on `Qwen3.8-27B`, and `--reasoning-budget` — not a lower level — is the guard
   rail for it.** Qwen publishes no per-level benchmarks; every number on the 27B card is at the
@@ -71,13 +73,13 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   the block. Set it if an agentic client that sends its own `max_tokens` starts returning empty
   content; a request can override it per call via `reasoning_budget_tokens`.
 
-- **`Qwen3.8-27B` pins the template too — v22 removed the reason it used to be the exception.**
+- **`Qwen3.8-27B` pins the template too, even though its embedded one is already the newer file.**
   Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
   Qwen3.6-27B (65 blocks, 866 tensors, same `ssm.*`, same 248320-token tokenizer,
   `eos = 248046`), but it embeds a *different, newer* 8952-byte template, not the
   7764-byte one shared by Qwen3.6-27B and both Bonsai variants. That newer file already
-  defaults `preserve_thinking` on and adds `reasoning_effort`, which is why the entry
-  shipped unpinned until v22 supported 3.8. Three defects justify pinning anyway, all
+  defaults `preserve_thinking` on and adds `reasoning_effort`, so it is a plausible
+  candidate for going unpinned. Three defects rule that out, all
   reproducible by rendering the embedded template directly: tool calls whose `arguments`
   arrive as a JSON *string* (what most OpenAI-compatible clients send) abort with
   `Can only get item pairs from a mapping`; history carrying reasoning inside `content`
@@ -85,25 +87,41 @@ relevant section on demand. Cross-model rules are in `docs/presets.md`.
   of the real block, because 3.8 dropped the in-content parser; and `reasoning_effort`
   accepts only `xhigh` / `medium` / `low`, calling `raise_exception` on `high`,
   `minimal` and `max` — three of the six levels `common/arg.cpp:3651` advertises.
-  v22.1 handles all three and its `xhigh` instruction text is byte-identical to the
-  official one, so `reasoning = on` with `reasoning-effort = xhigh` reproduces the
-  pre-pin prompt. Tool-call parsing is unaffected: the qwen3_coder XML handler is
+  The vendored template handles all three and its `xhigh` instruction text is
+  byte-identical to the official one, so `reasoning = on` with `reasoning-effort = xhigh`
+  reproduces the pre-pin prompt. Tool-call parsing is unaffected: the qwen3_coder XML handler is
   selected purely on `<tool_call>` + `<function=` + `<parameter=` being present in the
   template source (`common/chat.cpp:3590-3594`), which both files satisfy, and the PEG
   parser is built from `inputs.tools` rather than the rendered `<tools>` block. The pin
   additionally brings froggeric's agentic extras (two-tier tool-error escalation,
   `<|think_on|>` / `<|think_off|>`, `developer` role, payload truncation).
 
-- **v22 fixed two v19 deviations from the official Qwen prompt format, so the bump changed
-  every pinned entry, not just the new 3.8 one.** v19 serialized `<tools>` entries
-  *unwrapped* (`{"description": ..., "name": ..., "parameters": ...}`); v22 emits the
-  wrapped OpenAI form (`{"function": {...}, "type": "function"}`), which is what
-  Qwen3.6-27B's own 7764-byte template and Qwen 3.8's 8952-byte one both produce — v19
-  was the outlier. v19 also rendered `</think>\n` before assistant content where the
-  official templates and llama.cpp's own generation prompt use `</think>\n\n`
-  (`common/chat.cpp:1163`). Both are corrections, but they change prompt bytes, so the
-  bump invalidates existing KV prefix caches once; `reasoning-effort = medium` suppresses
-  only the new steering paragraph and does not restore v19 output.
+- **The vendored template (v22.4, pinned at `e649070`) corrects two v19 deviations from the
+  official Qwen prompt format, so moving to it changed every pinned entry, not just the new 3.8
+  ones.** v19 serialized `<tools>` entries *unwrapped*
+  (`{"description": ..., "name": ..., "parameters": ...}`); the current template emits the wrapped
+  OpenAI form (`{"function": {...}, "type": "function"}`), which is what Qwen3.6-27B's own
+  7764-byte template and Qwen 3.8's 8952-byte one both produce — v19 was the outlier. v19 also
+  rendered `</think>\n` before assistant content where the official templates and llama.cpp's own
+  generation prompt use `</think>\n\n` (`common/chat.cpp:1163`). Both are corrections, but they
+  change prompt bytes, so adopting the template invalidates existing KV prefix caches once;
+  `reasoning-effort = medium` suppresses only the steering paragraph and does not restore v19
+  output.
+
+- **The template emits an empty `<think>\n\n</think>` before a historical tool call whose assistant
+  message carried no reasoning, and that is deliberate.** Qwen itself emits a think block before a
+  tool call when thinking is on, so injecting an empty one keeps rendered history token-aligned
+  with the model's own generation. It fires only when the client drops reasoning on the round trip;
+  supplying `reasoning_content`, `thinking`, `message.reasoning` (the vLLM and Responses API
+  spelling) or an inline `<think>` block suppresses it. This is *not* the "empty think poisoning"
+  the template's README calls out — that was replacing *real* thoughts with empty blocks to save
+  tokens, which this template does not do. Verified by rendering the template against plain chat,
+  system-prompt, thinking-off, multi-turn-with-thinking, vision, and both tool-argument wire
+  formats; the tool-call case is the only one where an unset `reasoning_content` changes the
+  output. The same release line also brings the effort aliases above, reasoning de-duplication when
+  a client populates both `reasoning_content` and an in-content `<think>`, complete serialization of
+  scalar and list tool arguments, and single-newline separation between consecutive `<tool_call>`
+  blocks for token parity on multi-tool turns.
 
 - **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` used by the Qwen 3.6 entries.**
   1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
@@ -238,16 +256,39 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   112.219 MiB rather than the 14.5 MiB a DSV4 checkpoint costs, and because
   `slot.prompt.checkpoints` is per slot (`tools/server/server-context.cpp:2283`) the host budget is
   `parallel x ctx-checkpoints x 112 MiB`. At `parallel = 4`, 32 checkpoints would reserve up to
-  14.3 GiB of host RAM; 8 holds it at the ~3.6 GiB that `parallel = 1` with 32 would have cost.
-  Raising `parallel` again means lowering this in step.
+  14.3 GiB of host RAM; 8 holds it at the ~3.6 GiB that `parallel = 1` with 32 would have cost, and
+  at the shipped `parallel = 2` it is ~1.8 GiB. Raising `parallel` again means lowering this in step.
 
-- **Measured on a 24463 MiB card at `ctx-size = 262144` / `parallel = 1` / `q8_0` K + V, CLIP on
-  CPU: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short context.** The free figure tracks
-  `fit-target = 3072` plus ~0.9 GiB of slack, so the margin is doing its job and is not obviously
-  over-provisioned. Throughput is expert-traffic bound, not attention bound: every token reads
-  10 of 512 experts across all 48 layers, ~26.1 MiB per layer at IQ4_XS, so the ~1.25 GiB per token
-  that is not resident on the GPU is what sets the rate. That is the currency `ctx-size` is spent
-  in — 1,300 MiB of KV is one expert layer is roughly 2 % of tg.
+- **Measured on a 24463 MiB card, `q8_0` K + V, CLIP on CPU.** At `ctx-size = 262144` /
+  `parallel = 1`: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short context. At the shipped
+  `ctx-size = 524288` / `parallel = 2`: 19950 MiB used, 4513 MiB free, 14.90 t/s on a 400-token
+  prose completion. The two throughput figures are *not* a controlled comparison — different
+  prompts, and `ngram-mod` acceptance dominates on predictable output (the same config returns
+  22.51 t/s counting to 60). "Used" barely moves between configs because `fit` always fills to the
+  `fit-target` margin; what changes is the composition. Throughput is expert-traffic bound, not
+  attention bound: every token reads 10 of 512 experts across all 48 layers, ~26.1 MiB per layer at
+  IQ4_XS, so the ~1.25 GiB per token that is not resident on the GPU is what sets the rate. That is
+  the currency `ctx-size` is spent in — 1,300 MiB of KV is one expert layer is roughly 2 % of tg.
+
+- **`ctx-size = 524288` with `parallel = 2` buys two concurrent full-length conversations, and
+  costs about half the GPU-resident expert layers to do it.** `llama-fit-params` gives the fixed
+  cost directly, in MiB, as a function of `n_ctx_seq` (`context` is KV plus the recurrent rows,
+  `compute` is the graph buffer):
+
+  | `n_ctx_seq` | context | compute | fixed total |
+  |------------:|--------:|--------:|------------:|
+  |      65,536 |   1,234 |     573 |       1,807 |
+  |     262,144 |   4,600 |   1,821 |       6,421 |
+  |     524,288 |   9,088 |   3,497 |      12,585 |
+  |   1,048,576 |  18,064 |   6,829 |      24,893 |
+
+  Add 112 MiB per sequence beyond the first for the extra recurrent row. So the shipped config's
+  fixed cost is 12,697 MiB against 6,758 MiB for 262144 / `parallel = 4`; the ~5,900 MiB difference
+  comes straight out of expert layers, taking them from ~8.3 of 48 to ~4.4. The benefit is real but
+  narrow: under `kv-unified` `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`) while the server
+  still caps each *slot* at `n_ctx_train = 262144`, so a single conversation is capped at 262144
+  either way and only a *second* concurrent long conversation can reach into the extra cells. On a
+  single-user workload the larger pool is paid for and unused.
 
 - **A 1,048,576-cell pool does not fit, and the ceiling is arithmetic rather than a tuning
   question.** Going from 262144 to 1048576 takes the KV cache from 4,488 to 17,952 MiB at `q8_0`,
@@ -256,7 +297,8 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   (`src/llama-memory-hybrid-idx.h:132-138`), so the compute buffer grows by the same factor of four
   on top. Even if it squeezed in it would be a regression, because zero expert layers on the GPU is
   strictly slower than the current split. `parallel` is not a way around it: under `kv-unified` the
-  slots share one pool, so "four slots of 262144" *is* 1,048,576 cells at identical cost. The only
+  slots share one pool, so wanting four slots that can each reach 262144 *is* asking for 1,048,576
+  cells, at exactly the cost tabulated above. The only
   route to a 1 M pool on 24 GB is `q4_0` K and V, which halves it to 9,504 MiB, and `cache-type-k`
   is precisely the value that should not drop because it types the indexer. Note that a large pool
   needs no `override-kv`: `n_ctx_train` is 262144, so the server caps each slot there
@@ -272,7 +314,7 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   force-disables context shift *and* cache-reuse with two warnings at
   `tools/server/server-context.cpp:1185-1195` — both are expected on startup, not a
   misconfiguration. Speculative rollback then goes through checkpoints
-  (`tools/server/server-context.cpp:1224-1226`), so `ctx-checkpoints = 32` is required for
+  (`tools/server/server-context.cpp:1224-1226`), so a non-zero `ctx-checkpoints` is required for
   `ngram-mod` to be useful rather than being an optimisation. `swa-full` is inert: `swa_type` is
   `NONE`, which is why the model takes the `hybrid_idx` path at `src/llama-model.cpp:2502` at all,
   and the server clears the flag at `:1197-1202`.

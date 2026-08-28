@@ -82,8 +82,9 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > entries `xhigh`. `medium` is the one level that injects no instruction text into the system
 > prompt, and Qwen 3.6 has no trained notion of the concept; Qwen 3.8 *is* trained on it and
 > `xhigh` is what Qwen's own template defaults to. Both are pinned rather than left unset because
-> the vendored template's default has moved before (v22 shipped `xhigh`, v22.1 `medium`). Clients
-> can still override per request via the OpenAI `reasoning_effort` field.
+> the vendored template's own default has moved between its releases, so an unpinned entry would
+> silently change reasoning level at a template bump. Clients can still override per request via
+> the OpenAI `reasoning_effort` field.
 >
 > All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
 > the official Google template bundled with llama.cpp itself, kept in lock-step with
