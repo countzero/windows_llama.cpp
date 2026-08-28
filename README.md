@@ -1,3 +1,5 @@
+
+
 # Windows llama.cpp
 
 [![Latest release](https://img.shields.io/github/v/release/countzero/windows_llama.cpp)](https://github.com/countzero/windows_llama.cpp/releases/latest)
@@ -208,7 +210,7 @@ You can enforce a specific grammar for the response generation. The following wi
     --n-gpu-layers 33 `
     --prompt-cache "./cache/gemma-2-9b-it-IQ4_XS.gguf.prompt" `
     --prompt "The scientific classification (Taxonomy) of a Llama: " `
-    --grammar-file "./vendor/llama.cpp/grammars/json.gbnf"
+    --grammar-file "./vendor/llama.cpp/grammars/json.gbnf" `
     --color
 ```
 
