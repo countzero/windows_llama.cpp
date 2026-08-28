@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Build] Apply patches from ./patches to the llama.cpp submodule after checkout
 - [Build] Abort the build when a local patch no longer applies
 - [Documentation] Document the local patch mechanism in the build system reference
-- [Documentation] Document the gguf-py row-group fix, how it was verified, and that it is a throughput fix rather than the PLE table OOM fix
+- [Documentation] Document the gguf-py row-group fix, the platforms it was measured on, and the three variants that were rejected
 - [Documentation] Document the Qwen3.8-Flash-Next per_layer_token_embd table and its lazy read path
 - [Documentation] Document why the Qwen3.8-Flash-Next entry needs load-mode = mmap instead of dio
 - [Documentation] Document why no-host keeps the Qwen3.8-Flash-Next mmap aliasing path reachable
@@ -69,8 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Correct the GGML_CUDA_FA_ALL_QUANTS failure mode from an abort to a silent CPU fallback
 - [Documentation] Correct the claim that Muse-Glimmer-30B has no bundled chat template
 - [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
-- [Conversion] Fix BF16 GGUF conversion of large short-row tensors running 26x too slow
-- [Conversion] Drop the uint64 widening in the gguf-py BF16 quantizer
+- [Conversion] Fix GGUF conversion stalling when a tensor row width puts the quantizer group on a slow allocation size
 
 
 ## [1.40.0] - 2026-08-05

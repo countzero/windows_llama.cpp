@@ -1,0 +1,19 @@
+diff --git a/gguf-py/gguf/quants.py b/gguf-py/gguf/quants.py
+index 80966b6ef..85c5b49e4 100644
+--- a/gguf-py/gguf/quants.py
++++ b/gguf-py/gguf/quants.py
+@@ -33,8 +33,12 @@ def _apply_over_grouped_rows(func: Callable[[np.ndarray], np.ndarray], arr: np.n
+     for dim in oshape:
+         osize *= dim
+     out = np.empty(shape=osize, dtype=otype)
+-    # compute over groups of 16 rows (arbitrary, but seems good for performance)
+-    n_groups = (rows.shape[0] // 16) or 1
++    # grow the group to 160 KiB, but never below 16 rows. a fixed row count
++    # makes the group size follow the row width, which is very slow for some
++    # widths on Windows
++    row_bytes = rows.shape[-1] * arr.dtype.itemsize
++    rows_per_group = max(16, (160 * 1024) // row_bytes) if row_bytes else 16
++    n_groups = (rows.shape[0] // rows_per_group) or 1
+     np.concatenate([func(group).ravel() for group in np.array_split(rows, n_groups)], axis=0, out=out)
+     return out.reshape(oshape)
+ 
