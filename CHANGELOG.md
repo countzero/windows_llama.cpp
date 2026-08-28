@@ -46,7 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document the measured Qwen3.8-Flash-Next 24 GB VRAM and throughput figures
 - [Documentation] Document the measured Qwen3.8-Flash-Next context and compute cost per n_ctx_seq
 - [Documentation] Document why a 1M cell pool does not fit Qwen3.8-Flash-Next on 24 GB
-- [Documentation] Document that the fit-target values assume the dGPU does not drive the display
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md

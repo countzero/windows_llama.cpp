@@ -23,25 +23,10 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
   `CUDA_VISIBLE_DEVICES` indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and
   therefore does *not* match `nvidia-smi` ordering; pass a GPU UUID to be unambiguous.
 
-## fit-target
-
-- **The `fit-target` values in these files assume the dGPU does not drive the display, and must be
-  raised on a machine where it does.** `fit` takes a single `cudaMemGetInfo` snapshot at t=0
-  (`common/fit.cpp:194`) and carries no WDDM or framebuffer allowance of its own, so the margin is
-  the only thing standing between the fitted split and the untracked consumers — the CUDA VMM
-  scratch pool, the lazy cuBLAS workspace, CUDA graph instances, and anything the compositor takes.
-  On the development machine the desktop runs on the Intel iGPU, so the NVIDIA card reports
-  23151 of 24462 MiB free with only ~1.3 GiB reserved and `fit-target = 3072` is covering CUDA and
-  WDDM scratch alone. Drive a display from the same card and a browser, a compositor and a second
-  monitor come out of that same margin. Verify with `llama-server --list-devices`, which prints the
-  free figure fit will actually work from, and confirm the split is on the intended adapter with
-  `Get-Counter "\GPU Process Memory(*)\Dedicated Usage"` — the instance name carries both the pid
-  and the adapter LUID, so it distinguishes a dGPU allocation from an iGPU one that `nvidia-smi`
-  cannot see at all.
-
 ## load-mode
 
-- **All entries use `load-mode = dio`; never pair `direct-io` with `no-mmap` again.** Both spellings
+- **Every entry but `Qwen3.8-Flash-Next` uses `load-mode = dio`; never pair `direct-io` with
+  `no-mmap` again.** Both spellings
   are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
   `LLAMA_LOAD_MODE_NONE` (`common/arg.cpp:2594`) while `--direct-io` sets
   `LLAMA_LOAD_MODE_DIRECT_IO` (`:2603`) — so setting both means only whichever is parsed last wins.
@@ -56,7 +41,7 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
   `per_layer_token_embd` n-gram hash table is created with `TENSOR_READ_LAZY`
   (`src/models/qwen4exp.cpp:139-140`) and the loader gates that flag on `use_mmap`
   (`src/llama-model-loader.cpp:1290`), which every non-mmap `load-mode` clears (`:559`). A session
-  touches 8 of the table's 320 million rows per token, so under `mmap` the resident working set
+  touches 16 of the table's 320 million rows per token (`ple_n_heads`, `:64`), so under `mmap` the resident working set
   stays in the hundreds of MiB while `dio` reads and holds all 26.8 GiB. `no-host = true` is part
   of the same mechanism, not an independent choice — see `docs/model_tuning.md` -> *Qwen3.8-Flash-Next*.
 
