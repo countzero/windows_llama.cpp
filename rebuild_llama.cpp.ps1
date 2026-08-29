@@ -251,6 +251,38 @@ if (!$pullRequest) {
     git -C ./vendor/llama.cpp reset --hard PR
 }
 
+# Local fixes to the vendored tree, re-applied on every build because the
+# submodule was reset to origin/master above. Must run after the checkout,
+# otherwise the checkout discards them again.
+$patches = @(Get-ChildItem -Path "./patches/*.patch" -ErrorAction "SilentlyContinue" | Sort-Object -Property "Name")
+
+if ($patches.Count -eq 0) {
+    Write-Host "[Patches] No patches found under ./patches." -ForegroundColor "DarkYellow"
+}
+
+foreach ($patch in $patches) {
+
+    Write-Host "[Patches] Applying $($patch.Name)..." -ForegroundColor "Yellow"
+
+    # --3way still applies when upstream moved the surrounding lines. A failure
+    # here means upstream moved the patched code itself, so fail loudly instead
+    # of silently building an unpatched tree.
+    git -C ./vendor/llama.cpp apply --3way --whitespace=nowarn $patch.FullName
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to apply ./patches/$($patch.Name).`nUpstream likely moved the code it targets. Review and regenerate the patch."
+    }
+}
+
+if ($patches.Count -gt 0) {
+
+    # `git apply --3way` implies `--index` and would leave the patched files
+    # staged, which makes `git checkout -- <file>` restore the patched copy
+    # instead of the upstream one. Unstage so the submodule shows the same
+    # plain worktree modification as the OpenBLAS shim below.
+    git -C ./vendor/llama.cpp reset --quiet
+}
+
 $lines = @(
     "# This is a workaround for a CMake bug on Windows to build llama.cpp"
     "# with OpenBLAS. The find_package(BLAS) call fails to find OpenBLAS,"

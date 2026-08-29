@@ -5,6 +5,73 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.41.0] - 2026-08-28
+
+### Added
+- [Presets] Add Qwen3.8-27B IQ4_XS entry to the 24 GB tier
+- [Presets] Add Qwen3.8-Flash-Next IQ4_XS entry to the 24 GB tier
+- [Presets] Pin chat-template-file on the Qwen3.8-27B entry
+- [Presets] Pin reasoning-effort to medium on all Qwen 3.6 and Bonsai entries
+- [Presets] Pin reasoning-effort to xhigh on the Qwen3.8 entries
+- [Documentation] Document why Qwen3.8-27B now pins the vendored chat template
+- [Documentation] Document the reasoning-effort steering and the default-effort knob in the vendored chat template
+- [Documentation] Document the reasoning-effort aliases the vendored template maps for OpenAI, Claude Code, Cursor and Cline
+- [Documentation] Document the tools serialization and think-tag spacing fixes in the vendored chat template
+- [Documentation] Document the two v19 prompt-format deviations the vendored template corrects
+- [Documentation] Document the empty think block the vendored template emits before a tool call that carries no reasoning
+- [Documentation] Document that pinning reasoning-effort is what keeps a template bump from moving the level
+- [Documentation] Document why Qwen3.8-27B keeps xhigh reasoning and how reasoning-budget bounds it
+- [Documentation] Document the standalone Qwen3.8-27B MTP sidecars as an alternative to a re-quant
+- [Documentation] Document the GGML_SCHED_MAX_COPIES=1 CUDA build flag
+- [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
+- [Documentation] Document that ctx-size above the GGUF context_length is dead VRAM without override-kv
+- [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
+- [Documentation] Document the Muse-Glimmer-30B DFlash drafter, chat template, and reasoning strength defaults
+- [Documentation] Document the measured Muse-Glimmer-30B 24 GB compute buffer and VRAM breakdown
+- [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
+- [Agents] Add session-retrospective skill for routing session learnings into AGENTS.md and docs/
+- [Agents] Inject SESSION_ID at session start for Claude Code and OpenCode
+- [Build] Apply patches from ./patches to the llama.cpp submodule after checkout
+- [Build] Abort the build when a local patch no longer applies
+- [Documentation] Document the local patch mechanism in the build system reference
+- [Documentation] Document the gguf-py row-group fix, the platforms it was measured on, and the three variants that were rejected
+- [Documentation] Document the Qwen3.8-Flash-Next per_layer_token_embd table and its lazy read path
+- [Documentation] Document why the Qwen3.8-Flash-Next entry needs load-mode = mmap instead of dio
+- [Documentation] Document why no-host keeps the Qwen3.8-Flash-Next mmap aliasing path reachable
+- [Documentation] Document the Qwen3.8-Flash-Next weight split and the two fit blind spots
+- [Documentation] Document the Qwen3.8-Flash-Next QSA indexer cache and its unused V allocation
+- [Documentation] Document that Qwen3.8-Flash-Next has no MTP head and cannot shift context or reuse cache
+- [Documentation] Document the Qwen3.8-Flash-Next recurrent state cost and why parallel is the cheap knob
+- [Documentation] Document that a Qwen3.8-Flash-Next context checkpoint is the whole recurrent state
+- [Documentation] Document the measured Qwen3.8-Flash-Next 24 GB VRAM and throughput figures
+- [Documentation] Document the measured Qwen3.8-Flash-Next context and compute cost per n_ctx_seq
+- [Documentation] Document why a 1M cell pool does not fit Qwen3.8-Flash-Next on 24 GB
+
+### Changed
+- [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
+- [Documentation] Move the build-system rationale out of AGENTS.md into docs/build_system.md
+- [Documentation] Drop the build-configuration summaries from AGENTS.md that docs/build_system.md already carries
+- [Documentation] List the remaining examples scripts and their help coverage in AGENTS.md
+- [Documentation] Extend the no-host and fit traps in AGENTS.md to Qwen3.8-Flash-Next
+- [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22.4
+- [Vendor] Bump llama.cpp submodule to b10660 for Qwen3.8-Flash-Next support #27742
+- [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
+- [Presets] Raise Muse-Glimmer-30B 24 GB ctx-size to 524288 and parallel to 2
+- [Presets] Switch Muse-Glimmer-30B 24 GB KV cache to q5_0 K / q4_1 V
+
+### Removed
+- [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the 24 GB tier
+- [Agents] Stop tracking .claude/settings.local.json
+
+### Fixed
+- [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
+- [Documentation] Correct the claim that reasoning_effort has no CLI flag
+- [Documentation] Correct the GGML_CUDA_FA_ALL_QUANTS failure mode from an abort to a silent CPU fallback
+- [Documentation] Correct the claim that Muse-Glimmer-30B has no bundled chat template
+- [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
+- [Conversion] Fix GGUF conversion stalling when a tensor row width puts the quantizer group on a slow allocation size
+
+
 ## [1.40.0] - 2026-08-05
 
 ### Added

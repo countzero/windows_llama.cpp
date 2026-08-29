@@ -136,7 +136,7 @@ Do NOT flag any of the following:
 - Pre-existing issues not introduced in this PR's changes.
 - Code that appears to be a bug but is actually correct.
 - Pedantic nitpicks that a senior engineer would not flag.
-- General code quality concerns unless explicitly required in AGENTS.md.
+- General code quality concerns unless explicitly required in AGENTS.md or `docs/`.
 - Issues explicitly silenced in code (e.g., via a lint ignore comment).
 - Pure code style or formatting preferences.
 - Potential issues that depend on specific inputs or runtime state.
@@ -148,8 +148,14 @@ Do NOT flag any of the following:
 These are architectural and safety concerns specific to this PowerShell wrapper
 around llama.cpp; there is no linter to catch them. Check for these during all
 passes, in addition to general defect scanning. They are NOT style issues; they
-are correctness and safety rules. Each maps to a rule in AGENTS.md
-("Non-obvious behavior", "Presets", "Changelog style").
+are correctness and safety rules.
+
+This checklist deliberately restates rules whose full rationale lives in
+`docs/build_system.md`, `docs/presets.md` and `docs/model_tuning.md`, and whose
+one-line form lives in AGENTS.md ("Non-obvious behavior", "Traps", "Changelog
+style"). The duplication is intentional: a review pass must stay self-contained
+and must not depend on on-demand doc reads mid-pass. When a rule changes, all
+three locations move together.
 
 - **Ephemeral submodule edits:** Changes under `vendor/llama.cpp/` that expect
   to persist. Each `rebuild_llama.cpp.ps1` resets the submodule to

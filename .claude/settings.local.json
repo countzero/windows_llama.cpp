@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(dir /b)",
-      "Bash(dir)",
-      "Bash(cat:*)"
-    ]
-  }
-}
