@@ -166,6 +166,31 @@ Clients select a model by its section header name in the OpenAI-compatible `"mod
 > [!NOTE]
 > See [presets/README.md](./presets/README.md) for the INI format, shipped presets, and how to add your own.
 
+#### Configure the router via .env
+
+Every `llama-server` flag has an environment variable equivalent (`llama-server --help` prints it under each flag). You can keep the machine-specific values in a `.env` file instead of repeating them on every launch:
+
+```PowerShell
+Copy-Item .env.example .env   # then edit .env for this machine
+```
+
+Load it and start the router from the repository root. The presets reference `chat-template-file` paths relative to the repository root, so the `cd` is required:
+
+```PowerShell
+pwsh -noexit -c "cd D:\Arbeit\windows_llama.cpp; . .\load_env.ps1; llama-server"
+```
+
+A flag on the command line overrides the corresponding variable, so switching to another VRAM tier for a single launch is:
+
+```PowerShell
+pwsh -noexit -c "cd D:\Arbeit\windows_llama.cpp; . .\load_env.ps1; llama-server --models-preset presets\models_24GB_VRAM.ini"
+```
+
+`llama-server` then prints a `warn: LLAMA_ARG_MODELS_PRESET environment variable is set, but will be overwritten` line. That is expected.
+
+> [!TIP]
+> Both commands fit into the Windows Run dialog (Win+R). Router mode is pure C++, so `conda activate` is not needed here.
+
 ### Increase the context size
 
 You can increase the context size of a model with a minimal quality loss by setting the RoPE parameters. The formula for the parameters is as follows:

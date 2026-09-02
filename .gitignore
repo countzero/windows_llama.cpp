@@ -5,6 +5,10 @@
 *.sublime-workspace
 *.log
 
+# Machine-local environment for llama-server and CUDA. The checked-in
+# counterpart is .env.example.
+.env
+
 # Local scratch directory for all agent-generated artifacts (screenshots,
 # diffs, trace outputs, experimental scripts). See AGENTS.md "Scratch Files".
 .tmp/

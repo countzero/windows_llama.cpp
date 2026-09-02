@@ -22,6 +22,23 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
   1418 t/s pp on one 16 GB card versus 36.5 t/s and 998 t/s spread over a 16 GB plus an 8 GB card.
   `CUDA_VISIBLE_DEVICES` indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and
   therefore does *not* match `nvidia-smi` ordering; pass a GPU UUID to be unambiguous.
+- **Environment is the only channel for these.** Presets carry `llama-server` flags; `CUDA_*`
+  variables are read by the CUDA driver, not by llama.cpp, so they can never live in an INI. The
+  repository root `.env` (template: `.env.example`, loader: `load_env.ps1`) is where they belong,
+  next to the server-scoped `LLAMA_ARG_*` values that replace the launch flags.
+- **`CUDA_SCALE_LAUNCH_QUEUES=4x` is worth +10-11.5 % prompt processing on the dual-GPU tier and
+  nothing on a single GPU.** It scales the CUDA command buffer, i.e. how far the CPU may enqueue
+  ahead of the GPU. With `GGML_SCHED_MAX_COPIES=1` the scheduler hard-synchronises at every
+  device boundary, so a full queue on one device starves the other; a deeper queue keeps both fed.
+  Measured on `Qwen3.8-27B.IQ4_XS.gguf`, `tensor-split 1/2`, q8_0 KV, same binary: pp8192
+  1025 → 1143 t/s, pp2048 at 32k depth 690 → 759, at 64k 509 → 565; the 4070 Ti SUPER alone
+  1733 → 1723 (noise). Only `0.25x`, `0.5x`, `2x` and `4x` are valid — NVIDIA documents that
+  *any other value is interpreted as `1x`*, silently, so `4` without the `x` does nothing. It
+  is a driver variable, so it must be in the environment before the process starts; in router
+  mode the parent's environment reaches every child the same way `CUDA_DEVICE_ORDER` does.
+  Rebuilding with `GGML_SCHED_MAX_COPIES=4` instead was measured at −2.5 % alone and +1.5 %
+  on top of the env var, so pipeline parallelism is not the lever on this GPU pair and the
+  build default stays at 1.
 
 ## load-mode
 

@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.42.0] - 2026-09-02
+
+### Added
+- [Configuration] Add .env configuration for the router-mode launch environment
+- [Configuration] Add .env.example template
+- [Configuration] Add load_env.ps1 to load .env into the current session
+- [Documentation] Document configuring and launching the router via .env
+- [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
+- [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
+
+
 ## [1.41.0] - 2026-08-28
 
 ### Added

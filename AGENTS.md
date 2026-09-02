@@ -17,9 +17,13 @@ A PowerShell wrapper around upstream [llama.cpp](https://github.com/ggml-org/lla
 
 ./examples/server.ps1 -model ".\vendor\llama.cpp\models\<x>.gguf"
 Get-Help -Detailed ./examples/server.ps1         # full option list
+
+. .\load_env.ps1; llama-server                   # router mode, configured by ./.env
 ```
 
 Binaries land in `./vendor/llama.cpp/build/bin/Release/`. Conda env `llama.cpp` (Python 3.12) must already exist — the scripts call `conda activate llama.cpp` themselves.
+
+Router mode reads its launch configuration from `.env` in the project root (gitignored; template `.env.example`). `load_env.ps1` parses it the same way `windows_manage_large_language_models` does — split on the first `=`, skip blank and `#` lines, no quoting, no trimming — and sets each key as an environment variable. Keep it to `CUDA_*` and server-scoped `LLAMA_ARG_*` keys; unscoped ones like `LLAMA_ARG_CTX_SIZE` would reach every llama.cpp binary.
 
 Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), `speculative_decoding.ps1`, `speed-bench.ps1` (router-mode throughput sweep), `mtp-bench.py`. `README.md` -> *Usage* is the end-user inventory of what they do; don't restate their flags here. `Get-Help` works on `server.ps1`, `speed-bench.ps1` and `count_tokens.ps1` only — the other two carry no comment-based help.
 
