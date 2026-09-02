@@ -39,27 +39,21 @@ Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), 
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
 
-## Presets
-
-VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`, `presets/models_16GB_8GB_VRAM.ini` (dual-GPU).
-
-`presets/README.md` is the user-facing quick-start. For editing, the cross-model rules are in `docs/presets.md` and the per-model rationale with its measured numbers is in `docs/model_tuning.md`.
-
 ## Traps
 
 Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Each is stated here without rationale so it is always in context; read the linked section before acting on one. These lines are a deliberate projection of `docs/` — when a trap changes, both move together.
 
 - Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next`, which must keep `load-mode = mmap`. `docs/presets.md` -> *load-mode*
 - Never set `mmproj-offload = true` on a tier where LLM + KV already saturate VRAM. `docs/presets.md` -> *mmproj-offload*
-- Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Muse Glimmer*
-- Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning.md` -> *Muse Glimmer*
-- Never add RoPE scaling to a Muse Glimmer entry. `docs/model_tuning.md` -> *Muse Glimmer*
-- `no-host = true` is mandatory on the DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Qwen3.8-Flash-Next*
-- Keep `fit = on` on the DeepSeek and `Qwen3.8-Flash-Next` entries; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*, *Qwen3.8-Flash-Next*
-- `cache-type-k` and `cache-type-v` must be identical on `deepseek4`; differing values are startup-fatal. `docs/model_tuning.md` -> *DeepSeek-V4-Flash*
-- Never set `image-min-tokens` on a gemma-4 entry; it is a `qwen3vl_merger` key only. `docs/model_tuning.md` -> *Qwen 3.6 and 3.8*
-- Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning.md`
-- Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning.md` -> *Qwen 3.6 and 3.8*
+- Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/presets.md` -> *swa-full*
+- Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning/muse-glimmer.md`
+- Never add RoPE scaling to a Muse Glimmer entry. `docs/model_tuning/muse-glimmer.md`
+- `no-host = true` is mandatory on the DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `docs/presets.md` -> *no-host*
+- Keep `fit = on` on the DeepSeek and `Qwen3.8-Flash-Next` entries; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
+- `cache-type-k` and `cache-type-v` must be identical on `deepseek4`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`
+- Never set `image-min-tokens` on a gemma-4 entry; it is a `qwen3vl_merger` key only. `docs/model_tuning/gemma-4.md`
+- Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning/qwen.md`, `docs/model_tuning/gemma-4.md`
+- Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
 
 ## Changelog style
 
@@ -75,10 +69,10 @@ Non-committed agent artifacts (diffs, trace outputs, generated reports, experime
 
 ## Reference
 
-Deep reference documentation lives under `docs/` and is **read on demand**, not loaded into context. Consult the relevant file when a task touches its area:
+Deep reference documentation lives under `docs/` and is **read on demand**, not loaded into context. `presets/README.md` is the user-facing quick-start, not a reference — rationale goes under `docs/`. Consult the relevant file when a task touches its area:
 
-| Document               | When to read                                                                                                                                                                  |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/build_system.md` | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
-| `docs/presets.md`      | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `mmproj-offload`, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
-| `docs/model_tuning.md` | Per-family rationale and measured VRAM/throughput numbers for Qwen 3.6 and 3.8, gemma-4, Bonsai and DSpark, DeepSeek-V4-Flash, and Muse Glimmer. **Read before adding, retuning or removing a model entry.** |
+| Document                        | When to read                                                                                                                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/build_system.md`          | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
+| `docs/presets.md`               | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `no-host`, `fit`, `mmproj-offload`, `swa-full`, context shift, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
+| `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `muse-glimmer.md`. **Read the matching file before adding, retuning or removing a model entry.** |

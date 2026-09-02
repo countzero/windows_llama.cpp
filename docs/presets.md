@@ -2,12 +2,7 @@
 
 Cross-model rules for editing `presets/*.ini`. Not auto-loaded into the agent
 context; read it on demand. `presets/README.md` is the user-facing quick-start;
-this file is for editing. Per-model rationale lives in `docs/model_tuning.md`.
-
-## Editing presets
-
-VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini`,
-`presets/models_16GB_8GB_VRAM.ini` (dual-GPU).
+this file is for editing. Per-model rationale lives in `docs/model_tuning/<family>.md`.
 
 ## Device pinning and multi-GPU
 
@@ -55,20 +50,108 @@ VRAM-tier presets: `presets/models_16GB_VRAM.ini`, `presets/models_24GB_VRAM.ini
   throws at startup.
 
 - **`Qwen3.8-Flash-Next` is the one entry that must use `load-mode = mmap` instead.** Its 26.8 GiB
-  `per_layer_token_embd` n-gram hash table is created with `TENSOR_READ_LAZY`
-  (`src/models/qwen4exp.cpp:139-140`) and the loader gates that flag on `use_mmap`
-  (`src/llama-model-loader.cpp:1290`), which every non-mmap `load-mode` clears (`:559`). A session
-  touches 16 of the table's 320 million rows per token (`ple_n_heads`, `:64`), so under `mmap` the resident working set
-  stays in the hundreds of MiB while `dio` reads and holds all 26.8 GiB. `no-host = true` is part
-  of the same mechanism, not an independent choice — see `docs/model_tuning.md` -> *Qwen3.8-Flash-Next*.
+  `per_layer_token_embd` n-gram hash table is read lazily, and only an mmap mode keeps that path
+  enabled; `dio` reads and holds the whole table for nothing. `no-host = true` is part of the same
+  mechanism, not an independent choice — see *no-host* below and
+  `docs/model_tuning/qwen3.8-flash-next.md`.
 
 - **`load-mode = dio` does not enable DirectIO on Windows — it only disables mmap.** The Win32 `llama_file::impl` ctor takes `use_direct_io` as `[[maybe_unused]]` and just calls `ggml_fopen` (`vendor/llama.cpp/src/llama-mmap.cpp:86-95`); `FILE_FLAG_NO_BUFFERING` is never set and `read_alignment()` stays 1 (`:391`), so the loader's async staging buffers are 4 x 1 MiB of pinned host memory instead of the 4 x 64 MiB the aligned path would use (`src/llama-model-loader.cpp:1418`, `:1427`). `has_direct_io()` nevertheless returns a hardcoded `true` on Windows (`:173-175`). Net effect of `dio` on this platform: buffered reads, no mmap, and zero VRAM cost — it is never implicated in a CUDA OOM. Keep the key for the deprecation-warning reason documented above, but do not reason about page-cache behaviour from it.
+
+## no-host
+
+- **`no-host = true` is mandatory on any entry that pushes tens of GiB of weights to the CPU, and
+  without it the load fails as a misleading CUDA OOM.** Unless `no_host` is set,
+  `make_cpu_buft_list()` prepends `ggml_backend_dev_host_buffer_type()` — `CUDA_Host`, page-locked —
+  to the CPU buffer list (`src/llama-model.cpp:1047-1049`, wired from `params.no_host` at
+  `common/common.cpp:1611` and `include/llama.h:338`), so *every* CPU-resident tensor is allocated
+  through `cudaMallocHost`. The reservation *succeeds*, so `ggml_cuda_host_malloc`'s clean-failure
+  fallback to an ordinary CPU buffer never fires; the failure happens later while the pages are
+  committed during the read and surfaces as `CUDA error: out of memory` inside
+  `cudaEventSynchronize` at `src/llama-model-loader.cpp:1591`. That makes a host-memory problem
+  look like a VRAM problem — raising `fit-target` does not help it, and neither does changing
+  `load-mode`. `GGML_CUDA_NO_PINNED=1` is the env-var equivalent. The GPU upload staging buffers
+  are unaffected — the loader asks for those buffer types directly
+  (`src/llama-model-loader.cpp:1467`) rather than through `cpu_buft_list` — but expert weights
+  that `op-offload` ships to the GPU for large-batch matmuls now come from pageable memory, which
+  may cost some prompt-processing throughput. There is no way to keep that and still load.
+  Measured DeepSeek figures with and without the flag: `docs/model_tuning/deepseek-v4-flash.md`.
+
+- **It is also what keeps mmap aliasing reachable.** With `CUDA_Host` at the head of the list the
+  chosen buft fails the `is_default_buft` test at `src/llama-model.cpp:1715`, the mmap-aliasing
+  branch at `:1718` is skipped entirely, and every CPU-resident tensor is copied into pinned memory
+  instead of aliased from the file. This is why `no-host` and `load-mode = mmap` are one mechanism
+  on `Qwen3.8-Flash-Next` — `docs/model_tuning/qwen3.8-flash-next.md`.
+
+## fit
+
+- **Keep `fit = on` on an entry that relies on it; never add `n-cpu-moe`/`-ot`, and never set
+  `n-gpu-layers` to anything but `-1` — fit then silently no-ops.** Any user `-ot` / `--cpu-moe` /
+  `--n-cpu-moe`, or `n-gpu-layers` other than `-1`, throws inside fit (`common/fit.cpp:462-464`,
+  `:483-485`) and is downgraded to a warning at `:893-895`: fit does nothing and the model no
+  longer fits at all. This is why the DeepSeek and `Qwen3.8-Flash-Next` entries keep
+  `n-gpu-layers = -1` explicitly. `--fit-target` writes only `params.fit_params_target` and never
+  `mparams`, so unlike `-ngl` / `-ncmoe` / `-ot` it cannot trip the aborts. Fit places experts at
+  sub-layer granularity (`common/fit.cpp:399-441`, `:719-769`); its overflow pattern is
+  `blk\.N\.ffn_(up|down|gate_up|gate)_(ch|)exps` (`common/fit.cpp:522`). Note `--cpu-moe`'s
+  pattern matches only `_exps`/`_chexps`, so shared experts stay on the GPU either way.
+
+- **Fit honours an explicit `ctx-size` and reduces context only when the user left it unset**
+  (`common/fit.cpp:197` `n_ctx_auto = n_ctx == 0`, used at `:392`); step 3 then spends the
+  remainder on expert fractions.
+
+- **Fit measures rather than guesses, but it is blind in four ways.** It performs a `no_alloc`
+  model load plus a real graph reservation (`common/fit.cpp:56-75`), so its KV figure is
+  byte-exact and its compute figure is a genuine `ggml_gallocr` measurement. What it cannot see:
+  1. The CUDA VMM scratch pool (32 GiB of VA reserved, physical pages committed on demand,
+     `ggml/src/ggml-cuda/ggml-cuda.cu:536-656`), the lazy cuBLAS workspace, and CUDA graph
+     instances — none are reported to `memory_breakdown()`. It also takes a single
+     `cudaMemGetInfo` snapshot at t=0 (`common/fit.cpp:194`) and carries no WDDM or framebuffer
+     allowance anywhere. `fit-target` is the only place to budget these.
+  2. Host memory — it assumes it is unlimited (`common/fit.h:24`) and never consults the CPU slot
+     once a GPU is present (`common/fit.cpp:331-347`).
+  3. Lazy reads — it measures with `load_mode = LLAMA_LOAD_MODE_NONE` (`common/fit.cpp:57`), so
+     its host figure counts every lazily-read tensor in full, a number the real run never
+     produces. The split cannot be sanity-checked from fit's own host accounting.
+  4. The projector — fit measures the language model alone and commits the expert split before
+     `mtmd` loads the mmproj, so `mmproj-offload = true` on a fit entry lands in the silent-OOM
+     window below with no margin left to absorb it unless `fit-target` reserves the CLIP weights
+     and compute buffer by hand.
 
 ## mmproj-offload
 
 - **`mmproj-offload = true` fails silently at startup on a saturated GPU.** CLIP's warmup
   compute buffer OOMs but the server keeps running — only image requests error at generation
-  time. Set `false` on tiers where LLM + KV already saturate VRAM.
+  time. Set `false` on tiers where LLM + KV already saturate VRAM, and on any `fit = on` entry
+  unless `fit-target` carries the CLIP budget — see *fit* above.
+
+## swa-full
+
+- **Never set `swa-full` on an entry whose architecture has a sliding-window tier.** The SWA cache
+  is sized `PAD(min(n_ctx, n_swa * n_seq_max + n_ubatch), 256)` cells and therefore scales with
+  `parallel`, not `ctx-size`; `swa-full` collapses that formula to `n_ctx`
+  (`src/llama-kv-cache-iswa.cpp:76-81`). The server warns `swa_full is not supported` only *after*
+  the cache is built, so the flag still takes effect. Magnitudes: a 17 MiB raw cache becomes
+  ~11 GiB on DeepSeek-V4-Flash, and a 4608-cell cache grows ~114x on Muse Glimmer at
+  `ctx-size = 524288` — `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/muse-glimmer.md`.
+  On an arch with `swa_type = NONE` the flag is inert and the server clears it
+  (`tools/server/server-context.cpp:1197-1202`).
+
+## context-shift and cache-reuse
+
+- **When `get_can_shift()` is false the server force-disables context shift *and* cache-reuse
+  with two startup warnings** (`tools/server/server-context.cpp:1185-1195`) — expected, not a
+  misconfiguration; slots then stop cleanly at `STOP_TYPE_LIMIT` instead of shifting. Speculative
+  rollback then goes through checkpoints (`tools/server/server-context.cpp:1224-1226`), so a
+  non-zero `ctx-checkpoints` is *required* for `ngram-mod` to be useful on such an entry rather
+  than being an optimisation. Which entries and why: `deepseek4`
+  (`docs/model_tuning/deepseek-v4-flash.md`) and `Qwen3.8-Flash-Next`
+  (`docs/model_tuning/qwen3.8-flash-next.md`).
+
+- **`get_can_shift()` returning true is not proof that shifting is safe.** Muse Glimmer returns
+  true while a K-shift silently corrupts its NoPE layers — `docs/model_tuning/muse-glimmer.md`.
+  It is dormant only because `ctx_shift` defaults false (`common/common.h:561`) and loading an
+  mmproj force-disables it (`tools/server/server-context.cpp:1163-1171`); dropping the mmproj
+  would make it reachable.
 
 ## Context size and override-kv
 
