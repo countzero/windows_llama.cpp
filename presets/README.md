@@ -31,7 +31,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 > — they are parent-server settings that the server manages internally and cannot be set via preset.
 
 > [!NOTE]
-The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice. Every entry uses `load-mode = dio` except `Qwen3.8-Flash-Next`, which needs `mmap` so that its 26.8 GiB n-gram embedding table can be read on demand — do not normalise that one away.
+> The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice. Every entry uses `load-mode = dio` except `Qwen3.8-Flash-Next`, which needs `mmap` so that its 26.8 GiB n-gram embedding table can be read on demand — do not normalise that one away.
 
 > [!IMPORTANT]
 > **`models_16GB_8GB_VRAM.ini` (dual-GPU: one GPU with 16 GB VRAM + one with 8 GB VRAM).**
@@ -48,8 +48,6 @@ The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB
 > - All vision entries set `no-mmproj-offload = true`, so image preprocessing runs on CPU.
 >   This is deliberate: on a VRAM-saturated GPU `mmproj-offload = true` can OOM the CLIP warmup
 >   buffer silently and only fail at image-generation time.
-> - Global settings (`main-gpu`, `models-max`, `split-mode`, `tensor-split`, etc.) live in
->   the `[*]` section and apply to all models. Per-model sections only override what differs.
 
 ## INI Format
 

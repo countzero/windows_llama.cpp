@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
 - [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
 
+### Fixed
+- [Documentation] Fix the presets README note callout that rendered its body outside the block
+- [Documentation] Fix the grammar example in the README that dropped its last flag onto a separate command
+
 
 ## [1.41.0] - 2026-08-28
 
