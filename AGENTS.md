@@ -38,6 +38,7 @@ Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), 
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
+- **Keep ~400 MiB free on the display GPU.** Below ~300 MiB WDDM pages the working set to system RAM and the entry silently runs 20-45 % slower; nothing in the llama.cpp log shows it, only throughput does. Check `nvidia-smi` free memory after a preset change. `docs/presets.md` -> *Device pinning and multi-GPU*
 
 ## Traps
 

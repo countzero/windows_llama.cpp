@@ -14,9 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document configuring and launching the router via .env
 - [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
 - [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
+- [Documentation] Document the WDDM paging slowdown below ~300 MiB free on the display GPU
+- [Documentation] Document tensor-split as the prompt-processing lever on the dual-GPU tier and its VRAM cost per context token
+- [Documentation] Document the measured Qwen3.8-27B dual-GPU retune and why split-mode tensor stays off
 
 ### Changed
+- [Presets] Retune the dual-GPU Qwen3.8-27B entry to tensor-split 1,3 with q4_0 KV at ctx-size 131072
 - [Documentation] Split docs/model_tuning.md into one file per model family under docs/model_tuning/
+
+### Removed
+- [Presets] Remove kv-unified from the dual-GPU Qwen3.8-27B entry
 - [Documentation] Move the no-host, fit, swa-full and context-shift mechanisms out of the per-model files into docs/presets.md
 - [Documentation] Drop the Presets section from AGENTS.md that its Reference table already carries
 

@@ -34,6 +34,28 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   Rebuilding with `GGML_SCHED_MAX_COPIES=4` instead was measured at −2.5 % alone and +1.5 %
   on top of the env var, so pipeline parallelism is not the lever on this GPU pair and the
   build default stays at 1.
+- **Keep ~400 MiB free on the display GPU; below ~250-300 MiB WDDM pages the working set to
+  system RAM and the entry silently runs 20-45 % slower.** Windows' video memory manager demotes
+  parts of an oversubscribed adapter's allocations to host memory behind the driver's back, and the
+  desktop compositor lives on the same card (`dwm.exe` held ~2.6 GB of the 4070 Ti SUPER on a
+  2560x1440 three-monitor desktop and grows with open windows). llama.cpp cannot see it —
+  `cudaMalloc` succeeds, `memory_breakdown()` reports the nominal figures, `nvidia-smi` just shows
+  the card full — so throughput is the only symptom. Measured on the dual-GPU `Qwen3.8-27B` entry
+  at identical context: 28 MiB free → pp 617 / tg 48.9 t/s, 347 MiB free → pp 884 / tg 52.1
+  (`docs/model_tuning/qwen.md`). `fit` carries no WDDM allowance (see *fit* below), so on a
+  `fit = on` entry the margin lives in `fit-target`; on a `fit = off` entry it lives in `ctx-size`.
+  Whether the NVIDIA control panel's *CUDA - Sysmem Fallback Policy* prevents this demotion or only
+  the fallback of new allocations was not tested.
+- **On the dual-GPU tier `tensor-split` is a prompt-processing knob, not a generation one.** With
+  `split-mode = layer` prefill is a pipeline whose throughput is set by its slowest stage, and the
+  2060 SUPER has roughly a third of the 4070 Ti SUPER's tensor throughput, so every layer moved off
+  it raises pp — llama-bench pp2048 on `Qwen3.8-27B.IQ4_XS.gguf`: `1/2` 1134, `1/3` 1375, `1/4`
+  1578, `1/6` 1745 t/s — while tg is bandwidth-bound and sequential (bytes on the 2060 / 448 GB/s
+  plus bytes on the 4070 / 672 GB/s) and moved 3-8 %. The price is 4070 VRAM: at `1,3` each 1k
+  tokens of context costs that card ~15 MiB, so a heavier ratio is bought with `ctx-size`.
+  `split-mode = tensor` inverts the trade — tg +25-45 %, short-prompt pp halved, context capped by
+  a compute buffer that is allocated in full on every device — and stays off; measurements in
+  `docs/model_tuning/qwen.md`.
 
 ## load-mode
 

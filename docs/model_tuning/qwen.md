@@ -163,6 +163,52 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   projector as FP16 *and* `Q8_0` officially, and only 83 of the file's 110 weight tensors are
   actually 8-bit — every `ffn_down` stays `F16`.
 
+- **The dual-GPU `Qwen3.8-27B` entry runs `tensor-split = 1,3` with `q4_0` K/V at
+  `ctx-size = 131072`, not `1,2` at 200000 — the old entry left the 4070 Ti SUPER with 28 MiB free
+  and WDDM paging silently cost it a third of its throughput.** Measured on b10759 with
+  `draft-mtp,ngram-mod` on, identical requests per row (600-token code answer, ~330-token reasoning
+  answer, 64 tokens after a 32313-token prompt), `CUDA_SCALE_LAUNCH_QUEUES=4x`; the old and new
+  rows were taken through the router with the real `.env`, the others with an equivalent direct
+  `llama-server` launch:
+
+  | entry | 4070 free | pp 32k prompt | tg code / reasoning / after 32k |
+  | --- | --- | --- | --- |
+  | `1,2` · 200000 · q5_0/q4_1 (old) | 28 MiB | 617 | 48.9 / 43.5 / 31.5 |
+  | `1,2` · 200000 · q4_0 | 347 MiB | 884 | 52.1 / 58.0 / 41.6 |
+  | `1,2` · 131072 · q5_0/q4_1 | 1456 MiB | 890 | 55.8 / 61.3 / 39.6 |
+  | `1,3` · 131072 · q5_0/q4_1 | 304 MiB | 1073 | 57.4 / 63.7 / 42.9 |
+  | **`1,3` · 131072 · q4_0 (new)** | 563 → 527 MiB | 1085 | 57.6 / 62.4 / 46.4 |
+  | `1,3` · 150000 · q4_0 | 445 → 378 MiB (238 via router) | 1074 | 57.5 / 63.1 / 46.3 |
+  | `1,3` · 163840 · q4_0 | 241 → 208 MiB | 835 | 54.7 / 60.1 / 45.0 |
+
+  Rows 1-2 isolate the cause: same context, only the KV type changed, and prompt processing gains
+  43 %. That is not a q4_0 speedup — llama-bench moves pp by under 1 % and tg by 2-3 % across
+  f16/q8_0/q5_0-q4_1/q4_0 — it is the card escaping the Windows GPU memory manager, which below
+  roughly 250-300 MiB free on the *display* GPU demotes part of the working set to system RAM
+  (`docs/presets.md` → *Device pinning and multi-GPU*). The 163840 row is the same cliff from the
+  other side: it loads, but the card ends the run at 208 MiB and pp has lost 22 %. 150000 ran at
+  full speed in the direct launch but showed only 238 MiB free when the router launched it minutes
+  later — the compositor's share of the card moves by hundreds of MiB with the desktop state, so
+  the margin has to absorb that. ~400 MiB is the floor, 131072 is the context that keeps
+  ~550 MiB with `1,3`, and it costs nothing measurable against 150000. Rows 3-4 are the
+  split itself: +21 % pp at unchanged tg, matching llama-bench (`1/3` +21 %, `1/4` +39 %, `1/6`
+  +54 % on pp2048; tg flat within 3-8 %). The ratio is paid in 4070 VRAM — with `1,3` each 1k
+  tokens of context costs that card ~15 MiB (three quarters of the KV, its compute scratch, and
+  the MTP draft context's own KV, which `common/speculative.cpp:2533` pins to the target `n_ctx`) —
+  so `1,3` cannot reach 200000 even at q4_0 while the 2060 SUPER idles at 3 GB free. Draft
+  acceptance measured 0.73-0.77 on the code prompt with the embedded `Q4_0` MTP head, so the 0 %
+  collapse reported for this family does not reproduce on this file. Measured flat or worse and
+  left alone: `threads` 4-24 (identical), `ubatch-size` 1024 / 2048 (−8 % / −22 % pp against 512).
+
+  `split-mode = tensor` (#19378) was measured and rejected. It is the only setting that lifts tg
+  further — `1,2` at 131072 with q4_0 gives 63.8 / 71.0 / 48.0, `1,3` at 65536 with q8_0
+  71.0 / 77.6 / 55.9 — but it roughly halves short-prompt prefill (llama-bench pp2048 1134 → 663)
+  and still loses on the 32k prompt (505-578 against 1074): every layer ends in an allreduce over
+  the 2060's PCIe 3.0 x4 link and the layer pipeline is gone. It also caps context lower, because
+  the compute buffer is allocated in full on *every* device (`ggml/src/ggml-backend-meta.cpp:1704`)
+  and the draft context allocates a second one — 200000 fails on the 2060 with 2 × 1058 MiB of
+  scratch, 131072 is the ceiling at `1,2` — and `q5_0`/`q4_1` K/V assert in this mode (#27116).
+
 - **Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from `Qwen/Qwen3.8-27B-FP8`.** BF16 is
   this model's native precision and the FP8 repo is a derived, post-training artifact (HF model
   tree: base model `Qwen3.8-27B`, "Quantized"), so it is already lossy — its card claims only
