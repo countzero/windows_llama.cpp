@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that models-max is router-scoped and that a sidecar model forces an unload and reload per call
 
 ### Changed
+- [OpenCode] Export SESSION_ID through the shell environment instead of the system prompt
+- [Documentation] Describe the per-harness SESSION_ID mechanisms and how to read it under OpenCode
 - [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
 
 

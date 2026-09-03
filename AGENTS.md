@@ -66,7 +66,7 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 
 ## Scratch Files
 
-Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is the `SESSION_ID` injected into context at session start — by the `SessionStart` hook in `.claude/settings.json` under Claude Code, by `.opencode/plugins/session-id-injector.js` under OpenCode. If neither fired and no `SESSION_ID` is in context, mint `YYYYMMDD-HHMMSS-<random6>` instead. Never write scratch files to `.claude/`, the repo root, or `vendor/`.
+Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is `SESSION_ID`, supplied differently per harness: Claude Code's `SessionStart` hook in `.claude/settings.json` injects it into context, while OpenCode's `.opencode/plugins/session-id-injector.js` exports it into the environment of every shell command instead — deliberately, because a per-session string in the system prompt destroys llama.cpp prompt-cache reuse across sessions (`docs/presets.md` -> *Slots and the prompt cache*). Under OpenCode the literal value is therefore **not** in context: use it inside a shell command as `$env:SESSION_ID`, or run `Write-Output $env:SESSION_ID` once when an absolute path is needed for the Write/Edit tools. If neither mechanism fired, mint `YYYYMMDD-HHMMSS-<random6>` instead. Never write scratch files to `.claude/`, the repo root, or `vendor/`.
 
 ## Reference
 
