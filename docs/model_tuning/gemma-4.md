@@ -23,3 +23,14 @@ agent context; read on demand. Cross-model rules are in `docs/presets.md`.
 
 - **Never set `image-min-tokens` on a gemma-4 entry.** It is a `qwen3vl_merger` projector key;
   gemma-4 uses a different projector — `docs/model_tuning/qwen.md`.
+
+- **Never lower `ubatch-size` below one image's token count on a gemma-4 entry.** gemma-4 is one of
+  the three projectors for which `mtmd_decode_use_non_causal()` returns true (`GEMMA3`, `GEMMA4V`,
+  `GEMMA4UV` — `tools/mtmd/mtmd.cpp:2107-2120`), so image tokens are attended bidirectionally and
+  the whole image has to sit inside a single microbatch. `tools/mtmd/mtmd-helper.cpp:98-101` carries
+  the upstream caveat verbatim: *"need to make sure only one image is processed at a time, and
+  n_ubatch must be enough to hold the image"* — it is a TODO, not an assertion, so exceeding it
+  degrades the image silently rather than failing. This is why the `ubatch-size = 256` that the
+  dual-GPU Muse Glimmer entry uses to claw back VRAM cannot be copied here
+  (`docs/model_tuning/muse-glimmer.md`): that projector decodes causally and may span microbatches,
+  gemma-4 may not.

@@ -44,8 +44,15 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   at identical context: 28 MiB free → pp 617 / tg 48.9 t/s, 347 MiB free → pp 884 / tg 52.1
   (`docs/model_tuning/qwen.md`). `fit` carries no WDDM allowance (see *fit* below), so on a
   `fit = on` entry the margin lives in `fit-target`; on a `fit = off` entry it lives in `ctx-size`.
-  Whether the NVIDIA control panel's *CUDA - Sysmem Fallback Policy* prevents this demotion or only
-  the fallback of new allocations was not tested.
+  The NVIDIA control panel's *CUDA - Sysmem Fallback Policy*, set to *Prefer No Sysmem Fallback* per
+  program on `llama-server.exe`, converts an over-commit into a hard failure instead of a silent
+  spill: a deliberately over-committed launch dies with `cudaMalloc failed: out of memory` at
+  `alloc_tensor_range` rather than loading slowly. The policy binds when the CUDA context is
+  created, so the server has to be restarted after changing it. Whether it also prevents WDDM
+  *demoting an already-committed* working set — the case above — is still untested; testing it
+  safely on a live desktop is impractical. Note also that the 250-300 MiB figure is conservative for
+  this machine: rows measured at 253 and 293 MiB free showed no throughput loss at all, so the
+  observed cliff sits below that, and the 28 MiB row remains the only unambiguous demotion.
 - **On the dual-GPU tier `tensor-split` is a prompt-processing knob, not a generation one.** With
   `split-mode = layer` prefill is a pipeline whose throughput is set by its slowest stage, and the
   2060 SUPER has roughly a third of the 4070 Ti SUPER's tensor throughput, so every layer moved off
@@ -56,6 +63,15 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `split-mode = tensor` inverts the trade — tg +25-45 %, short-prompt pp halved, context capped by
   a compute buffer that is allocated in full on every device — and stays off; measurements in
   `docs/model_tuning/qwen.md`.
+- **The compute buffer is allocated in full on every device under `split-mode = layer` too, so a
+  context bump costs twice what the KV arithmetic says.** Its context-scaling term is the F16 KQ
+  mask, `n_kv x n_ubatch x 2` (`src/llama-graph.cpp:39-41`), and both cards get their own copy:
+  measured 300.67 MiB on each at `ctx-size = 131072` and 556.67 MiB on each at 262144
+  (`docs/model_tuning/muse-glimmer.md`). Only the per-device *cap* is what `split-mode = tensor`
+  additionally worsens, not the duplication itself. A draft model adds a second compute buffer whose
+  size follows `n_outputs_max = parallel x (n_max + 1)` (`common/speculative.cpp:2494-2500`) rather
+  than `n_ctx`, and it lands on whichever device holds `output.weight` — a fixed tax on the last
+  device that `ctx-size` cannot reduce.
 
 ## load-mode
 
@@ -192,6 +208,59 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `initializing, n_slots = 2, n_ctx_slot = 262144`. If that reads 131072 the override did not
   take. It also sets `n_ctx_orig_yarn = 262144` (`src/llama-model.cpp:1180`), inert at
   `freq_scale 1`.
+
+## Slots and the prompt cache
+
+- **`parallel` does not divide the context when `kv-unified` is off — it is `n_ctx / n_seq_max` per
+  slot, and that is usually what you want.** `src/llama-context.cpp:290-294` sets
+  `n_ctx_seq = n_ctx` under `kv-unified` and `n_ctx / n_seq_max` otherwise. So `ctx-size = 262144`
+  with `parallel = 2` and no `kv-unified` yields two slots of 131072 each; if that equals the GGUF's
+  `context_length`, no `override-kv` is needed. Confirm with
+  `initializing, n_slots = 2, n_ctx_slot = 131072` at startup.
+- **`kv-unified = true` is the wrong key for keeping two conversations resident.** It lets any slot
+  address the whole pool, but `tools/server/server-context.cpp:2409-2425` then saves *and clears*
+  every idle slot on each new task (`[TAG_IDLE_SLOT_CLEAR]`), because in a shared pool an idle slot
+  would starve the active one. With `kv-unified` off, idle slots keep their cells and nothing is
+  swapped. Set it only when one sequence genuinely needs more than `n_ctx / n_seq_max`.
+- **A stolen slot is not a lost prompt, but it is a PCIe round-trip.** Slot selection is
+  longest-common-prefix first, LRU second (`server-context.cpp:1560-1623`); on an LRU pick, or when
+  the incoming task would discard more than half the slot (`f_keep < 0.5`), the outgoing prompt is
+  saved to the host cache and the best match reloaded (`:1631-1645`). `cache-ram` sizes that cache
+  in MiB, but its *token* budget defaults to `ctx-size`, so raising `ctx-size` also buys cache
+  depth. Upstream built this to make one slot sufficient for agentic clients (#16391); the mtmd
+  incompatibility noted there is fixed — `server_tokens::deserialize` carries media chunks.
+- **A second slot removes the round-trip entirely, for the cost of the SWA caches only.** Measured
+  on the dual-GPU Muse Glimmer entry, `parallel = 1 -> 2` at the same per-slot context costs ~40 MiB
+  (both SWA caches scale with `parallel`, not `ctx-size`). With two slots, a long conversation and
+  two interleaved side calls resolved as: main prefills 7476 tokens in slot 1, both side calls land
+  in slot 0, and the main follow-up returns to slot 1 with `prompt_n = 14`, `cached = 7512`,
+  `f_keep = 0.993`, and no `updating prompt cache` line at all.
+- **Behind an mmproj there is no partial prefix reuse at all, so prefix stability is the whole
+  game.** `cache-reuse` works by KV-shifting matched chunks into new positions, and loading an
+  mmproj zeroes it at startup with a warning (`server-context.cpp:1179-1182`), backed by a runtime
+  guard `can_cache_reuse = llama_memory_can_shift(...) && !slot.prompt.tokens.has_mtmd`
+  (`:3202-3208`). That is a mercy on a NoPE model, where the shift would be silent corruption — but
+  it means the only reuse mechanism left is exact longest-common-prefix matching. One changed token
+  early in the prompt costs the entire remainder. Measure it with
+  `slot print_timing: ... prompt eval time = X ms / Y tokens`, where `Y` is what was actually
+  re-prefilled; a warm turn should report tens of tokens, not thousands.
+- **A second model is never the answer to slot contention on a single-GPU box.** `models-max` is a
+  router-level parameter and is stripped from child presets (`tools/server/server-models.cpp:305`),
+  so it cannot be scoped per entry. At `models-max = 1` a request for a different model is queued
+  (`:113`), and the running model is unloaded the moment it goes idle to free the slot
+  (`:213-214`) — so routing auxiliary traffic to a small sidecar model costs a full unload/reload of
+  the large one per call. Raising it to 2 lets any two entries in the preset try to co-reside, which
+  on a 16 GB + 8 GB pair is an out-of-memory abort rather than a degradation. Use `parallel` and, if
+  placement must be deterministic, `id_slot`.
+- **Slot placement is a tie-break, so pin it if it matters.** `f_sim` is `lcp / len(new prompt)`, so
+  a *short* side call sharing only the chat template can score as high as the real conversation, and
+  which slot wins comes down to scan order and the strict `>` at `server-context.cpp:1579`. Sending
+  `id_slot` in the request body bypasses the heuristic (`server-context.cpp:4296` ->
+  `get_slot_by_id`, logged as `selected slot by id (N)`); it works on the OpenAI-compatible route,
+  not just `/completion`. Three traps: `get_slot_by_id` does `id_slot % slots.size()`, so with
+  `parallel = 1` every pin silently collapses onto slot 0; a pinned slot that is busy defers the
+  task rather than reassigning it; and child tasks force `id_slot = -1`
+  (`tools/server/server-task.h:236`).
 
 ## ngram-mod speculative decoding
 

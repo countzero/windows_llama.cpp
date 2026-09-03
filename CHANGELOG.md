@@ -5,6 +5,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.43.0] - 2026-09-03
+
+### Added
+- [Presets] Add Muse-Glimmer-30B IQ4_XS entry to the dual-GPU tier
+- [Documentation] Document the measured Muse-Glimmer-30B dual-GPU tuning and why it keeps tensor-split 1,2
+- [Documentation] Document the Muse-Glimmer-30B dual-GPU VRAM breakdown and its per-device compute buffers
+- [Documentation] Document that KV quantisation and context size are not headroom levers on Muse-Glimmer-30B
+- [Documentation] Document that the dflash drafter cannot be pinned away from the device holding the target output tensor
+- [Documentation] Document that the drafter inherits the target split mode, main GPU and tensor split
+- [Documentation] Document that the compute buffer is allocated in full on every device under split-mode layer
+- [Documentation] Document the dflash speculative logits over-reservation and the ubatch-size workaround
+- [Documentation] Document that ubatch-size 256 is safe for Muse-Glimmer-30B vision but not for gemma-4
+- [Documentation] Document that KV quantisation does not change the CUDA flash-attention kernel on either card
+- [Documentation] Document that the 2060 SUPER PCIe 3.0 x4 link is the card ceiling and not the prefill bottleneck
+- [Documentation] Add a slots and prompt cache section covering n_ctx_seq, idle slot clearing and id_slot pinning
+- [Documentation] Document that an mmproj disables cache-reuse, leaving exact prefix matching as the only reuse path
+- [Documentation] Document that models-max is router-scoped and that a sidecar model forces an unload and reload per call
+
+### Changed
+- [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
+
+
 ## [1.42.0] - 2026-09-02
 
 ### Added
