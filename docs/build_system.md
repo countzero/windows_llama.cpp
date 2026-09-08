@@ -44,7 +44,7 @@ sections back are in AGENTS.md "Non-obvious behavior".
 
 ## Python requirements layering
 
-- **`requirements_override.txt` layers on top of upstream `vendor/llama.cpp/requirements.txt`.** It pins `torch` to a CUDA 12.6 wheel, adds `tiktoken` (missing upstream, required for GLM), pins `transformers==5.3.0`, and narrows `numpy` to resolve an `opencv-python-headless` conflict. When bumping any of these, verify both constraints still hold.
+- **`requirements_override.txt` layers on top of upstream `vendor/llama.cpp/requirements.txt`.** It pins `torch` to a CUDA 13.0 wheel — upstream ships CPU-only, and `cu130` is the first series carrying Blackwell `sm_120` kernels, so a `cu126` wheel reports `torch.cuda.is_available() == True` on such a GPU while `get_arch_list()` stops at `sm_90` and every launch fails. It adds `tiktoken` (missing upstream, required for GLM), holds `transformers` ahead of upstream's `==4.57.6` — itself a CI-driven downgrade from the `5.5.1` upstream shipped between #21617 and #23966 — and holds `numpy` on the 2.x line against the legacy `~=1.26.4` pin that upstream's own `pyproject.toml` already contradicts (`>=1.26.4,<3.0.0`); the former `<2.3.0` cap tracked `opencv-python-headless`, which left the graph when #16738 made `mistral-common` optional but lingered in the env because `--upgrade-strategy eager` never uninstalls. Nothing in this repo runs torch or transformers — they are there for manual `convert_hf_to_gguf.py` runs, and that pipeline is CPU-only. Check a bump with `pip install --dry-run -r ./vendor/llama.cpp/requirements.txt -r ./requirements_override.txt`; no rebuild needed.
 
 ## Upstream path dependencies
 

@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.44.0] - 2026-09-08
+
+### Added
+- [Documentation] Document why each Python requirements override is still needed
+
+### Changed
+- [Build] Retarget the torch override to 2.11.0+cu130
+- [Build] Bump the transformers override to 5.16.1
+- [Build] Widen the numpy override to the 2.x line
+
+
 ## [1.43.0] - 2026-09-03
 
 ### Added
