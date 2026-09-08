@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - [Documentation] Correct the stated parallel value in the Qwen3.8-Flash-Next tuning notes
+- [Presets] Pin reasoning-effort to xhigh on the 16 GB and 16+8 GB Qwen3.8-27B entries
+- [Presets] Raise temp to 1.0 on the 16 GB and 16+8 GB Qwen3.8-27B entries
 
 
 ## [1.43.0] - 2026-09-03
