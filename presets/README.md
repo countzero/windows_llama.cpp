@@ -67,7 +67,7 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.6-*`, `Qwen3.8-*`, `Ternary-Bonsai-27B` and `Bonsai-27B` entries set
+> All `Qwen3.8-*`, `Ternary-Bonsai-27B` and `Bonsai-27B` entries set
 > `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
 > overriding the buggy template embedded in the GGUF. The vendored template is a
 > single unified file that handles Qwen 3.5, 3.6 and 3.8 variants; both Bonsai models are
@@ -76,9 +76,10 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > If you cloned without `--recurse-submodules`, run `git submodule update --init`
 > first — otherwise startup fails with a missing-file error.
 >
-> The Qwen 3.6 and Bonsai entries additionally set `reasoning-effort = medium`, the `Qwen3.8-*`
+> The Bonsai entries additionally set `reasoning-effort = medium`, the `Qwen3.8-*`
 > entries `xhigh`. `medium` is the one level that injects no instruction text into the system
-> prompt, and Qwen 3.6 has no trained notion of the concept; Qwen 3.8 *is* trained on it and
+> prompt, and Qwen 3.6 — which both Bonsai models derive from — has no trained notion of the
+> concept; Qwen 3.8 *is* trained on it and
 > `xhigh` is what Qwen's own template defaults to. Both are pinned rather than left unset because
 > the vendored template's own default has moved between its releases, so an unpinned entry would
 > silently change reasoning level at a template bump. Clients can still override per request via

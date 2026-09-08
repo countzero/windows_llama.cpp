@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
+- [Presets] Drop the Qwen3.6-27B entry from the 24 GB tier
+- [Presets] Drop the Qwen3.6-35B-A3B entry from the 24 GB tier
+- [Presets] Drop the gemma-4-12B-it-qat-q4_0 entry from the 24 GB tier
+- [Documentation] Drop the Qwen 3.6 entries from the model lists in the Qwen tuning notes and the presets README
 
 ### Fixed
 - [Documentation] Correct the stated parallel value in the Qwen3.8-Flash-Next tuning notes

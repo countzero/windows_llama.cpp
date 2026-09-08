@@ -1,8 +1,10 @@
 # Qwen 3.6, Qwen 3.8, Bonsai and DSpark
 
-Per-model rationale behind the `qwen35`-arch entries in `presets/*.ini` — Qwen3.6-27B, Qwen3.8-27B,
-Ternary-Bonsai-27B and Bonsai-27B — with the measured numbers each decision rests on. Not
-auto-loaded into the agent context; read on demand. Cross-model rules are in `docs/presets.md`.
+Per-model rationale behind the `qwen35`-arch entries in `presets/*.ini` — Qwen3.8-27B,
+Ternary-Bonsai-27B and Bonsai-27B — with the measured numbers each decision rests on. No Qwen 3.6
+entry ships any more; the Qwen 3.6 rules below are kept because both Bonsai entries are
+Qwen3.6-27B derivatives and inherit them. Not auto-loaded into the agent context; read on demand.
+Cross-model rules are in `docs/presets.md`.
 `Qwen3.8-Flash-Next` is a different architecture and has its own file,
 `docs/model_tuning/qwen3.8-flash-next.md`.
 
@@ -14,10 +16,10 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   grounding (#16842). The key raises a floor only: images already above 1024 tokens are unchanged,
   smaller ones get upscaled, which costs context and CLIP time on the CPU because the 16 GB tier
   sets `no-mmproj-offload = true`; the 24 GB `Qwen3.8-27B` entry offloads CLIP to the GPU and
-  pays it there instead. Applies to the `qwen3vl_merger` entries (Qwen3.6, Qwen3.8 and
-  Ternary-Bonsai); gemma-4 uses a different projector and must not get this key.
+  pays it there instead. Applies to the `qwen3vl_merger` entries (Qwen3.8 and Ternary-Bonsai);
+  gemma-4 uses a different projector and must not get this key.
 
-- **All Qwen 3.6, Qwen 3.8 and Bonsai entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
+- **All Qwen 3.8 and Bonsai entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
   Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces*
   the GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
   `params.chat_template = read_file(value)`). The upstream embedded template has
@@ -38,12 +40,12 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   deliberately keep their GGUF-embedded template; froggeric's README claims
   compatibility only for Qwen 3.5 / 3.6 / 3.8 variants.
 
-- **Every Qwen 3.6 and Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entries pin
+- **Every Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entries pin
   `xhigh`. Never leave the key unset.** The level is one injected paragraph at the top of the
   system prompt — ~45 tokens of "Reasoning effort is set to xhigh..." — and `medium` is the single
   level that injects nothing at all (`chat_template.jinja:53-59`). Qwen 3.6 has no trained notion of
-  the concept, so its entries pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own template
-  defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
+  the concept, so its Bonsai derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
+  template defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
   `_default_reasoning_effort` variable at the top of the file (`chat_template.jinja:17`), currently
   `medium`, and it has moved between template releases before. That is the whole reason to pin:
   an unpinned entry silently changes reasoning level at a template bump, and a pinned one renders
@@ -127,11 +129,12 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   scalar and list tool arguments, and single-newline separation between consecutive `<tool_call>`
   blocks for token parity on multi-tool turns.
 
-- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` used by the Qwen 3.6 entries.**
+- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai entries inherit from Qwen 3.6.**
   1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
   embeds as `general.sampling.temp`, applied at `common/common.cpp:1264` unless the
   preset overrides it. The rest of the sampler block (`top-p 0.95`, `top-k 20`,
-  `min-p 0.0`, `presence-penalty 0`) is unchanged from the 3.6 entries. Qwen 3.8's
+  `min-p 0.0`, `presence-penalty 0`) is unchanged from the Qwen 3.6 entries this one
+  replaced. Qwen 3.8's
   non-thinking mode wants a different set (`temp 0.7`, `top-p 0.8`,
   `presence-penalty 1.5`); the preset does not cover it because `reasoning = on`.
 
@@ -153,12 +156,13 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   presence of a draft path (`common/common.cpp:1689`, `src/models/qwen35.cpp:42`), so the
   target keeps loading its own `blk.64` and an external sidecar double-pays.
 
-- **`Qwen3.8-27B` is the only 24 GB Qwen entry on a `Q8_0` projector instead of `BF16`.**
+- **The 24 GB `Qwen3.8-27B` entry runs a `Q8_0` projector instead of `BF16`.**
   600 MiB rather than 888 MiB of VRAM, and that saving is what keeps `mmproj-offload = true`
-  affordable at `ctx-size = 262144`: the entry lands at ~19.95 GiB of ~22.6 GiB usable, just
-  under the Qwen3.6-27B entry's ~20.23 GiB, which leaves room for the CLIP compute buffer.
+  affordable at `ctx-size = 262144`: the entry lands at ~19.95 GiB of ~22.6 GiB usable, which
+  leaves room for the CLIP compute buffer. The ~20.23 GiB the since-removed Qwen3.6-27B entry
+  reached on the same card is the reference point for how little slack there is.
   Spending the saving elsewhere is what breaks it — raising the KV cache to `q5_0` K / `q4_1` V
-  costs ~0.80 GiB at this context and pushes the total above the 3.6 entry, into the
+  costs ~0.80 GiB at this context and pushes the total past that mark, into the
   silent-OOM window described in `docs/presets.md` -> *mmproj-offload*. Quality is not the tradeoff: Qwen ships this family's
   projector as FP16 *and* `Q8_0` officially, and only 83 of the file's 110 weight tensors are
   actually 8-bit — every `ffn_down` stays `F16`.
@@ -229,9 +233,9 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   `eos = 248046`) right down to the same 7764-byte embedded template — which is exactly the
   upstream template the `chat-template-file` pin exists to replace. `general.sampling.temp = 1.0`
   is embedded in both GGUFs and applied at `common/common.cpp:1264`, so `temp` has to be pinned in
-  the preset or generation runs at 1.0. The presets use `0.6` to match the sibling Qwen 3.6
-  entries; Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar below, both weight
-  files are mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a
+  the preset or generation runs at 1.0. The presets use `0.6`, carried over from the Qwen 3.6
+  entries these once sat beside; Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar
+  below, both weight files are mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a
   tensor-offset mismatch.
 
 - **The DSpark drafter shipped beside Ternary Bonsai 27B cannot be enabled on mainline.**
