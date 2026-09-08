@@ -48,10 +48,10 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   `src/llama-model.cpp:2506-2507` hands `params.type_k` / `type_v` to `llama_memory_hybrid_idx`,
   which forwards them unchanged to the indexer cache (`src/llama-memory-hybrid-idx.cpp:56`).
   Indexer K is what `ggml_top_k` ranks blocks on (`src/models/qwen4exp.cpp:599-601`), so cheapening
-  it degrades *which* tokens are attended, not just their values. Per-token cost at
-  `kv-unified = true`: 12 attention layers x 1024 elements (`n_head_kv = 2` x `head = 256`, K and V)
-  plus 12 indexer layers x 384 elements = 17,952 B at `q8_0`, i.e. 4,488 MiB at 262144. Two thirds
-  of the indexer share is dead — `src/llama-memory-hybrid-idx.cpp:50-51` sets `n_embd_head_k_full`
+  it degrades *which* tokens are attended, not just their values. Per-token cost: 12 attention
+  layers x 1024 elements (`n_head_kv = 2` x `head = 256`, K and V) plus 12 indexer layers x 384
+  elements = 17,952 B at `q8_0`, i.e. 4,488 MiB at 262144. Two thirds of the indexer share is
+  dead — `src/llama-memory-hybrid-idx.cpp:50-51` sets `n_embd_head_k_full`
   but not `n_embd_head_v_full`, so `is_mla()` is false, `src/llama-kv-cache.cpp:232-235` allocates a
   256-wide V, and the graph only ever calls `cpy_k` / `get_k` (`src/models/qwen4exp.cpp:530`,
   `:533`). Dropping `cache-type-v` to `q4_0` would recover 1,152 MiB at this context with the
@@ -65,11 +65,13 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   both hardcoded `GGML_TYPE_F32` (`src/llama-model.cpp:2513-2514`) so no cache type shrinks them,
   and one row per sequence because `qwen4exp` is absent from `llm_arch_supports_rs_rollback`
   (`src/llama-arch.cpp:1099-1113`) and `n_rs_seq` is clamped to 0 at
-  `src/llama-context.cpp:105-108`. The entry runs `parallel = 4` on the strength of that: with
-  `kv-unified = true` `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`), so four slots *share*
-  the 262144-cell pool rather than each being given one, the KV cost is unchanged, and the only
-  VRAM the extra slots add is three more recurrent rows — 336.7 MiB. A single long conversation can
-  still occupy the whole pool.
+  `src/llama-context.cpp:105-108`. The entry ships `parallel = 1`, so the context carries one
+  recurrent row and a single conversation owns the whole 262144-cell pool. Raising it stays cheap
+  in VRAM if it is ever wanted — restore `kv-unified = true` and `n_ctx_seq = n_ctx`
+  (`src/llama-context.cpp:290-291`), so the extra slots *share* the pool rather than each being
+  given one and cost only 112.219 MiB apiece. It is not free elsewhere: it multiplies the
+  checkpoint budget below, and without `kv-unified` `n_ctx_seq` becomes `n_ctx / n_seq_max`, so
+  each slot's reach shrinks in proportion instead.
 
 - **A context checkpoint here is the entire recurrent state, ~112 MiB, and checkpoints are per
   slot — which is why `ctx-checkpoints` is 8 and not 32.** Checkpoints are written with
@@ -79,25 +81,29 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   `llama_memory_recurrent::state_write` (`src/llama-memory-hybrid.cpp:194`). So the blob is the full
   112.219 MiB rather than the 14.5 MiB a DSV4 checkpoint costs, and because
   `slot.prompt.checkpoints` is per slot (`tools/server/server-context.cpp:2283`) the host budget is
-  `parallel x ctx-checkpoints x 112 MiB`. At `parallel = 4`, 32 checkpoints would reserve up to
-  14.3 GiB of host RAM; 8 holds it at the ~3.6 GiB that `parallel = 1` with 32 would have cost, and
-  at the shipped `parallel = 2` it is ~1.8 GiB. Raising `parallel` again means lowering this in step.
+  `parallel x ctx-checkpoints x 112 MiB`. The 8 was chosen when the entry ran `parallel = 4`, where
+  32 checkpoints would have reserved up to 14.3 GiB of host RAM. At the shipped `parallel = 1` it
+  costs ~0.9 GiB and 32 would cost ~3.6 GiB, so 8 is now a conservative floor rather than a measured
+  ceiling. Raising `parallel` again means lowering this in step.
 
-- **Measured on a 24463 MiB card, `q8_0` K + V, CLIP on CPU.** At `ctx-size = 262144` /
-  `parallel = 1`: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short context. At the shipped
-  `ctx-size = 524288` / `parallel = 2`: 19950 MiB used, 4513 MiB free, 14.90 t/s on a 400-token
-  prose completion. The two throughput figures are *not* a controlled comparison — different
-  prompts, and `ngram-mod` acceptance dominates on predictable output (the same config returns
-  22.51 t/s counting to 60). "Used" barely moves between configs because `fit` always fills to the
-  `fit-target` margin; what changes is the composition. Throughput is expert-traffic bound, not
+- **Measured on a 24463 MiB card, `q8_0` K + V, CLIP on CPU, `fit-target = 3072`.** At the shipped
+  `ctx-size = 262144` / `parallel = 1`: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short
+  context. At `ctx-size = 524288` / `parallel = 2`: 19950 MiB used, 4513 MiB free, 14.90 t/s on a
+  400-token prose completion. Both rows predate `fit-target = 1024`, which spends about 2 GiB of
+  the free figure on further expert fractions and leaves the rest of the picture unchanged; neither
+  row has been retaken at that target. The two throughput figures are *not* a controlled
+  comparison — different prompts, and `ngram-mod` acceptance dominates on predictable output (the
+  same config returns 22.51 t/s counting to 60). "Used" barely moves between configs because `fit`
+  always fills to the `fit-target` margin; what changes is the composition. Throughput is
+  expert-traffic bound, not
   attention bound: every token reads 10 of 512 experts across all 48 layers, ~26.1 MiB per layer at
   IQ4_XS, so the ~1.25 GiB per token that is not resident on the GPU is what sets the rate. That is
   the currency `ctx-size` is spent in — 1,300 MiB of KV is one expert layer is roughly 2 % of tg.
 
-- **`ctx-size = 524288` with `parallel = 2` buys two concurrent full-length conversations, and
-  costs about half the GPU-resident expert layers to do it.** `llama-fit-params` gives the fixed
-  cost directly, in MiB, as a function of `n_ctx_seq` (`context` is KV plus the recurrent rows,
-  `compute` is the graph buffer):
+- **`ctx-size = 262144` with `parallel = 1`, because the 524288 pool cost about half the
+  GPU-resident expert layers and bought reach no single-user workload can use.** `llama-fit-params`
+  gives the fixed cost directly, in MiB, as a function of `n_ctx_seq` (`context` is KV plus the
+  recurrent rows, `compute` is the graph buffer):
 
   | `n_ctx_seq` | context | compute | fixed total |
   |------------:|--------:|--------:|------------:|
@@ -107,12 +113,13 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   |   1,048,576 |  18,064 |   6,829 |      24,893 |
 
   Add 112 MiB per sequence beyond the first for the extra recurrent row. So the shipped config's
-  fixed cost is 12,697 MiB against 6,758 MiB for 262144 / `parallel = 4`; the ~5,900 MiB difference
-  comes straight out of expert layers, taking them from ~8.3 of 48 to ~4.4. The benefit is real but
-  narrow: under `kv-unified` `n_ctx_seq = n_ctx` (`src/llama-context.cpp:290-291`) while the server
-  still caps each *slot* at `n_ctx_train = 262144`, so a single conversation is capped at 262144
-  either way and only a *second* concurrent long conversation can reach into the extra cells. On a
-  single-user workload the larger pool is paid for and unused.
+  fixed cost is 6,421 MiB against the 12,697 MiB the 524288 / `parallel = 2` pool took; the
+  ~6,276 MiB difference goes straight back into expert layers, taking them from ~4.4 of 48 to ~8.3.
+  What the larger pool bought was real but narrow: under `kv-unified` `n_ctx_seq = n_ctx`
+  (`src/llama-context.cpp:290-291`) while the server still caps each *slot* at
+  `n_ctx_train = 262144`, so a single conversation was capped at 262144 either way and only a
+  *second* concurrent long conversation could reach into the extra cells. On a single-user workload
+  that is paid for and unused, and the expert layers are worth more.
 
 - **A 1,048,576-cell pool does not fit, and the ceiling is arithmetic rather than a tuning
   question.** Going from 262144 to 1048576 takes the KV cache from 4,488 to 17,952 MiB at `q8_0`,
@@ -154,8 +161,13 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
 - **`no-mmproj-offload = true`, because CLIP is exactly what `fit` cannot see** (`docs/presets.md`
   -> *fit*, blind spot 4). The 588 MiB of `Q8_0` weights plus ~310 MiB of CLIP compute would have
   to be reserved by hand through `fit-target`, and there is no margin left to absorb them
-  otherwise. `fit-target = 3072` is the same WDDM-plus-untracked-CUDA-scratch margin as the
-  DeepSeek entry on the same card, for the same reasons. `cache-ram = 32768` rather than the 51200
-  used by the small entries: a full-context prompt state is ~4.6 GiB here (4,488 MiB KV plus the
+  otherwise. `fit-target = 1024` rather than the 3072 the DeepSeek entry keeps on the same card:
+  the margin still clears the ~400 MiB WDDM floor (`docs/presets.md` -> *Device pinning and
+  multi-GPU*) and the ~2 GiB it releases buys expert layers, but it is the tightest target in the
+  tier and the compositor's share of the card moves by hundreds of MiB with desktop state, so an
+  unexplained slowdown here is a paging check before it is anything else. It also leaves nothing
+  spare to hand-reserve the 588 MiB of CLIP weights, which is the second reason `mmproj-offload`
+  stays off. `cache-ram = 32768` rather than the 51200 used by the small entries: a full-context
+  prompt state is ~4.6 GiB here (4,488 MiB KV plus the
   recurrent rows), and the host is already backing most of a 90.635 GiB file through the page
   cache plus a PLE working set that only grows.

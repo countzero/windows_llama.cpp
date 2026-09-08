@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Build] Retarget the torch override to 2.11.0+cu130
 - [Build] Bump the transformers override to 5.16.1
 - [Build] Widen the numpy override to the 2.x line
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB ctx-size to 262144 and parallel to 1
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
+- [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
+
+### Removed
+- [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
+
+### Fixed
+- [Documentation] Correct the stated parallel value in the Qwen3.8-Flash-Next tuning notes
 
 
 ## [1.43.0] - 2026-09-03
