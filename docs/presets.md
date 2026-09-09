@@ -182,8 +182,11 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   rollback then goes through checkpoints (`tools/server/server-context.cpp:1224-1226`), so a
   non-zero `ctx-checkpoints` is *required* for `ngram-mod` to be useful on such an entry rather
   than being an optimisation. Which entries and why: `deepseek4`
-  (`docs/model_tuning/deepseek-v4-flash.md`) and `Qwen3.8-Flash-Next`
-  (`docs/model_tuning/qwen3.8-flash-next.md`).
+  (`docs/model_tuning/deepseek-v4-flash.md`), `Qwen3.8-Flash-Next`
+  (`docs/model_tuning/qwen3.8-flash-next.md`) and `Ling-3.0-tiny`
+  (`docs/model_tuning/ling-3.0.md`). On `Ling-3.0-tiny` the checkpoint also has to capture the
+  recurrent KDA state, and `--ctx-checkpoints` is a *per-slot* ring (`common/arg.cpp:1706-1708`),
+  so its value is 8 rather than the house 32 at `parallel = 4`.
 
 - **`get_can_shift()` returning true is not proof that shifting is safe.** Muse Glimmer returns
   true while a K-shift silently corrupts its NoPE layers — `docs/model_tuning/muse-glimmer.md`.

@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.45.0] - 2026-09-09
+
+### Added
+- [Presets] Add Ling-3.0-tiny IQ4_XS entry to the 24 GB tier
+- [Presets] Add MiniCPM5-2B IQ4_XS entry to the 24 GB tier
+- [Documentation] Add Ling 3.0 tuning notes covering the KDA/MLA split and its cache-type constraint
+- [Documentation] Add MiniCPM5 tuning notes covering the embedded chat template and KV sizing
+- [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
+
+### Fixed
+- [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
+
+
 ## [1.44.0] - 2026-09-08
 
 ### Added
