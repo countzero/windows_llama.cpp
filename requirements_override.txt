@@ -11,6 +11,8 @@ tiktoken==0.10.0
 # to enable support for newer model architectures.
 transformers==5.16.1
 
-# Override numpy to hold the 2.x line against
-# the legacy llama requirements (~=1.26.4).
-numpy>=2.2.0,<3.0.0
+# Pin numpy to the line upstream pins. The upper bound is what holds it
+# there: this file is installed as a second, separate pip run, so nothing
+# in it can see the numpy~=2.2.6 in the llama.cpp requirements, and the
+# eager upgrade strategy would otherwise take the newest 2.x.
+numpy>=2.2.0,<2.3.0

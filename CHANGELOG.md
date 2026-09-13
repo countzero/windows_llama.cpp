@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Build] Replace the deprecated GGML_CUDA_FA_ALL_QUANTS flag with GGML_CUDA_FA_QUANTS narrowed to the three K/V pairs the presets use
 - [Build] Retarget the torch override to 2.11.0+cu130
 - [Build] Bump the transformers override to 5.16.1
-- [Build] Widen the numpy override to the 2.x line
+- [Build] Pin the numpy override to the 2.2 line that upstream pins
 - [Presets] Lower the Qwen3.8-Flash-Next 24 GB ctx-size to 262144 and parallel to 1
 - [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
 - [OpenCode] Export SESSION_ID through the shell environment instead of the system prompt
