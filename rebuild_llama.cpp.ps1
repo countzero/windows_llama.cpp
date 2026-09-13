@@ -427,12 +427,20 @@ pip install `
     --upgrade-strategy "eager" `
     --requirement ./vendor/llama.cpp/requirements.txt
 
+if ($LASTEXITCODE -ne 0) {
+    throw "Installing the llama.cpp requirements failed with exit code ${LASTEXITCODE}."
+}
+
 # We are overriding some package versions and installing
 # additional packages that are missing from llama.cpp.
 pip install `
     --upgrade `
     --upgrade-strategy "eager" `
     --requirement ./requirements_override.txt
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Installing the requirement overrides failed with exit code ${LASTEXITCODE}."
+}
 
 conda list
 
