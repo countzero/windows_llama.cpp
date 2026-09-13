@@ -56,6 +56,7 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning/qwen.md`, `docs/model_tuning/gemma-4.md`
 - Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
 - Any `cache-type-k`/`cache-type-v`/`-draft` pair added to a preset must also be added to `-DGGML_CUDA_FA_QUANTS` in `rebuild_llama.cpp.ps1` and the build re-run; the flag no longer compiles all combinations, and neither the server log nor `test-backend-ops` reports a missing pair. `docs/build_system.md` -> *CUDA build flags*
+- Never build a revision below **b10876** without swapping `-DGGML_CUDA_FA_QUANTS` for `-DGGML_CUDA_FA_ALL_QUANTS=ON` by hand; the flag does not exist there, CMake takes it as an unused cache entry, and the six `q5_0`-`q4_1` entries lose flash attention to the CPU backend. Only `-version` / `-pullRequest` can reach this. `docs/build_system.md` -> *CUDA build flags*
 
 ## Version Control
 
