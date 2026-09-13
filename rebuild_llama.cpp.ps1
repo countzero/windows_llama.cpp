@@ -332,6 +332,12 @@ $ml64 = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.ex
     Select-Object -First 1
 if (-not $ml64) { throw "ml64.exe not found. Install the VS C++ workload." }
 
+# Note: GGML_CCACHE is ON by default but is a no-op here. ggml applies the
+# cache through the CMake RULE_LAUNCH_COMPILE global property
+# (vendor/llama.cpp/ggml/src/CMakeLists.txt:82), which the Visual Studio
+# generator ignores, while still printing "sccache found, compilation results
+# will be cached". Switching to Ninja to make it effective is blocked upstream.
+# docs/build_system.md -> Compiler cache
 switch ($blasAccelerator) {
 
     "OpenBLAS" {
@@ -350,17 +356,23 @@ switch ($blasAccelerator) {
         # nothing from the extra copies.
         #
         # GGML_CUDA_FA_QUANTS picks which flash-attention K/V type pairs get a
-        # vector kernel. The default builds only f16-f16, q4_0-q4_0, q8_0-q8_0
-        # and bf16-bf16; an uncompiled pair still runs on the GPU but converts
-        # K and V to f16 on every call. The presets use q5_0-q4_1, so "all" is
-        # what keeps them on a native kernel, at the cost of nvcc compile time.
-        # GGML_CUDA_FA_ALL_QUANTS is the deprecated spelling of the same thing
-        # and makes CMake warn (ggml/cmake/common.cmake:59).
+        # vector kernel; an uncompiled pair is converted to f16 instead. Listed
+        # here are exactly the pairs the presets use. f16-f16 is always added by
+        # ggml, so this builds 4 of the 49 possible combinations.
+        #
+        # Adding a cache-type pair to a preset means adding it here too. Nothing
+        # at runtime will tell you if you forget: the warning fires only from the
+        # vector path, and test-backend-ops never generates a mismatched pair.
+        # Check the "FlashAttention K-V type combinations" line that CMake prints
+        # below. docs/build_system.md -> CUDA build flags
+        #
+        # GGML_CUDA_FA_ALL_QUANTS is the deprecated spelling of "=all" and
+        # makes CMake warn (ggml/cmake/common.cmake:59).
         cmake `
             -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_CUDA=ON `
             -DGGML_SCHED_MAX_COPIES=1 `
-            -DGGML_CUDA_FA_QUANTS=all `
+            -DGGML_CUDA_FA_QUANTS="q4_0-q4_0;q5_0-q4_1;q8_0-q8_0" `
             -DLLAMA_CURL=OFF `
             ..
     }
@@ -372,6 +384,10 @@ switch ($blasAccelerator) {
     }
 }
 
+if ($LASTEXITCODE -ne 0) {
+    throw "CMake configuration failed with exit code ${LASTEXITCODE}."
+}
+
 Write-Host "[CMake] Building project targets '${target}'..." -ForegroundColor "Yellow"
 
 cmake `
@@ -379,6 +395,14 @@ cmake `
     --config Release `
     --parallel $parallelJobs `
     $(if ($target) { "--target ${target}" })
+
+# A non-zero exit from cmake --build used to be ignored: the script carried on
+# through the Python steps and printed "Successfully finished the build in N
+# seconds" while ./bin/Release held the previous build, or nothing at all. A
+# compile error has to stop the run, not decorate it.
+if ($LASTEXITCODE -ne 0) {
+    throw "The CMake build failed with exit code ${LASTEXITCODE}."
+}
 
 Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
 

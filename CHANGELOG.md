@@ -5,6 +5,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.48.0] - 2026-09-13
+
+### Changed
+- [Build] Narrow GGML_CUDA_FA_QUANTS to the three K/V pairs the presets use
+
+### Added
+- [Documentation] Document the measured build time and ggml-cuda.dll reduction from narrowing GGML_CUDA_FA_QUANTS
+- [Documentation] Document that GGML_CCACHE is a silent no-op under the Visual Studio generator
+- [Documentation] Document that switching to Ninja is blocked by an nvcc quoting bug in the ggml CMake
+- [Documentation] Document that test-backend-ops never generates a mismatched q5_0-q4_1 flash-attention case
+- [Documentation] Document that llama-bench discards ggml warnings through a null log callback
+- [Documentation] Document that the flash-attention fallback warning only fires from the vector path
+
+### Fixed
+- [Build] Abort the rebuild when CMake configuration or compilation fails instead of reporting success
+
+
 ## [1.47.0] - 2026-09-13
 
 ### Changed
