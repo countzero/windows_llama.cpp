@@ -19,54 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Configuration] Add load_env.ps1 to load .env into the current session
 - [Configuration] Note the R615 minimum driver for CUDA_SCALE_LAUNCH_QUEUES with CUDA graphs
 - [Configuration] Carry a commented CUDA_VISIBLE_DEVICES pin for the two presets that do not pin devices
-- [Agents] Add a Version Control section stating the branch model, the commit message shape and that commit and push are never automatic
-- [Agents] Add a Documentation and prose section stating the one-home rule, the pointer form and the size budgets
-- [Documentation] Add docs/conventions.md covering commit messages, pull request descriptions, documentation homes and size budgets, punctuation, comments and PowerShell style
-- [Documentation] Add Ling 3.0 tuning notes covering the KDA/MLA split and its cache-type constraint
-- [Documentation] Add MiniCPM5 tuning notes covering the embedded chat template and KV sizing
-- [Documentation] Add a slots and prompt cache section covering n_ctx_seq, idle slot clearing and id_slot pinning
-- [Documentation] Document configuring and launching the router via .env
-- [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
-- [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
-- [Documentation] Document the WDDM paging slowdown below ~300 MiB free on the display GPU
-- [Documentation] Document tensor-split as the prompt-processing lever on the dual-GPU tier and its VRAM cost per context token
-- [Documentation] Document the measured Qwen3.8-27B dual-GPU retune and why split-mode tensor stays off
-- [Documentation] Document the measured ubatch-size 256 retune of the dual-GPU Qwen3.8-27B entry
-- [Documentation] Document that draft-mtp doubles the per-device compute buffer, making ubatch-size twice the VRAM lever
-- [Documentation] Document that ubatch-size 256 is safe for Qwen3.8-27B vision and why the projector allows it
-- [Documentation] Document that mmproj-device beats no-mmproj-offload by 4.5x on the dual-GPU tier
-- [Documentation] Document that no-mmproj-offload runs CLIP on the CPU rather than declining one GPU
-- [Documentation] Document that mmproj-device and no-mmproj-offload must not be paired
-- [Documentation] Document the measured Muse-Glimmer-30B dual-GPU tuning and why it keeps tensor-split 1,2
-- [Documentation] Document the Muse-Glimmer-30B dual-GPU VRAM breakdown and its per-device compute buffers
-- [Documentation] Document that KV quantisation and context size are not headroom levers on Muse-Glimmer-30B
-- [Documentation] Document that the dflash drafter cannot be pinned away from the device holding the target output tensor
-- [Documentation] Document that the drafter inherits the target split mode, main GPU and tensor split
-- [Documentation] Document that the compute buffer is allocated in full on every device under split-mode layer
-- [Documentation] Document the dflash speculative logits over-reservation and the ubatch-size workaround
-- [Documentation] Document that ubatch-size 256 is safe for Muse-Glimmer-30B vision but not for gemma-4
-- [Documentation] Document that KV quantisation does not change the CUDA flash-attention kernel on either card
-- [Documentation] Document that the 2060 SUPER PCIe 3.0 x4 link is the card ceiling and not the prefill bottleneck
-- [Documentation] Document that an mmproj disables cache-reuse, leaving exact prefix matching as the only reuse path
-- [Documentation] Document that models-max is router-scoped and that a sidecar model forces an unload and reload per call
-- [Documentation] Document that GGML_CUDA_GRAPH_OPT costs 28 percent of prompt processing on the dual-GPU tier
-- [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
-- [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
-- [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
-- [Documentation] Document the re-swept spec-draft-n-max curve and why the dual-GPU entry ships 4
-- [Documentation] Scope the spec-draft-n-max guidance per tier instead of naming one peak
-- [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
-- [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
-- [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
-- [Documentation] Document the measured build time and ggml-cuda.dll reduction from narrowing GGML_CUDA_FA_QUANTS
-- [Documentation] Document that GGML_CCACHE is a silent no-op under the Visual Studio generator
-- [Documentation] Document that switching to Ninja is blocked by an nvcc quoting bug in the ggml CMake
-- [Documentation] Document that test-backend-ops never generates a mismatched q5_0-q4_1 flash-attention case
-- [Documentation] Document that llama-bench discards ggml warnings through a null log callback
-- [Documentation] Document that the flash-attention fallback warning only fires from the vector path
-- [Documentation] Document that GGML_CUDA_FA_QUANTS needs llama.cpp b10876 or newer and is silently ignored below it
-- [Documentation] Document why each Python requirements override is still needed
-- [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
+- [Documentation] Add a conventions reference at docs/conventions.md
+- [Documentation] Add Ling 3.0 tuning notes
+- [Documentation] Add MiniCPM5 tuning notes
 
 ### Changed
 - [Build] Replace the deprecated GGML_CUDA_FA_ALL_QUANTS flag with GGML_CUDA_FA_QUANTS narrowed to the three K/V pairs the presets use
@@ -77,10 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
 - [OpenCode] Export SESSION_ID through the shell environment instead of the system prompt
 - [Documentation] Split docs/model_tuning.md into one file per model family under docs/model_tuning/
-- [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
-- [Documentation] Describe the per-harness SESSION_ID mechanisms and how to read it under OpenCode
-- [Documentation] Record why the Claude Code SessionStart hook does not pay the prompt-cache cost
-- [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
+- [Documentation] Move the no-host, fit, swa-full and context-shift mechanisms into docs/presets.md
 - [Vendor] Bump llama.cpp submodule to b10948
 
 ### Removed
@@ -89,21 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the dual-GPU tier
 - [Presets] Drop the gemma-4-12B-it-qat-q4_0 entry from the 24 GB tier
 - [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
-- [Documentation] Drop the Qwen 3.6 entries from the model lists in the Qwen tuning notes and the presets README
-- [Documentation] Move the no-host, fit, swa-full and context-shift mechanisms out of the per-model files into docs/presets.md
-- [Documentation] Drop the Presets section from AGENTS.md that its Reference table already carries
 
 ### Fixed
 - [Build] Abort the rebuild when CMake configuration or compilation fails instead of reporting success
 - [Build] Restore the caller's working directory when the rebuild aborts
 - [Build] Abort the rebuild when a Python dependency step fails
-- [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion
-- [Documentation] Scope the f16 flash-attention fallback to b10876 and up and record the collapse below it
+- [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion above b10876
 - [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
-- [Documentation] Fix the presets README note callout that rendered its body outside the block
 - [Documentation] Fix the grammar example in the README that dropped its last flag onto a separate command
-- [Documentation] Correct the GGML_CUDA_FA_QUANTS section that still described the flag as being passed as all
-- [Documentation] Correct the count of preset entries using the q5_0-q4_1 K/V pair from three to six
 
 
 ## [1.41.0] - 2026-08-28
@@ -114,46 +59,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Presets] Pin chat-template-file on the Qwen3.8-27B entry
 - [Presets] Pin reasoning-effort to medium on all Qwen 3.6 and Bonsai entries
 - [Presets] Pin reasoning-effort to xhigh on the Qwen3.8 entries
-- [Documentation] Document why Qwen3.8-27B now pins the vendored chat template
-- [Documentation] Document the reasoning-effort steering and the default-effort knob in the vendored chat template
-- [Documentation] Document the reasoning-effort aliases the vendored template maps for OpenAI, Claude Code, Cursor and Cline
-- [Documentation] Document the tools serialization and think-tag spacing fixes in the vendored chat template
-- [Documentation] Document the two v19 prompt-format deviations the vendored template corrects
-- [Documentation] Document the empty think block the vendored template emits before a tool call that carries no reasoning
-- [Documentation] Document that pinning reasoning-effort is what keeps a template bump from moving the level
-- [Documentation] Document why Qwen3.8-27B keeps xhigh reasoning and how reasoning-budget bounds it
-- [Documentation] Document the standalone Qwen3.8-27B MTP sidecars as an alternative to a re-quant
-- [Documentation] Document the GGML_SCHED_MAX_COPIES=1 CUDA build flag
-- [Documentation] Document the Qwen3.8-27B projector choice and its quantization source
-- [Documentation] Document that ctx-size above the GGUF context_length is dead VRAM without override-kv
-- [Documentation] Document Muse-Glimmer-30B RoPE, swa-full, and context-shift behavior
-- [Documentation] Document the Muse-Glimmer-30B DFlash drafter, chat template, and reasoning strength defaults
-- [Documentation] Document the measured Muse-Glimmer-30B 24 GB compute buffer and VRAM breakdown
-- [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
 - [Agents] Add session-retrospective skill for routing session learnings into AGENTS.md and docs/
 - [Agents] Inject SESSION_ID at session start for Claude Code and OpenCode
 - [Build] Apply patches from ./patches to the llama.cpp submodule after checkout
 - [Build] Abort the build when a local patch no longer applies
-- [Documentation] Document the local patch mechanism in the build system reference
-- [Documentation] Document the gguf-py row-group fix, the platforms it was measured on, and the three variants that were rejected
-- [Documentation] Document the Qwen3.8-Flash-Next per_layer_token_embd table and its lazy read path
-- [Documentation] Document why the Qwen3.8-Flash-Next entry needs load-mode = mmap instead of dio
-- [Documentation] Document why no-host keeps the Qwen3.8-Flash-Next mmap aliasing path reachable
-- [Documentation] Document the Qwen3.8-Flash-Next weight split and the two fit blind spots
-- [Documentation] Document the Qwen3.8-Flash-Next QSA indexer cache and its unused V allocation
-- [Documentation] Document that Qwen3.8-Flash-Next has no MTP head and cannot shift context or reuse cache
-- [Documentation] Document the Qwen3.8-Flash-Next recurrent state cost and why parallel is the cheap knob
-- [Documentation] Document that a Qwen3.8-Flash-Next context checkpoint is the whole recurrent state
-- [Documentation] Document the measured Qwen3.8-Flash-Next 24 GB VRAM and throughput figures
-- [Documentation] Document the measured Qwen3.8-Flash-Next context and compute cost per n_ctx_seq
-- [Documentation] Document why a 1M cell pool does not fit Qwen3.8-Flash-Next on 24 GB
+- [Documentation] Add an always-on trap index and a docs reference table to AGENTS.md
 
 ### Changed
 - [Documentation] Move the preset rationale out of AGENTS.md into docs/presets.md and docs/model_tuning.md
 - [Documentation] Move the build-system rationale out of AGENTS.md into docs/build_system.md
-- [Documentation] Drop the build-configuration summaries from AGENTS.md that docs/build_system.md already carries
-- [Documentation] List the remaining examples scripts and their help coverage in AGENTS.md
-- [Documentation] Extend the no-host and fit traps in AGENTS.md to Qwen3.8-Flash-Next
 - [Vendor] Bump Qwen-Fixed-Chat-Templates submodule to v22.4
 - [Vendor] Bump llama.cpp submodule to b10660 for Qwen3.8-Flash-Next support #27742
 - [Presets] Override the Muse-Glimmer-30B context_length metadata to 262144
@@ -165,11 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Agents] Stop tracking .claude/settings.local.json
 
 ### Fixed
-- [Documentation] Correct the common.cpp line reference for the embedded sampling temperature
-- [Documentation] Correct the claim that reasoning_effort has no CLI flag
 - [Documentation] Correct the GGML_CUDA_FA_ALL_QUANTS failure mode from an abort to a silent CPU fallback
 - [Documentation] Correct the claim that Muse-Glimmer-30B has no bundled chat template
-- [Documentation] Refresh stale llama.cpp line references in the Qwen and Muse Glimmer sections
 - [Conversion] Fix GGUF conversion stalling when a tensor row width puts the quantizer group on a slow allocation size
 
 
