@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
 - [Documentation] Describe the per-harness SESSION_ID mechanisms and how to read it under OpenCode
 - [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
+- [Vendor] Bump llama.cpp submodule to b10948
 
 ### Removed
 - [Presets] Drop the Qwen3.6-27B entries from the 16 GB, 24 GB and dual-GPU tiers
