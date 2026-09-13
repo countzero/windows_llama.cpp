@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Split docs/model_tuning.md into one file per model family under docs/model_tuning/
 - [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
 - [Documentation] Describe the per-harness SESSION_ID mechanisms and how to read it under OpenCode
+- [Documentation] Record why the Claude Code SessionStart hook does not pay the prompt-cache cost
 - [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
 - [Vendor] Bump llama.cpp submodule to b10948
 

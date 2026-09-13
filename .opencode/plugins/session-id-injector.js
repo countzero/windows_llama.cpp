@@ -1,7 +1,6 @@
 // Exports SESSION_ID into the environment of every shell command OpenCode runs,
 // via the "shell.env" hook. The agent uses this value as <session-id> in
-// .tmp/sessions/<session-id>/ per AGENTS.md "Scratch Files". The Claude Code
-// equivalent is the SessionStart hook in .claude/settings.json.
+// .tmp/sessions/<session-id>/ per AGENTS.md "Scratch Files".
 //
 // Why the environment and not the system prompt: this plugin used to push
 // "SESSION_ID=<id>" into output.system via experimental.chat.system.transform.
@@ -19,6 +18,13 @@
 //     New-Item -ItemType Directory -Force -Path ".tmp/sessions/$env:SESSION_ID"
 // - or read it once with `Write-Output $env:SESSION_ID` when an absolute path is
 // needed for the Write/Edit tools.
+//
+// Claude Code keeps the literal value in context instead, from the SessionStart
+// hook in .claude/settings.json, and that is not the same bug left unfixed: a
+// SessionStart hook's stdout joins the conversation ahead of the first prompt
+// rather than the system block, so it sits outside the cached prefix. Its
+// static "env" setting cannot carry a per-session value the way this hook can,
+// so the two harnesses are doing the same thing by the means each one has.
 //
 // No package.json is needed: this file imports nothing, and OpenCode loads
 // local plugins directly from .opencode/plugins/. The sessionID field is
