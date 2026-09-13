@@ -349,15 +349,18 @@ switch ($blasAccelerator) {
         # copies of the compute buffer per device. Single-stream decode gains
         # nothing from the extra copies.
         #
-        # GGML_CUDA_FA_ALL_QUANTS compiles the full set of flash-attention
-        # K/V quant kernels. Without it only f16/f16, q4_0/q4_0, q8_0/q8_0,
-        # bf16/bf16 are built; any mixed or q5/q4_1 KV cache aborts at runtime.
-        # Unlocks q5_0/q4_1 at the cost of extra nvcc compile time.
+        # GGML_CUDA_FA_QUANTS picks which flash-attention K/V type pairs get a
+        # vector kernel. The default builds only f16-f16, q4_0-q4_0, q8_0-q8_0
+        # and bf16-bf16; an uncompiled pair still runs on the GPU but converts
+        # K and V to f16 on every call. The presets use q5_0-q4_1, so "all" is
+        # what keeps them on a native kernel, at the cost of nvcc compile time.
+        # GGML_CUDA_FA_ALL_QUANTS is the deprecated spelling of the same thing
+        # and makes CMake warn (ggml/cmake/common.cmake:59).
         cmake `
             -DCMAKE_ASM_COMPILER="$ml64" `
             -DGGML_CUDA=ON `
             -DGGML_SCHED_MAX_COPIES=1 `
-            -DGGML_CUDA_FA_ALL_QUANTS=ON `
+            -DGGML_CUDA_FA_QUANTS=all `
             -DLLAMA_CURL=OFF `
             ..
     }

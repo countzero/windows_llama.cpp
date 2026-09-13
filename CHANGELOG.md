@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.47.0] - 2026-09-13
+
+### Changed
+- [Build] Replace the deprecated GGML_CUDA_FA_ALL_QUANTS flag with GGML_CUDA_FA_QUANTS
+
+### Added
+- [Configuration] Note the R615 minimum driver for CUDA_SCALE_LAUNCH_QUEUES with CUDA graphs
+- [Documentation] Document narrowing GGML_CUDA_FA_QUANTS to the three K/V pairs the presets use
+
+### Fixed
+- [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion
+
+
 ## [1.46.0] - 2026-09-13
 
 ### Changed
