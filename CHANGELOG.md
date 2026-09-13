@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - [Build] Abort the rebuild when CMake configuration or compilation fails instead of reporting success
+- [Build] Restore the caller's working directory when the rebuild aborts
 - [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion
 - [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
 - [Documentation] Fix the presets README note callout that rendered its body outside the block
