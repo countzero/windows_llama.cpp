@@ -168,22 +168,22 @@ Clients select a model by its section header name in the OpenAI-compatible `"mod
 
 #### Configure the router via .env
 
-Every `llama-server` flag has an environment variable equivalent (`llama-server --help` prints it under each flag). You can keep the machine-specific values in a `.env` file instead of repeating them on every launch:
+Many `llama-server` flags have an environment variable equivalent; `llama-server --help` prints `(env: LLAMA_ARG_…)` under each flag that has one. You can keep the machine-specific values in a `.env` file instead of repeating them on every launch:
 
 ```PowerShell
 Copy-Item .env.example .env   # then edit .env for this machine
 ```
 
-Load it and start the router from the repository root. The presets reference `chat-template-file` paths relative to the repository root, so the `cd` is required:
+Load it and start the router from the repository root, substituting your own checkout path. The presets reference `chat-template-file` paths relative to the repository root, so the `Set-Location` is required:
 
 ```PowerShell
-pwsh -noexit -c "cd D:\Arbeit\windows_llama.cpp; . .\load_env.ps1; llama-server"
+pwsh -noexit -c "Set-Location '<path\to\windows_llama.cpp>'; . .\load_env.ps1; llama-server"
 ```
 
 A flag on the command line overrides the corresponding variable, so switching to another VRAM tier for a single launch is:
 
 ```PowerShell
-pwsh -noexit -c "cd D:\Arbeit\windows_llama.cpp; . .\load_env.ps1; llama-server --models-preset presets\models_24GB_VRAM.ini"
+pwsh -noexit -c "Set-Location '<path\to\windows_llama.cpp>'; . .\load_env.ps1; llama-server --models-preset presets\models_16GB_8GB_VRAM.ini"
 ```
 
 `llama-server` then prints a `warn: LLAMA_ARG_MODELS_PRESET environment variable is set, but will be overwritten` line. That is expected.
