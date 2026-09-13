@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.50.0] - 2026-09-13
+
+### Added
+- [Documentation] Add docs/conventions.md covering commit messages, pull request descriptions, documentation homes and size budgets, punctuation, comments and PowerShell style
+- [Agents] Add a Version Control section stating the branch model, the commit message shape and that commit and push are never automatic
+- [Agents] Add a Documentation and prose section stating the one-home rule, the pointer form and the size budgets
+
+### Changed
+- [Build] Replace the history note above the cmake --build exit code check with the reason the check exists
+
+
 ## [1.49.0] - 2026-09-13
 
 ### Changed

@@ -396,10 +396,10 @@ cmake `
     --parallel $parallelJobs `
     $(if ($target) { "--target ${target}" })
 
-# A non-zero exit from cmake --build used to be ignored: the script carried on
-# through the Python steps and printed "Successfully finished the build in N
-# seconds" while ./bin/Release held the previous build, or nothing at all. A
-# compile error has to stop the run, not decorate it.
+# PowerShell does not stop on a non-zero exit from a native executable. Without
+# this check a compile error falls through to the Python steps and the script
+# prints "Successfully finished the build in N seconds" while ./bin/Release
+# still holds the previous build, or nothing at all.
 if ($LASTEXITCODE -ne 0) {
     throw "The CMake build failed with exit code ${LASTEXITCODE}."
 }

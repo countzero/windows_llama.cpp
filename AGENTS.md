@@ -57,6 +57,19 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
 - Any `cache-type-k`/`cache-type-v`/`-draft` pair added to a preset must also be added to `-DGGML_CUDA_FA_QUANTS` in `rebuild_llama.cpp.ps1` and the build re-run; the flag no longer compiles all combinations, and neither the server log nor `test-backend-ops` reports a missing pair. `docs/build_system.md` -> *CUDA build flags*
 
+## Version Control
+
+- Work lands on `develop`; `main` receives it only through a pull request. Every commit that changes behavior carries its own `CHANGELOG.md` version entry in the same commit. `docs/conventions.md` -> *Commit messages*
+- A commit subject is one imperative line with no prefix and no ticket key; the body wraps at 80 columns and carries the measurement, the rationale, the alternatives that were dropped and what was deliberately left undone. No `Co-Authored-By`, `Generated with` or `Signed-off-by` trailer. `docs/conventions.md` -> *Commit messages*
+- A pull request body answers **what** changed, **why**, the **shortcomings** of the approach, **which feedback** you want and **what is not done**. A link supplements it and never carries it. `docs/conventions.md` -> *Pull request descriptions*
+- Commit and push are never automatic: commit only when the user asks, push only when the user asks, and "commit" does not imply "push".
+
+## Documentation and prose
+
+- Every rule has one home: `AGENTS.md` carries the invariant, the matching `docs/` file the contract, the commit message the decision, and every other mention is a pointer in the form `` `docs/<file>.md` -> *Section* ``. Never write down a version, an inventory or a value nobody reasons about; point at the file that sets it. `docs/conventions.md` -> *Documentation*
+- Size budgets, in bytes: `AGENTS.md` about 12,000 and never over 16,000; a reference document under `docs/` about 30,000 and never over 45,000. `docs/conventions.md` -> *Size budgets*
+- Pad every cell of a markdown table, and keep the em dash for a genuine break in thought rather than as a default joiner. A comment says **why**, never what, and carries no history. `docs/conventions.md` -> *Punctuation and tables*, *Comments*
+
 ## Changelog style
 
 - One bullet = one physical line. Never insert manual line-breaks; let the editor soft-wrap.
@@ -77,4 +90,5 @@ Deep reference documentation lives under `docs/` and is **read on demand**, not 
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/build_system.md`          | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
 | `docs/presets.md`               | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `no-host`, `fit`, `mmproj-offload`, `swa-full`, context shift, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
+| `docs/conventions.md`           | Commit message and pull request description, where a piece of information lives and what it may not restate, the size budgets, punctuation and table padding, `.ps1` comments and PowerShell/CLI style. **Read before writing a commit message or a pull request description, and before adding a paragraph to `AGENTS.md`, `docs/` or a README.** |
 | `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |
