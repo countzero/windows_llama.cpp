@@ -5,6 +5,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.44.0] - 2026-09-13
+
+### Changed
+- [Presets] Set ubatch-size 256 on both dual-GPU Qwen3.8-27B entries
+- [Presets] Raise spec-draft-n-max from 3 to 4 on both dual-GPU Qwen3.8-27B entries
+
+### Added
+- [Documentation] Document the measured ubatch-size 256 retune of the dual-GPU Qwen3.8-27B entry
+- [Documentation] Document that draft-mtp doubles the per-device compute buffer, making ubatch-size twice the VRAM lever
+- [Documentation] Document that ubatch-size 256 is safe for Qwen3.8-27B vision and why the projector allows it
+- [Documentation] Document that GGML_CUDA_GRAPH_OPT costs 28 percent of prompt processing on the dual-GPU tier
+- [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
+- [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
+- [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
+- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry keeps 3
+- [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
+- [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
+- [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
+
+
 ## [1.43.0] - 2026-09-03
 
 ### Added

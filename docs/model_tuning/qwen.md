@@ -209,6 +209,65 @@ auto-loaded into the agent context; read on demand. Cross-model rules are in `do
   and the draft context allocates a second one — 200000 fails on the 2060 with 2 × 1058 MiB of
   scratch, 131072 is the ceiling at `1,2` — and `q5_0`/`q4_1` K/V assert in this mode (#27116).
 
+- **The dual-GPU `Qwen3.8-27B` entry ships `ubatch-size = 256`, which buys 208 MiB on the 4070 for
+  0.6 % of prompt processing.** `draft-mtp` builds a second context, and the compute buffer is
+  allocated in full on every device for *each* of them, so the 4070 pays the CUDA1 scratch twice —
+  which makes `ubatch-size` worth double here what it is worth on a non-speculative entry. Measured
+  on b10940 from the load log: `-ub 512` reserves 720.28 MiB per context (1440.56 MiB on the 4070,
+  720.28 on the 2060), `-ub 256` reserves 616.27 MiB (1232.54 / 616.27). The step is ~104 MiB per
+  device per halving and it is linear, but prompt processing is not:
+
+  | `ubatch-size` | 4070 free | pp 32k prompt | tg code / reasoning / after 32k |
+  | --- | --- | --- | --- |
+  | 512 (old) | 561 → 567 | 1083 / 1064 | 56.8 / 69.4 / 47.1 |
+  | **256 (new)** | **775 → 775** | **1076 / 1074** | **56.6 / 68.8 / 46.9** |
+  | 128 | 879 | 838 | 56.9 / 68.9 / 46.7 |
+
+  Every row is a paired repeat; run-to-run spread is ±0.1-0.8 t/s on tg and ±20 t/s on pp, so 512 →
+  256 is free and 256 → 128 is a 23 % prefill cliff. 256 is the knee. Through the router with the
+  real `.env`, `-ub 256` on its own idles at **717 MiB free against the 527 MiB** the `-ub 512`
+  config ended at, at unchanged pp (1088 against 1085); the entry then spends 108 MiB of that on
+  `spec-draft-n-max = 4` (below) and ships at 416 MiB — the point is the margin, not the speed: the
+  desktop on the display GPU swings by ~450 MiB with what is open, and the old config had 162 MiB
+  free with a browser running, i.e. inside the WDDM paging window (`docs/presets.md` → *Device
+  pinning and multi-GPU*). Vision is unaffected: `mtmd_decode_use_non_causal()` returns true only
+  for `GEMMA3` / `GEMMA4V` / `GEMMA4UV` / `DEEPSEEK4V` (`tools/mtmd/mtmd.cpp:2107-2120`), and
+  `qwen3vl_merger` falls to `default: return false`, so a 1024-token image may span microbatches.
+  Verified end to end at `-ub 256`: a 1056-token image request returned both rendered strings
+  verbatim and the shapes correctly. The same key must not be copied to a gemma-4 entry —
+  `docs/model_tuning/gemma-4.md`.
+
+- **Four levers were measured on this entry and rejected; none is worth re-testing without a reason.**
+  All on b10940, `1,3` · 131072 · q4_0, paired against the baseline above.
+  `GGML_CUDA_GRAPH_OPT=1` — the concurrent-streams pass that #28198 (b10782) fixed for multi-GPU —
+  costs **28 % of prompt processing** (1083 → 782) and returns nothing on tg; it is off by default
+  and should stay off. `GGML_CUDA_P2P=1` is a no-op (1069 pp, tg within noise) because the driver
+  never reports peer access on consumer GeForce — the log prints no P2P line at all — so the
+  corruption risk `docs/multi-gpu.md` warns about is taken for zero return. `spec-draft-p-min`
+  (default `0.00`) is the inverted case the upstream community documented: the gate raises draft
+  acceptance monotonically and throughput falls with it — 0.60 gives 0.81 acceptance and
+  51.4 / 61.5 / 45.6, 0.75 gives 0.89 and 47.6 / 54.2 / 42.7, against 0.71 and 56.8 / 69.4 / 47.1
+  ungated. Acceptance is a vanity metric on this pair. `--spec-draft-device CUDA0` is accepted
+  without error and **silently ignored** for `draft-mtp`: the draft context still reports its
+  144 MiB KV and 616-720 MiB scratch on CUDA1, because the MTP head lives in the target model and
+  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070.
+
+- **`spec-draft-n-max` peaks at 4 on b10940, not 3, and the entry ships 4.** Re-swept because the
+  committed 3 was a day-0 result and the MTP context KV allocation has since changed (#28630 made
+  the nextn filter generic, so `qwen35` now allocates the draft KV for 1 layer — 144 MiB at
+  131072 — rather than the whole trunk). Measured tg code / reasoning / after 32k: `2` gives
+  52.6 / 56.1 / 40.3, `3` gives 56.8 / 69.4 / 47.1, `4` gives 59.4 / 66.0 / 51.9, `5` gives
+  54.4 / 58.1 / 49.8. 4 wins the code and deep-context prompts by ~4.7 % each and loses the
+  reasoning prompt by 4.9 %, and it costs 108 MiB of 4070 margin because `n_rs_seq = n_max`
+  multiplies the recurrent-state buffer (`common/common.cpp:1699`). Paired with `ubatch-size = 256`
+  it lands at 667 MiB free and 59.4 / 65.7 / 49.0 on the bench, 416 MiB free and 58.1 / 65.4 / 48.7
+  through the router. That is a real trade, not a free win: **n-max 4 spends half of what
+  `ubatch-size = 256` saved**, so the entry nets ~100 MiB of margin over the `-ub 512` / n-max 3
+  config it replaced rather than the full 208 MiB. Revert to 3 if the display GPU's desktop grows —
+  the reasoning prompt is the one that prefers 3, and 416 MiB sits on the 400 MiB floor, so this
+  entry has no room left for a second concurrent model or a heavier desktop
+  (`docs/presets.md` → *Device pinning and multi-GPU*).
+
 - **Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from `Qwen/Qwen3.8-27B-FP8`.** BF16 is
   this model's native precision and the FP8 repo is a derived, post-training artifact (HF model
   tree: base model `Qwen3.8-27B`, "Quantized"), so it is already lossy — its card claims only

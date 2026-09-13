@@ -53,6 +53,29 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   safely on a live desktop is impractical. Note also that the 250-300 MiB figure is conservative for
   this machine: rows measured at 253 and 293 MiB free showed no throughput loss at all, so the
   observed cliff sits below that, and the 28 MiB row remains the only unambiguous demotion.
+- **The desktop's share of the display GPU cannot be moved in software, and it swings by ~450 MiB
+  on its own — budget for the peak, not for what `nvidia-smi` shows when you tune.** Measured with
+  the stack down: the desktop alone holds 958-1158 MiB of the 4070 Ti SUPER across three 1440p
+  displays, and with a browser and the usual tray helpers running the same desktop reached ~1400 MiB,
+  which is what left the tuned `Qwen3.8-27B` entry at 162 MiB free — inside the paging window —
+  without any preset having changed. Two software levers were tried and neither is a fix. Killing
+  the GPU-resident tray helpers (`NVIDIA Overlay`, `Creative Cloud UI Helper`, the Adobe and Acrobat
+  notification clients, `PhoneExperienceHost`) returns ~92 MiB immediately and ~200 MiB once their
+  successors settle, but every one of them is watchdog-respawned within seconds — `Creative Cloud UI
+  Helper` came back as four processes and `NVIDIA Overlay` as five — so it is self-reversing and not
+  a configuration. Windows' per-app GPU preference
+  (`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`, `GpuPreference=1` for the power-saving
+  adapter) **does nothing when the target GPU drives no display**: Signal restarted under
+  `GpuPreference=1` stayed entirely on the 4070 (75.4 MiB) and the headless 2060 SUPER stayed at
+  0 MiB allocated. Presentation is owned by the adapter driving the monitor, so an app cannot be
+  exiled to a headless card. The durable fix is to cable the displays to the *other* GPU; short of
+  that, the margin has to be found inside llama.cpp — `ubatch-size` is the cheapest source on a
+  speculative entry (`docs/model_tuning/qwen.md`). Per-process attribution is available from
+  `Get-Counter '\GPU Process Memory(*)\Dedicated Usage'` keyed by adapter LUID, but it **over-counts
+  by roughly 2.5x** — it reported 234 MiB for processes whose removal returned 92 MiB, and 2327 MiB
+  of total dedicated usage on a card `nvidia-smi` showed using 1158 MiB, because it counts shared
+  and aliased surfaces against every process that references them. Use it for *relative* attribution
+  only; `nvidia-smi` is the physical number.
 - **On the dual-GPU tier `tensor-split` is a prompt-processing knob, not a generation one.** With
   `split-mode = layer` prefill is a pipeline whose throughput is set by its slowest stage, and the
   2060 SUPER has roughly a third of the 4070 Ti SUPER's tensor throughput, so every layer moved off
