@@ -176,7 +176,7 @@ three locations move together.
   breakage); do not defeat the SMT-aware `--parallel` cap or the
   running-build-tree-process abort.
 - **Python requirements layering:** Edits to `requirements_override.txt` that
-  break the documented `torch` (cu126), `transformers`, `numpy<2.3`, or
+  break the documented `torch` (cu130), `transformers`, `numpy` 2.x, or
   `tiktoken` pins.
 - **Preset INI semantics:** `mmproj-offload = true` silently OOMing CLIP warmup
   on a saturated GPU; dropping a required `chat-template-file` pin (it replaces

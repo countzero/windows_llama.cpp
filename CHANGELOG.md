@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [1.44.0] - 2026-09-13
+## [1.46.0] - 2026-09-13
 
 ### Changed
 - [Presets] Set ubatch-size 256 on both dual-GPU Qwen3.8-27B entries
@@ -19,10 +19,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
 - [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
 - [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
-- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry keeps 3
+- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry ships 4
 - [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
 - [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
 - [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
+
+
+## [1.45.0] - 2026-09-09
+
+### Added
+- [Presets] Add Ling-3.0-tiny IQ4_XS entry to the 24 GB tier
+- [Presets] Add MiniCPM5-2B IQ4_XS entry to the 24 GB tier
+- [Documentation] Add Ling 3.0 tuning notes covering the KDA/MLA split and its cache-type constraint
+- [Documentation] Add MiniCPM5 tuning notes covering the embedded chat template and KV sizing
+- [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
+
+### Fixed
+- [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
+
+
+## [1.44.0] - 2026-09-08
+
+### Added
+- [Documentation] Document why each Python requirements override is still needed
+
+### Changed
+- [Build] Retarget the torch override to 2.11.0+cu130
+- [Build] Bump the transformers override to 5.16.1
+- [Build] Widen the numpy override to the 2.x line
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB ctx-size to 262144 and parallel to 1
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
+- [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
+
+### Removed
+- [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
+- [Presets] Drop the Qwen3.6-27B entry from the 24 GB tier
+- [Presets] Drop the Qwen3.6-35B-A3B entry from the 24 GB tier
+- [Presets] Drop the gemma-4-12B-it-qat-q4_0 entry from the 24 GB tier
+- [Documentation] Drop the Qwen 3.6 entries from the model lists in the Qwen tuning notes and the presets README
+
+### Fixed
+- [Documentation] Correct the stated parallel value in the Qwen3.8-Flash-Next tuning notes
+- [Presets] Pin reasoning-effort to xhigh on the 16 GB and 16+8 GB Qwen3.8-27B entries
+- [Presets] Raise temp to 1.0 on the 16 GB and 16+8 GB Qwen3.8-27B entries
 
 
 ## [1.43.0] - 2026-09-03
