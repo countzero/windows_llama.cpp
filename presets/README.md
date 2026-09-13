@@ -36,18 +36,29 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 > [!IMPORTANT]
 > **`models_16GB_8GB_VRAM.ini` (dual-GPU: one GPU with 16 GB VRAM + one with 8 GB VRAM).**
 > It uses `split-mode = layer` (pipeline parallel - the recommended mode for consumer GPUs
-> on PCIe without NVLink) with `tensor-split = 1,2` to weight the 16 GB card twice as
-> heavily as the 8 GB card. `main-gpu = 1` puts scratch buffers and intermediate results
-> on the 16 GB card. `models-max = 1` limits to one loaded model at a time. `fit = off`;
-> each model has a fixed `ctx-size` and `n-gpu-layers = -1` baked in for deterministic launches.
+> on PCIe without NVLink). The `[*]` section sets `tensor-split = 1,2` to weight the 16 GB
+> card twice as heavily as the 8 GB card; the two `Qwen3.8-27B` entries override it to
+> `1,3`, which buys prompt processing at the cost of 16 GB-card VRAM per context token.
+> `main-gpu = 1` puts scratch buffers and intermediate results
+> on the 16 GB card. `models-max = 1` limits to one loaded model at a time. Every entry
+> except `Qwen3.8-Flash-Next` sets `fit = off` with a fixed `ctx-size` and
+> `n-gpu-layers = -1` baked in for deterministic launches.
 >
 > - **Device order matters.** `tensor-split`, `main-gpu`, and `--device` all
 >   follow llama.cpp's CUDA order (shown by `llama-server --list-devices`), **not** the
 >   `nvidia-smi` order. Set `CUDA_DEVICE_ORDER=PCI_BUS_ID` (as above) so `CUDA0` is the
 >   8 GB card and `CUDA1` is the 16 GB card, then **verify once** with `--list-devices`.
-> - All vision entries set `no-mmproj-offload = true`, so image preprocessing runs on CPU.
->   This is deliberate: on a VRAM-saturated GPU `mmproj-offload = true` can OOM the CLIP warmup
->   buffer silently and only fail at image-generation time.
+> - **Vision entries split two ways.** The two `Qwen3.8-27B` entries set
+>   `mmproj-device = CUDA0`, putting the projector on the card that is not saturated —
+>   4.5x faster image prefill than running CLIP on the CPU. The `gemma-4`, `Muse-Glimmer-30B`
+>   and `Qwen3.8-Flash-Next` entries set `no-mmproj-offload = true` instead, which runs CLIP
+>   on the CPU; for `Qwen3.8-Flash-Next` that is required rather than a choice, because on a
+>   `fit = on` entry the projector loads after the expert split is already committed.
+> - **Never set both keys on one entry.** `mmproj-device` and `no-mmproj-offload` write the
+>   same field and preset keys are emitted in unordered-map order, so the winner is whichever
+>   lands last. Use one. And on a VRAM-saturated card, letting the projector onto the GPU can
+>   OOM the CLIP warmup buffer silently and only fail at image-generation time, so verify a
+>   change with a real image request rather than a clean startup.
 
 ## INI Format
 
