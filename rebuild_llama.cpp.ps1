@@ -310,76 +310,111 @@ Remove-Item -Path "./vendor/llama.cpp/build" -Force -Recurse
 
 New-Item -Path "./vendor/llama.cpp" -Name "build" -ItemType "directory"
 
-Set-Location -Path "./vendor/llama.cpp/build"
+# A .ps1 shares the caller's location and PowerShell does not restore it when
+# a script aborts. Every path in this script is relative to the repository root,
+# so a throw between here and the end of the build would leave the caller three
+# levels deep and the retry would fail on an unrelated missing path.
+# docs/build_system.md -> Build safety checks
+try {
+    Set-Location -Path "./vendor/llama.cpp/build"
 
-Write-Host "[CMake] Configuring and generating project..." -ForegroundColor "Yellow"
+    Write-Host "[CMake] Configuring and generating project..." -ForegroundColor "Yellow"
 
-# Upstream ggml/CMakeLists.txt sets `cmake_policy(SET CMP0194 NEW)` and then
-# calls `project("ggml" C CXX ASM)`. On CMake 4.1+ that rejects cl.exe as
-# an assembler for the generic ASM language, and the Visual Studio generator
-# has no integration between generic ASM and MASM. Point CMake at MASM
-# (ml64.exe) explicitly; it ships with MSVC but is not normally on PATH.
-#
-# -requires restricts -latest to instances that actually carry the MSVC x64
-# toolset (the component that ships ml64.exe). Without it, -latest blindly
-# returns the newest-installed instance by timestamp, which may be a
-# Build Tools install lacking the C++ workload; -find then comes back empty
-# even though another instance (e.g. Community) has ml64.exe. Mirrors the
-# pattern upstream uses in .github/workflows/build-cpu.yml.
-$ml64 = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-    -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\ml64.exe' |
-    Select-Object -First 1
-if (-not $ml64) { throw "ml64.exe not found. Install the VS C++ workload." }
+    # Upstream ggml/CMakeLists.txt sets `cmake_policy(SET CMP0194 NEW)` and then
+    # calls `project("ggml" C CXX ASM)`. On CMake 4.1+ that rejects cl.exe as
+    # an assembler for the generic ASM language, and the Visual Studio generator
+    # has no integration between generic ASM and MASM. Point CMake at MASM
+    # (ml64.exe) explicitly; it ships with MSVC but is not normally on PATH.
+    #
+    # -requires restricts -latest to instances that actually carry the MSVC x64
+    # toolset (the component that ships ml64.exe). Without it, -latest blindly
+    # returns the newest-installed instance by timestamp, which may be a
+    # Build Tools install lacking the C++ workload; -find then comes back empty
+    # even though another instance (e.g. Community) has ml64.exe. Mirrors the
+    # pattern upstream uses in .github/workflows/build-cpu.yml.
+    $ml64 = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+        -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+        -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\ml64.exe' |
+        Select-Object -First 1
+    if (-not $ml64) { throw "ml64.exe not found. Install the VS C++ workload." }
 
-switch ($blasAccelerator) {
+    # Note: GGML_CCACHE is ON by default but is a no-op here. ggml applies the
+    # cache through the CMake RULE_LAUNCH_COMPILE global property
+    # (vendor/llama.cpp/ggml/src/CMakeLists.txt:82), which the Visual Studio
+    # generator ignores, while still printing "sccache found, compilation results
+    # will be cached". Switching to Ninja to make it effective is blocked upstream.
+    # docs/build_system.md -> Compiler cache
+    switch ($blasAccelerator) {
 
-    "OpenBLAS" {
-        cmake `
-            -DCMAKE_ASM_COMPILER="$ml64" `
-            -DGGML_BLAS=ON `
-            -DGGML_BLAS_VENDOR=OpenBLAS `
-            -DLLAMA_CURL=OFF `
-            ..
+        "OpenBLAS" {
+            cmake `
+                -DCMAKE_ASM_COMPILER="$ml64" `
+                -DGGML_BLAS=ON `
+                -DGGML_BLAS_VENDOR=OpenBLAS `
+                -DLLAMA_CURL=OFF `
+                ..
+        }
+
+        "CUDA" {
+            # Pin pipeline-parallel staging to a single copy (ggml default is 4).
+            # On multi-GPU layer-split, ggml pre-allocates GGML_SCHED_MAX_COPIES
+            # copies of the compute buffer per device. Single-stream decode gains
+            # nothing from the extra copies.
+            #
+            # GGML_CUDA_FA_QUANTS picks which flash-attention K/V type pairs get a
+            # vector kernel; an uncompiled pair is converted to f16 instead. Listed
+            # here are exactly the pairs the presets use. f16-f16 is always added by
+            # ggml, so this builds 4 of the 49 possible combinations.
+            #
+            # Adding a cache-type pair to a preset means adding it here too. Nothing
+            # at runtime will tell you if you forget: the warning fires only from the
+            # vector path, and test-backend-ops never generates a mismatched pair.
+            # Check the "FlashAttention K-V type combinations" line that CMake prints
+            # below. docs/build_system.md -> CUDA build flags
+            #
+            # GGML_CUDA_FA_ALL_QUANTS is the deprecated spelling of "=all" and
+            # makes CMake warn (ggml/cmake/common.cmake:59).
+            cmake `
+                -DCMAKE_ASM_COMPILER="$ml64" `
+                -DGGML_CUDA=ON `
+                -DGGML_SCHED_MAX_COPIES=1 `
+                -DGGML_CUDA_FA_QUANTS="q4_0-q4_0;q5_0-q4_1;q8_0-q8_0" `
+                -DLLAMA_CURL=OFF `
+                ..
+        }
+
+        default {
+            cmake `
+                -DCMAKE_ASM_COMPILER="$ml64" `
+                ..
+        }
     }
 
-    "CUDA" {
-        # Pin pipeline-parallel staging to a single copy (ggml default is 4).
-        # On multi-GPU layer-split, ggml pre-allocates GGML_SCHED_MAX_COPIES
-        # copies of the compute buffer per device. Single-stream decode gains
-        # nothing from the extra copies.
-        #
-        # GGML_CUDA_FA_ALL_QUANTS compiles the full set of flash-attention
-        # K/V quant kernels. Without it only f16/f16, q4_0/q4_0, q8_0/q8_0,
-        # bf16/bf16 are built; any mixed or q5/q4_1 KV cache aborts at runtime.
-        # Unlocks q5_0/q4_1 at the cost of extra nvcc compile time.
-        cmake `
-            -DCMAKE_ASM_COMPILER="$ml64" `
-            -DGGML_CUDA=ON `
-            -DGGML_SCHED_MAX_COPIES=1 `
-            -DGGML_CUDA_FA_ALL_QUANTS=ON `
-            -DLLAMA_CURL=OFF `
-            ..
+    if ($LASTEXITCODE -ne 0) {
+        throw "CMake configuration failed with exit code ${LASTEXITCODE}."
     }
 
-    default {
-        cmake `
-            -DCMAKE_ASM_COMPILER="$ml64" `
-            ..
+    Write-Host "[CMake] Building project targets '${target}'..." -ForegroundColor "Yellow"
+
+    cmake `
+        --build . `
+        --config Release `
+        --parallel $parallelJobs `
+        $(if ($target) { "--target ${target}" })
+
+    # PowerShell does not stop on a non-zero exit from a native executable. Without
+    # this check a compile error falls through to the Python steps and the script
+    # prints "Successfully finished the build in N seconds" while ./bin/Release
+    # still holds the previous build, or nothing at all.
+    if ($LASTEXITCODE -ne 0) {
+        throw "The CMake build failed with exit code ${LASTEXITCODE}."
     }
+
+    Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
+
+} finally {
+    Set-Location -Path $PSScriptRoot
 }
-
-Write-Host "[CMake] Building project targets '${target}'..." -ForegroundColor "Yellow"
-
-cmake `
-    --build . `
-    --config Release `
-    --parallel $parallelJobs `
-    $(if ($target) { "--target ${target}" })
-
-Copy-Item -Path "../../OpenBLAS/bin/libopenblas.dll" -Destination "./bin/Release/libopenblas.dll"
-
-Set-Location -Path "../../../"
 
 Write-Host "[Python] Installing dependencies..." -ForegroundColor "Yellow"
 
@@ -392,12 +427,20 @@ pip install `
     --upgrade-strategy "eager" `
     --requirement ./vendor/llama.cpp/requirements.txt
 
+if ($LASTEXITCODE -ne 0) {
+    throw "Installing the llama.cpp requirements failed with exit code ${LASTEXITCODE}."
+}
+
 # We are overriding some package versions and installing
 # additional packages that are missing from llama.cpp.
 pip install `
     --upgrade `
     --upgrade-strategy "eager" `
     --requirement ./requirements_override.txt
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Installing the requirement overrides failed with exit code ${LASTEXITCODE}."
+}
 
 conda list
 

@@ -112,8 +112,8 @@ starting and `completed` when done.
 | Behavioural rule about the build, the scripts, or the repo layout           | `AGENTS.md` -> *Non-obvious behavior*                  |
 | Prohibition whose violation is a silent OOM, silent corruption, or an abort | `AGENTS.md` -> *Traps*, **and** the backing `docs/` section |
 | Build-script, toolchain, submodule, or vendored-path reasoning              | `docs/build_system.md`                                 |
-| Cross-model INI rule (device pinning, `load-mode`, context sizing, spec)    | `docs/presets.md`                                      |
-| Per-model rationale or a measured VRAM / throughput number                  | `docs/model_tuning.md`                                 |
+| Cross-model INI rule (device pinning, `load-mode`, `no-host`, `fit`, context sizing, spec) | `docs/presets.md`                       |
+| Per-model rationale or a measured VRAM / throughput number                  | `docs/model_tuning/<family>.md`                        |
 | User-facing launch or INI-syntax instruction                                | `presets/README.md`                                    |
 | 3+ step playbook with decision logic, fits an existing skill's scope        | Extend `.claude/skills/<existing>/SKILL.md`            |
 | 3+ step playbook that's its own concern                                     | New `.claude/skills/<name>/SKILL.md`                   |

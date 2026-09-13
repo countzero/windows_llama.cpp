@@ -1,7 +1,7 @@
 # We are overriding the "torch" package version with a
 # specific compatible version that also supports CUDA.
---extra-index-url https://download.pytorch.org/whl/cu126
-torch==2.6.0+cu126
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.11.0+cu130
 
 # We are installing the missing "tiktoken" package
 # to enable support for the GLM model architecture.
@@ -9,9 +9,10 @@ tiktoken==0.10.0
 
 # We are overriding the "transformers" package version
 # to enable support for newer model architectures.
-transformers==5.3.0
+transformers==5.16.1
 
-# Override numpy to resolve conflict between
-# opencv-python-headless (>=2, <2.3.0) and
-# the legacy llama requirements (~=1.26.4).
+# Pin numpy to the line upstream pins. The upper bound is what holds it
+# there: this file is installed as a second, separate pip run, so nothing
+# in it can see the numpy~=2.2.6 in the llama.cpp requirements, and the
+# eager upgrade strategy would otherwise take the newest 2.x.
 numpy>=2.2.0,<2.3.0

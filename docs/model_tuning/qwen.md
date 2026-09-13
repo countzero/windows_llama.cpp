@@ -1,0 +1,317 @@
+# Qwen 3.6, Qwen 3.8, Bonsai and DSpark
+
+Per-model rationale behind the `qwen35`-arch entries in `presets/*.ini` — Qwen3.8-27B,
+Ternary-Bonsai-27B and Bonsai-27B — with the measured numbers each decision rests on. No Qwen 3.6
+entry ships any more; the Qwen 3.6 rules below are kept because both Bonsai entries are
+Qwen3.6-27B derivatives and inherit them. Not auto-loaded into the agent context; read on demand.
+Cross-model rules are in `docs/presets.md`.
+`Qwen3.8-Flash-Next` is a different architecture and has its own file,
+`docs/model_tuning/qwen3.8-flash-next.md`.
+
+## Qwen 3.6 and 3.8
+
+- **Qwen-VL entries pin `image-min-tokens = 1024`.** `clip.cpp:1500` sets the per-image token limits
+  to `(8, 4096)`, so the default *minimum* is 8 tokens — 8192 px at `merge = 2` / `patch = 16` — and
+  `clip.cpp:1502-1506` warns on every load because upstream needs >= 1024 tokens (1024x1024 px) for
+  grounding (#16842). The key raises a floor only: images already above 1024 tokens are unchanged,
+  smaller ones get upscaled, which costs context and CLIP time on the CPU because the 16 GB tier
+  sets `no-mmproj-offload = true`; the 24 GB `Qwen3.8-27B` entry offloads CLIP to the GPU and
+  pays it there instead. Applies to the `qwen3vl_merger` entries (Qwen3.8 and Ternary-Bonsai);
+  gemma-4 uses a different projector and must not get this key.
+
+- **All Qwen 3.8 and Bonsai entries pin `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`.**
+  Required, *not* redundant with `jinja = true` — `chat-template-file` *replaces*
+  the GGUF-embedded template entirely (`vendor/llama.cpp/common/arg.cpp:3142`,
+  `params.chat_template = read_file(value)`). The upstream embedded template has
+  documented issues with tool calls, role handling, `<think>` block rendering,
+  agentic loops, and llama.cpp KV-prefix cache stability; the vendored template
+  fixes all of them (full list in `vendor/Qwen-Fixed-Chat-Templates/README.md`).
+  Since v19 the template is a single unified file, and since v22 it covers Qwen 3.5,
+  3.6 *and* 3.8 (the old `qwen3.5/` and `qwen3.6/` subdirectories now live under
+  `archive/`). The template adds a `<|think_on|>` / `<|think_off|>` toggle, and
+  defaults `preserve_thinking` to `true` (past `<think>` blocks are kept
+  chronologically for 100% KV prefix cache stability and agentic reasoning
+  continuity). To strip past `<think>` blocks instead, set
+  `chat-template-kwargs = {"preserve_thinking":false}` — at the cost of a lower
+  KV cache hit rate. It also honours `preserve_reasoning`, so `--reasoning-preserve`
+  (`common/arg.cpp:3677-3689`) works as the CLI equivalent. Path is repo-relative,
+  so `llama-server` must be launched from the repo root — `read_file()` resolves
+  against the process CWD, not the INI file's directory. `Qwen3-Coder-Next` entries
+  deliberately keep their GGUF-embedded template; froggeric's README claims
+  compatibility only for Qwen 3.5 / 3.6 / 3.8 variants.
+
+- **Every Bonsai entry pins `reasoning-effort = medium`; the Qwen 3.8 entries pin
+  `xhigh`. Never leave the key unset.** The level is one injected paragraph at the top of the
+  system prompt — ~45 tokens of "Reasoning effort is set to xhigh..." — and `medium` is the single
+  level that injects nothing at all (`chat_template.jinja:53-59`). Qwen 3.6 has no trained notion of
+  the concept, so its Bonsai derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
+  template defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
+  `_default_reasoning_effort` variable at the top of the file (`chat_template.jinja:17`), currently
+  `medium`, and it has moved between template releases before. That is the whole reason to pin:
+  an unpinned entry silently changes reasoning level at a template bump, and a pinned one renders
+  byte-identically across bumps. `--reasoning-effort` writes only a template kwarg
+  (`common/arg.cpp:3650-3660`), which a request can still override
+  (`tools/server/server-common.cpp:1312-1319`), as can a `<|think_low|>` / `<|think_medium|>` /
+  `<|think_xhigh|>` tag typed inside a message (stripped before rendering). Unlike the
+  GGUF-embedded 3.8 template, the vendored one never raises on an unknown level: it maps `high`,
+  `max`, `ultracode` and `extreme` to `xhigh`, `minimal` to `low`, `none` and `off` to thinking
+  off, and anything else *down* to `medium` (`chat_template.jinja:21-26`). The `ultracode` and
+  `extreme` aliases exist for Claude Code, Cursor and Cline.
+
+- **`xhigh` is kept on `Qwen3.8-27B`, and `--reasoning-budget` — not a lower level — is the guard
+  rail for it.** Qwen publishes no per-level benchmarks; every number on the 27B card is at the
+  `xhigh` default, and the card warns that in multi-turn agentic tasks lower effort "can also lead
+  to insufficient analysis, more failures, and repeated retries". The entire mechanism is one
+  injected sentence: 123 rendered chars at `medium` against 332 at `xhigh` — no token, no sampling
+  change, no budget. The failure that moved froggeric's default to `medium` is a truncation
+  artifact rather than a quality result: with a finite `max_tokens` and no budget, `xhigh` ran
+  26,000 tokens and returned `content_len = 0` because truncation landed inside `<think>`, while
+  the same rig at `xhigh` with a 1500-token thinking budget returned 18,512 chars of working code,
+  more than `medium` produced. There is no rung between the two — `high` aliases to `xhigh`.
+  `--reasoning-budget N` (`common/arg.cpp:3662-3668`) is live on this entry and deliberately left
+  unset: the qwen3_coder handler supplies `<think>` and `{"</think>", "<tool_call>"}`
+  (`common/chat.cpp:1181-1184`), the server forwards them (`server-common.cpp:1360-1366`), and on
+  exhaustion the sampler masks every logit but the forced `</think>`
+  (`common/reasoning-budget.cpp:119-131`, `:178-185`) so the model concludes instead of being cut
+  off, re-arming per thinking block (`:146-161`). Unlike `max_tokens` it counts only tokens inside
+  the block. Set it if an agentic client that sends its own `max_tokens` starts returning empty
+  content; a request can override it per call via `reasoning_budget_tokens`.
+
+- **`Qwen3.8-27B` pins the template too, even though its embedded one is already the newer file.**
+  Qwen 3.8 reuses arch `qwen35` and is otherwise byte-for-byte the same shape as
+  Qwen3.6-27B (65 blocks, 866 tensors, same `ssm.*`, same 248320-token tokenizer,
+  `eos = 248046`), but it embeds a *different, newer* 8952-byte template (sha256
+  `c3cf9e34abf4f9e3...`), not the 7764-byte one shared by Qwen3.6-27B and both Bonsai variants.
+  That newer file already defaults `preserve_thinking` on and adds `reasoning_effort`, so it is a
+  plausible candidate for going unpinned. Three defects rule that out, all
+  reproducible by rendering the embedded template directly: tool calls whose `arguments`
+  arrive as a JSON *string* (what most OpenAI-compatible clients send) abort with
+  `Can only get item pairs from a mapping`; history carrying reasoning inside `content`
+  rather than `reasoning_content` renders a duplicate blank `<think>\n\n</think>` ahead
+  of the real block, because 3.8 dropped the in-content parser; and `reasoning_effort`
+  accepts only `xhigh` / `medium` / `low`, calling `raise_exception` on `high`,
+  `minimal` and `max` — three of the six levels `common/arg.cpp:3651` advertises.
+  The vendored template handles all three and its `xhigh` instruction text is
+  byte-identical to the official one, so `reasoning = on` with `reasoning-effort = xhigh`
+  reproduces the pre-pin prompt. Tool-call parsing is unaffected: the qwen3_coder XML handler is
+  selected purely on `<tool_call>` + `<function=` + `<parameter=` being present in the
+  template source (`common/chat.cpp:3590-3594`), which both files satisfy, and the PEG
+  parser is built from `inputs.tools` rather than the rendered `<tools>` block. The pin
+  additionally brings froggeric's agentic extras (two-tier tool-error escalation,
+  `<|think_on|>` / `<|think_off|>`, `developer` role, payload truncation).
+  `Qwen3.8-Flash-Next` embeds the same 8952-byte file, so the same three defects and the same fix
+  apply there — `docs/model_tuning/qwen3.8-flash-next.md`.
+
+- **The vendored template (v22.4, pinned at `e649070`) corrects two v19 deviations from the
+  official Qwen prompt format, so moving to it changed every pinned entry, not just the new 3.8
+  ones.** v19 serialized `<tools>` entries *unwrapped*
+  (`{"description": ..., "name": ..., "parameters": ...}`); the current template emits the wrapped
+  OpenAI form (`{"function": {...}, "type": "function"}`), which is what Qwen3.6-27B's own
+  7764-byte template and Qwen 3.8's 8952-byte one both produce — v19 was the outlier. v19 also
+  rendered `</think>\n` before assistant content where the official templates and llama.cpp's own
+  generation prompt use `</think>\n\n` (`common/chat.cpp:1163`). Both are corrections, but they
+  change prompt bytes, so adopting the template invalidates existing KV prefix caches once;
+  `reasoning-effort = medium` suppresses only the steering paragraph and does not restore v19
+  output.
+
+- **The template emits an empty `<think>\n\n</think>` before a historical tool call whose assistant
+  message carried no reasoning, and that is deliberate.** Qwen itself emits a think block before a
+  tool call when thinking is on, so injecting an empty one keeps rendered history token-aligned
+  with the model's own generation. It fires only when the client drops reasoning on the round trip;
+  supplying `reasoning_content`, `thinking`, `message.reasoning` (the vLLM and Responses API
+  spelling) or an inline `<think>` block suppresses it. This is *not* the "empty think poisoning"
+  the template's README calls out — that was replacing *real* thoughts with empty blocks to save
+  tokens, which this template does not do. Verified by rendering the template against plain chat,
+  system-prompt, thinking-off, multi-turn-with-thinking, vision, and both tool-argument wire
+  formats; the tool-call case is the only one where an unset `reasoning_content` changes the
+  output. The same release line also brings the effort aliases above, reasoning de-duplication when
+  a client populates both `reasoning_content` and an in-content `<think>`, complete serialization of
+  scalar and list tool arguments, and single-newline separation between consecutive `<tool_call>`
+  blocks for token parity on multi-tool turns.
+
+- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai entries inherit from Qwen 3.6.**
+  1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
+  embeds as `general.sampling.temp`, applied at `common/common.cpp:1264` unless the
+  preset overrides it. The rest of the sampler block (`top-p 0.95`, `top-k 20`,
+  `min-p 0.0`, `presence-penalty 0`) is unchanged from the Qwen 3.6 entries this one
+  replaced. Qwen 3.8's
+  non-thinking mode wants a different set (`temp 0.7`, `top-p 0.8`,
+  `presence-penalty 1.5`); the preset does not cover it because `reasoning = on`.
+
+- **Qwen 3.8's MTP head is multi-step trained, so `spec-draft-n-max` is worth sweeping per
+  entry rather than inheriting.** The peak is not one number across the tiers: a day-0
+  sweep of 2/3/4/6 put it at 3, which is also the upstream default
+  (`common/common.h:325`) and is what the 24 GB entry still ships; a re-sweep on b10940
+  put it at 4 for the dual-GPU entry, which the 16 GB entry follows — see *the re-swept
+  `spec-draft-n-max` curve* below for the numbers and for why the allocation changed
+  underneath the day-0 result. Acceptance falls monotonically with depth in every sweep;
+  what moves is how far the extra tokens per iteration keep paying. This overturns the
+  Qwen 3.6 rule of thumb that 2 was optimal. Note the
+  cost: `draft-mtp` sets `n_rs_seq = spec-draft-n-max` (`common/common.cpp:1699`), which
+  multiplies the recurrent-state buffer by `1 + n_max` — ~150 MiB becomes ~600 MiB at 3.
+  Both `Qwen3.8-27B` and `Qwen3.6-27B` carry `blk.64` (the MTP head) at `Q4_0` in the
+  local IQ4_XS files; a 4-bit MTP head is reported to collapse acceptance to 0% on this
+  model family, so check the server's acceptance rate before trusting the speedup. Two
+  remedies exist: a re-quant keeping `blk.64` at `Q5_K` or above, or — since 2026-08-14 —
+  pointing `spec-draft-model` at `ggml-org/Qwen3.8-27B-GGUF`'s standalone
+  `mtp-Qwen3.8-27B-Q8_0.gguf`. Neither is taken. The sidecar is 3.16 GB against the
+  ~2.65 GiB of headroom measured below, the `Q4_0` sidecar is the same precision as the
+  embedded head, and `mparams.load_mtp` is set from the *type list* rather than from the
+  presence of a draft path (`common/common.cpp:1689`, `src/models/qwen35.cpp:42`), so the
+  target keeps loading its own `blk.64` and an external sidecar double-pays.
+
+- **The 24 GB `Qwen3.8-27B` entry runs a `Q8_0` projector instead of `BF16`.**
+  600 MiB rather than 888 MiB of VRAM, and that saving is what keeps `mmproj-offload = true`
+  affordable at `ctx-size = 262144`: the entry lands at ~19.95 GiB of ~22.6 GiB usable, which
+  leaves room for the CLIP compute buffer. The ~20.23 GiB the since-removed Qwen3.6-27B entry
+  reached on the same card is the reference point for how little slack there is.
+  Spending the saving elsewhere is what breaks it — raising the KV cache to `q5_0` K / `q4_1` V
+  costs ~0.80 GiB at this context and pushes the total past that mark, into the
+  silent-OOM window described in `docs/presets.md` -> *mmproj-offload*. Quality is not the tradeoff: Qwen ships this family's
+  projector as FP16 *and* `Q8_0` officially, and only 83 of the file's 110 weight tensors are
+  actually 8-bit — every `ffn_down` stays `F16`.
+
+- **The dual-GPU `Qwen3.8-27B` entry runs `tensor-split = 1,3` with `q4_0` K/V at
+  `ctx-size = 131072`, not `1,2` at 200000 — the old entry left the 4070 Ti SUPER with 28 MiB free
+  and WDDM paging silently cost it a third of its throughput.** Measured on b10759 with
+  `draft-mtp,ngram-mod` on, identical requests per row (600-token code answer, ~330-token reasoning
+  answer, 64 tokens after a 32313-token prompt), `CUDA_SCALE_LAUNCH_QUEUES=4x`; the old and new
+  rows were taken through the router with the real `.env`, the others with an equivalent direct
+  `llama-server` launch:
+
+  | entry | 4070 free | pp 32k prompt | tg code / reasoning / after 32k |
+  | --- | --- | --- | --- |
+  | `1,2` · 200000 · q5_0/q4_1 (old) | 28 MiB | 617 | 48.9 / 43.5 / 31.5 |
+  | `1,2` · 200000 · q4_0 | 347 MiB | 884 | 52.1 / 58.0 / 41.6 |
+  | `1,2` · 131072 · q5_0/q4_1 | 1456 MiB | 890 | 55.8 / 61.3 / 39.6 |
+  | `1,3` · 131072 · q5_0/q4_1 | 304 MiB | 1073 | 57.4 / 63.7 / 42.9 |
+  | **`1,3` · 131072 · q4_0 (new)** | 563 → 527 MiB | 1085 | 57.6 / 62.4 / 46.4 |
+  | `1,3` · 150000 · q4_0 | 445 → 378 MiB (238 via router) | 1074 | 57.5 / 63.1 / 46.3 |
+  | `1,3` · 163840 · q4_0 | 241 → 208 MiB | 835 | 54.7 / 60.1 / 45.0 |
+
+  Rows 1-2 isolate the cause: same context, only the KV type changed, and prompt processing gains
+  43 %. That is not a q4_0 speedup — llama-bench moves pp by under 1 % and tg by 2-3 % across
+  f16/q8_0/q5_0-q4_1/q4_0 — it is the card escaping the Windows GPU memory manager, which below
+  roughly 250-300 MiB free on the *display* GPU demotes part of the working set to system RAM
+  (`docs/presets.md` → *Device pinning and multi-GPU*). The 163840 row is the same cliff from the
+  other side: it loads, but the card ends the run at 208 MiB and pp has lost 22 %. 150000 ran at
+  full speed in the direct launch but showed only 238 MiB free when the router launched it minutes
+  later — the compositor's share of the card moves by hundreds of MiB with the desktop state, so
+  the margin has to absorb that. ~400 MiB is the floor, 131072 is the context that keeps
+  ~550 MiB with `1,3`, and it costs nothing measurable against 150000. Rows 3-4 are the
+  split itself: +21 % pp at unchanged tg, matching llama-bench (`1/3` +21 %, `1/4` +39 %, `1/6`
+  +54 % on pp2048; tg flat within 3-8 %). The ratio is paid in 4070 VRAM — with `1,3` each 1k
+  tokens of context costs that card ~15 MiB (three quarters of the KV, its compute scratch, and
+  the MTP draft context's own KV, which `common/speculative.cpp:2533` pins to the target `n_ctx`) —
+  so `1,3` cannot reach 200000 even at q4_0 while the 2060 SUPER idles at 3 GB free. Draft
+  acceptance measured 0.73-0.77 on the code prompt with the embedded `Q4_0` MTP head, so the 0 %
+  collapse reported for this family does not reproduce on this file. Measured flat or worse and
+  left alone: `threads` 4-24 (identical), `ubatch-size` 1024 / 2048 (−8 % / −22 % pp against 512).
+
+  `split-mode = tensor` (#19378) was measured and rejected. It is the only setting that lifts tg
+  further — `1,2` at 131072 with q4_0 gives 63.8 / 71.0 / 48.0, `1,3` at 65536 with q8_0
+  71.0 / 77.6 / 55.9 — but it roughly halves short-prompt prefill (llama-bench pp2048 1134 → 663)
+  and still loses on the 32k prompt (505-578 against 1074): every layer ends in an allreduce over
+  the 2060's PCIe 3.0 x4 link and the layer pipeline is gone. It also caps context lower, because
+  the compute buffer is allocated in full on *every* device (`ggml/src/ggml-backend-meta.cpp:1704`)
+  and the draft context allocates a second one — 200000 fails on the 2060 with 2 × 1058 MiB of
+  scratch, 131072 is the ceiling at `1,2` — and `q5_0`/`q4_1` K/V assert in this mode (#27116).
+
+- **The dual-GPU `Qwen3.8-27B` entry ships `ubatch-size = 256`, which buys 208 MiB on the 4070 for
+  0.6 % of prompt processing.** `draft-mtp` builds a second context, and the compute buffer is
+  allocated in full on every device for *each* of them, so the 4070 pays the CUDA1 scratch twice —
+  which makes `ubatch-size` worth double here what it is worth on a non-speculative entry. Measured
+  on b10940 from the load log: `-ub 512` reserves 720.28 MiB per context (1440.56 MiB on the 4070,
+  720.28 on the 2060), `-ub 256` reserves 616.27 MiB (1232.54 / 616.27). The step is ~104 MiB per
+  device per halving and it is linear, but prompt processing is not:
+
+  | `ubatch-size` | 4070 free | pp 32k prompt | tg code / reasoning / after 32k |
+  | --- | --- | --- | --- |
+  | 512 (old) | 561 → 567 | 1083 / 1064 | 56.8 / 69.4 / 47.1 |
+  | **256 (new)** | **775 → 775** | **1076 / 1074** | **56.6 / 68.8 / 46.9** |
+  | 128 | 879 | 838 | 56.9 / 68.9 / 46.7 |
+
+  Every row is a paired repeat; run-to-run spread is ±0.1-0.8 t/s on tg and ±20 t/s on pp, so 512 →
+  256 is free and 256 → 128 is a 23 % prefill cliff. 256 is the knee. Through the router with the
+  real `.env`, `-ub 256` on its own idles at **717 MiB free against the 527 MiB** the `-ub 512`
+  config ended at, at unchanged pp (1088 against 1085); the entry then spends 108 MiB of that on
+  `spec-draft-n-max = 4` (below) and ships at 416 MiB — the point is the margin, not the speed: the
+  desktop on the display GPU swings by ~450 MiB with what is open, and the old config had 162 MiB
+  free with a browser running, i.e. inside the WDDM paging window (`docs/presets.md` → *Device
+  pinning and multi-GPU*). Vision is unaffected: `mtmd_decode_use_non_causal()` returns true only
+  for `GEMMA3` / `GEMMA4V` / `GEMMA4UV` / `DEEPSEEK4V` (`tools/mtmd/mtmd.cpp:2107-2120`), and
+  `qwen3vl_merger` falls to `default: return false`, so a 1024-token image may span microbatches.
+  Verified end to end at `-ub 256`: a 1056-token image request returned both rendered strings
+  verbatim and the shapes correctly. The same key must not be copied to a gemma-4 entry —
+  `docs/model_tuning/gemma-4.md`.
+
+- **Four levers were measured on this entry and rejected; none is worth re-testing without a reason.**
+  All on b10940, `1,3` · 131072 · q4_0, paired against the baseline above.
+  `GGML_CUDA_GRAPH_OPT=1` — the concurrent-streams pass that #28198 (b10782) fixed for multi-GPU —
+  costs **28 % of prompt processing** (1083 → 782) and returns nothing on tg; it is off by default
+  and should stay off. `GGML_CUDA_P2P=1` is a no-op (1069 pp, tg within noise) because the driver
+  never reports peer access on consumer GeForce — the log prints no P2P line at all — so the
+  corruption risk `docs/multi-gpu.md` warns about is taken for zero return. `spec-draft-p-min`
+  (default `0.00`) is the inverted case the upstream community documented: the gate raises draft
+  acceptance monotonically and throughput falls with it — 0.60 gives 0.81 acceptance and
+  51.4 / 61.5 / 45.6, 0.75 gives 0.89 and 47.6 / 54.2 / 42.7, against 0.71 and 56.8 / 69.4 / 47.1
+  ungated. Acceptance is a vanity metric on this pair. `--spec-draft-device CUDA0` is accepted
+  without error and **silently ignored** for `draft-mtp`: the draft context still reports its
+  144 MiB KV and 616-720 MiB scratch on CUDA1, because the MTP head lives in the target model and
+  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070.
+
+- **`spec-draft-n-max` peaks at 4 on b10940 for the dual-GPU entry, not 3, and it ships 4 — as
+  does the 16 GB entry, which follows it untested; the 24 GB entry is unswept and still ships 3.**
+  Re-swept because the
+  committed 3 was a day-0 result and the MTP context KV allocation has since changed (#28630 made
+  the nextn filter generic, so `qwen35` now allocates the draft KV for 1 layer — 144 MiB at
+  131072 — rather than the whole trunk). Measured tg code / reasoning / after 32k: `2` gives
+  52.6 / 56.1 / 40.3, `3` gives 56.8 / 69.4 / 47.1, `4` gives 59.4 / 66.0 / 51.9, `5` gives
+  54.4 / 58.1 / 49.8. 4 wins the code and deep-context prompts by ~4.7 % each and loses the
+  reasoning prompt by 4.9 %, and it costs 108 MiB of 4070 margin because `n_rs_seq = n_max`
+  multiplies the recurrent-state buffer (`common/common.cpp:1699`). Paired with `ubatch-size = 256`
+  it lands at 667 MiB free and 59.4 / 65.7 / 49.0 on the bench, 416 MiB free and 58.1 / 65.4 / 48.7
+  through the router. That is a real trade, not a free win: **n-max 4 spends half of what
+  `ubatch-size = 256` saved**, so the entry nets ~100 MiB of margin over the `-ub 512` / n-max 3
+  config it replaced rather than the full 208 MiB. Revert to 3 if the display GPU's desktop grows —
+  the reasoning prompt is the one that prefers 3, and 416 MiB sits on the 400 MiB floor, so this
+  entry has no room left for a second concurrent model or a heavier desktop
+  (`docs/presets.md` → *Device pinning and multi-GPU*).
+
+- **Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from `Qwen/Qwen3.8-27B-FP8`.** BF16 is
+  this model's native precision and the FP8 repo is a derived, post-training artifact (HF model
+  tree: base model `Qwen3.8-27B`, "Quantized"), so it is already lossy — its card claims only
+  "nearly identical" metrics. Quantizing from it would fit the quantizer and the imatrix to
+  degraded weights. This is the opposite of DeepSeek-V3/V4, which were *trained* in FP8, making
+  their FP8 checkpoint the original and its dequant to BF16 exact; `convert_hf_to_gguf.py:156`
+  (`--fp8-as-q8`) exists for that case, not this one. The mmproj is the one exception where the
+  source does not matter: the FP8 repo leaves the whole vision tower unquantized (0 of 333
+  `model.visual.*` tensors carry `weight_scale_inv`), so it is byte-identical either way. The
+  MTP head is not — `mtp.layers.0`'s attention and MLP projections are FP8 there, so any
+  re-quant raising `blk.64` above 4-bit must also come from the BF16 repo.
+
+## Bonsai and DSpark
+
+- **Both Bonsai entries are Qwen3.6-27B derivatives and take every Qwen 3.6 pin above.**
+  `Ternary-Bonsai-27B` and `Bonsai-27B` ship from separate HF repos but share arch `qwen35`, and
+  their tokenizers are byte-identical to stock Qwen3.6-27B (248320 tokens, same merges,
+  `eos = 248046`) right down to the same 7764-byte embedded template — which is exactly the
+  upstream template the `chat-template-file` pin exists to replace. `general.sampling.temp = 1.0`
+  is embedded in both GGUFs and applied at `common/common.cpp:1264`, so `temp` has to be pinned in
+  the preset or generation runs at 1.0. The presets use `0.6`, carried over from the Qwen 3.6
+  entries these once sat beside; Prism's own card benchmarks at `0.7`. Unlike the DSpark sidecar
+  below, both weight files are mainline-packed (`Q2_0` at `QK2_0 64`, `Q1_0` at `QK1_0 128`) and load without a
+  tensor-offset mismatch.
+
+- **The DSpark drafter shipped beside Ternary Bonsai 27B cannot be enabled on mainline.**
+  `Ternary-Bonsai-27B-dspark-Q4_1.gguf` has its `token_embd.weight` in `Q2_0` at Prism's
+  group-128 packing while mainline is group-64 (`QK2_0 64`, `ggml/src/ggml-common.h`), so
+  `gguf_init_from_reader` rejects the file on a tensor-offset mismatch before any architecture
+  dispatch. Repacking would not help: `general.architecture = 'dspark'` is unregistered
+  (`src/llama-arch.cpp:136` has only `dflash`), and mainline's DSpark is DeepSeek-V4
+  DFlash + Markov (`src/models/dflash.cpp`, tensors `markov_w1`/`markov_w2`/`conf_proj`,
+  requiring MLA and sqrtsoftplus MoE scoring), not Prism's 6-layer Qwen3.6-shaped drafter
+  (`dspark.fc`, `dspark.log_snr_fc*`, `dspark.markov_head_*`). Upstream confirmed on #25707
+  that it stays fork-only. The GGUF carries no MTP tensors either, so `draft-mtp` is out and
+  the entry uses `ngram-mod`. Only the group-64 pack is mainline-loadable — `Q2_0.gguf` and
+  `PQ2_0.gguf` in the same HF repo are group-128 fork packs.

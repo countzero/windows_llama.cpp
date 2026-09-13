@@ -151,7 +151,7 @@ passes, in addition to general defect scanning. They are NOT style issues; they
 are correctness and safety rules.
 
 This checklist deliberately restates rules whose full rationale lives in
-`docs/build_system.md`, `docs/presets.md` and `docs/model_tuning.md`, and whose
+`docs/build_system.md`, `docs/presets.md` and `docs/model_tuning/`, and whose
 one-line form lives in AGENTS.md ("Non-obvious behavior", "Traps", "Changelog
 style"). The duplication is intentional: a review pass must stay self-contained
 and must not depend on on-demand doc reads mid-pass. When a rule changes, all
@@ -176,7 +176,7 @@ three locations move together.
   breakage); do not defeat the SMT-aware `--parallel` cap or the
   running-build-tree-process abort.
 - **Python requirements layering:** Edits to `requirements_override.txt` that
-  break the documented `torch` (cu126), `transformers`, `numpy<2.3`, or
+  break the documented `torch` (cu130), `transformers`, `numpy` 2.x, or
   `tiktoken` pins.
 - **Preset INI semantics:** `mmproj-offload = true` silently OOMing CLIP warmup
   on a saturated GPU; dropping a required `chat-template-file` pin (it replaces
