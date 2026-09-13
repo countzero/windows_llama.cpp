@@ -71,13 +71,10 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Size budgets, in bytes: `AGENTS.md` about 12,000 and never over 16,000; a reference document under `docs/` about 30,000 and never over 45,000. `docs/conventions.md` -> *Size budgets*
 - Pad every cell of a markdown table, and keep the em dash for a genuine break in thought rather than as a default joiner. A comment says **why**, never what, and carries no history. `docs/conventions.md` -> *Punctuation and tables*, *Comments*
 
-## Changelog style
+## Changelog
 
-- One bullet = one physical line. Never insert manual line-breaks; let the editor soft-wrap.
-- Format: `- [Component] <verb> <thing>` (Added / Changed / Fixed / Removed).
-- No rationale, no file paths, no line numbers, no explanatory prose. Rationale lives in AGENTS.md "Non-obvious behavior", the matching `docs/` file, or the commit message.
-- PR refs as bare `#NNNNN`, at most once per release.
-- Canonical examples: [1.21.0] – [1.27.0] in CHANGELOG.md.
+- A bullet records a change a reader can observe by running the repository, one per change and never one per commit, on one physical line: `- [Component] <verb> <thing>`.
+- A finding measured while tuning earns no bullet; prose earns one only when a `docs/` file is added or removed, a restructure moves where a reader looks, or a published claim a reader acts on is corrected. `docs/conventions.md` -> *Changelog*
 
 ## Scratch Files
 
@@ -91,5 +88,5 @@ Deep reference documentation lives under `docs/` and is **read on demand**, not 
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/build_system.md`          | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
 | `docs/presets.md`               | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `no-host`, `fit`, `mmproj-offload`, `swa-full`, context shift, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
-| `docs/conventions.md`           | Commit message and pull request description, where a piece of information lives and what it may not restate, the size budgets, punctuation and table padding, `.ps1` comments and PowerShell/CLI style. **Read before writing a commit message or a pull request description, and before adding a paragraph to `AGENTS.md`, `docs/` or a README.** |
+| `docs/conventions.md`           | Commit message, changelog entry and pull request description, where a piece of information lives and what it may not restate, the size budgets, punctuation and table padding, `.ps1` comments and PowerShell/CLI style. **Read before writing a commit message, a changelog entry or a pull request description, and before adding a paragraph to `AGENTS.md`, `docs/` or a README.** |
 | `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |
