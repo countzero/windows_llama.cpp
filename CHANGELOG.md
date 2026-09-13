@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that test-backend-ops never generates a mismatched q5_0-q4_1 flash-attention case
 - [Documentation] Document that llama-bench discards ggml warnings through a null log callback
 - [Documentation] Document that the flash-attention fallback warning only fires from the vector path
+- [Documentation] Document that GGML_CUDA_FA_QUANTS needs llama.cpp b10876 or newer and is silently ignored below it
 - [Documentation] Document why each Python requirements override is still needed
 - [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
 
@@ -94,6 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
 - [Documentation] Fix the presets README note callout that rendered its body outside the block
 - [Documentation] Fix the grammar example in the README that dropped its last flag onto a separate command
+- [Documentation] Correct the GGML_CUDA_FA_QUANTS section that still described the flag as being passed as all
+- [Documentation] Correct the count of preset entries using the q5_0-q4_1 K/V pair from three to six
 
 
 ## [1.41.0] - 2026-08-28
