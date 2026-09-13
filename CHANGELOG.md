@@ -5,125 +5,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [1.50.0] - 2026-09-13
+## [1.42.0] - 2026-09-13
 
 ### Added
-- [Documentation] Add docs/conventions.md covering commit messages, pull request descriptions, documentation homes and size budgets, punctuation, comments and PowerShell style
+- [Presets] Add Qwen3.8-27B IQ4_XS entries to the 16 GB and dual-GPU tiers
+- [Presets] Add Qwen3.8-27B-Uncensored IQ4_XS entry to the dual-GPU tier
+- [Presets] Add Qwen3.8-Flash-Next IQ4_XS entries to the 16 GB and dual-GPU tiers
+- [Presets] Add Muse-Glimmer-30B IQ4_XS entry to the dual-GPU tier
+- [Presets] Add Ling-3.0-tiny IQ4_XS entry to the 24 GB tier
+- [Presets] Add MiniCPM5-2B IQ4_XS entry to the 24 GB tier
+- [Configuration] Add .env configuration for the router-mode launch environment
+- [Configuration] Add .env.example template
+- [Configuration] Add load_env.ps1 to load .env into the current session
+- [Configuration] Note the R615 minimum driver for CUDA_SCALE_LAUNCH_QUEUES with CUDA graphs
 - [Agents] Add a Version Control section stating the branch model, the commit message shape and that commit and push are never automatic
 - [Agents] Add a Documentation and prose section stating the one-home rule, the pointer form and the size budgets
-
-### Changed
-- [Build] Replace the history note above the cmake --build exit code check with the reason the check exists
-
-
-## [1.49.0] - 2026-09-13
-
-### Changed
-- [Presets] Move the Qwen3.8-27B projector to CUDA0 with mmproj-device instead of running it on the CPU
-
-### Added
-- [Documentation] Document that mmproj-device beats no-mmproj-offload by 4.5x on the dual-GPU tier
-- [Documentation] Document that no-mmproj-offload runs CLIP on the CPU rather than declining one GPU
-- [Documentation] Document that mmproj-device and no-mmproj-offload must not be paired
-
-
-## [1.48.0] - 2026-09-13
-
-### Changed
-- [Build] Narrow GGML_CUDA_FA_QUANTS to the three K/V pairs the presets use
-
-### Added
-- [Documentation] Document the measured build time and ggml-cuda.dll reduction from narrowing GGML_CUDA_FA_QUANTS
-- [Documentation] Document that GGML_CCACHE is a silent no-op under the Visual Studio generator
-- [Documentation] Document that switching to Ninja is blocked by an nvcc quoting bug in the ggml CMake
-- [Documentation] Document that test-backend-ops never generates a mismatched q5_0-q4_1 flash-attention case
-- [Documentation] Document that llama-bench discards ggml warnings through a null log callback
-- [Documentation] Document that the flash-attention fallback warning only fires from the vector path
-
-### Fixed
-- [Build] Abort the rebuild when CMake configuration or compilation fails instead of reporting success
-
-
-## [1.47.0] - 2026-09-13
-
-### Changed
-- [Build] Replace the deprecated GGML_CUDA_FA_ALL_QUANTS flag with GGML_CUDA_FA_QUANTS
-
-### Added
-- [Configuration] Note the R615 minimum driver for CUDA_SCALE_LAUNCH_QUEUES with CUDA graphs
-- [Documentation] Document narrowing GGML_CUDA_FA_QUANTS to the three K/V pairs the presets use
-
-### Fixed
-- [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion
-
-
-## [1.46.0] - 2026-09-13
-
-### Changed
-- [Presets] Set ubatch-size 256 on both dual-GPU Qwen3.8-27B entries
-- [Presets] Raise spec-draft-n-max from 3 to 4 on both dual-GPU Qwen3.8-27B entries
-
-### Added
+- [Documentation] Add docs/conventions.md covering commit messages, pull request descriptions, documentation homes and size budgets, punctuation, comments and PowerShell style
+- [Documentation] Add Ling 3.0 tuning notes covering the KDA/MLA split and its cache-type constraint
+- [Documentation] Add MiniCPM5 tuning notes covering the embedded chat template and KV sizing
+- [Documentation] Add a slots and prompt cache section covering n_ctx_seq, idle slot clearing and id_slot pinning
+- [Documentation] Document configuring and launching the router via .env
+- [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
+- [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
+- [Documentation] Document the WDDM paging slowdown below ~300 MiB free on the display GPU
+- [Documentation] Document tensor-split as the prompt-processing lever on the dual-GPU tier and its VRAM cost per context token
+- [Documentation] Document the measured Qwen3.8-27B dual-GPU retune and why split-mode tensor stays off
 - [Documentation] Document the measured ubatch-size 256 retune of the dual-GPU Qwen3.8-27B entry
 - [Documentation] Document that draft-mtp doubles the per-device compute buffer, making ubatch-size twice the VRAM lever
 - [Documentation] Document that ubatch-size 256 is safe for Qwen3.8-27B vision and why the projector allows it
-- [Documentation] Document that GGML_CUDA_GRAPH_OPT costs 28 percent of prompt processing on the dual-GPU tier
-- [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
-- [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
-- [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
-- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry ships 4
-- [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
-- [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
-- [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
-
-### Fixed
-- [Presets] Pin reasoning-effort to xhigh on the Qwen3.8-27B-Uncensored entry
-- [Presets] Raise temp to 1.0 on the Qwen3.8-27B-Uncensored entry
-
-
-## [1.45.0] - 2026-09-09
-
-### Added
-- [Presets] Add Ling-3.0-tiny IQ4_XS entry to the 24 GB tier
-- [Presets] Add MiniCPM5-2B IQ4_XS entry to the 24 GB tier
-- [Documentation] Add Ling 3.0 tuning notes covering the KDA/MLA split and its cache-type constraint
-- [Documentation] Add MiniCPM5 tuning notes covering the embedded chat template and KV sizing
-- [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
-
-### Fixed
-- [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
-
-
-## [1.44.0] - 2026-09-08
-
-### Added
-- [Documentation] Document why each Python requirements override is still needed
-
-### Changed
-- [Build] Retarget the torch override to 2.11.0+cu130
-- [Build] Bump the transformers override to 5.16.1
-- [Build] Widen the numpy override to the 2.x line
-- [Presets] Lower the Qwen3.8-Flash-Next 24 GB ctx-size to 262144 and parallel to 1
-- [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
-- [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
-
-### Removed
-- [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
-- [Presets] Drop the Qwen3.6-27B entry from the 24 GB tier
-- [Presets] Drop the Qwen3.6-35B-A3B entry from the 24 GB tier
-- [Presets] Drop the gemma-4-12B-it-qat-q4_0 entry from the 24 GB tier
-- [Documentation] Drop the Qwen 3.6 entries from the model lists in the Qwen tuning notes and the presets README
-
-### Fixed
-- [Documentation] Correct the stated parallel value in the Qwen3.8-Flash-Next tuning notes
-- [Presets] Pin reasoning-effort to xhigh on the 16 GB and 16+8 GB Qwen3.8-27B entries
-- [Presets] Raise temp to 1.0 on the 16 GB and 16+8 GB Qwen3.8-27B entries
-
-
-## [1.43.0] - 2026-09-03
-
-### Added
-- [Presets] Add Muse-Glimmer-30B IQ4_XS entry to the dual-GPU tier
+- [Documentation] Document that mmproj-device beats no-mmproj-offload by 4.5x on the dual-GPU tier
+- [Documentation] Document that no-mmproj-offload runs CLIP on the CPU rather than declining one GPU
+- [Documentation] Document that mmproj-device and no-mmproj-offload must not be paired
 - [Documentation] Document the measured Muse-Glimmer-30B dual-GPU tuning and why it keeps tensor-split 1,2
 - [Documentation] Document the Muse-Glimmer-30B dual-GPU VRAM breakdown and its per-device compute buffers
 - [Documentation] Document that KV quantisation and context size are not headroom levers on Muse-Glimmer-30B
@@ -134,39 +46,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that ubatch-size 256 is safe for Muse-Glimmer-30B vision but not for gemma-4
 - [Documentation] Document that KV quantisation does not change the CUDA flash-attention kernel on either card
 - [Documentation] Document that the 2060 SUPER PCIe 3.0 x4 link is the card ceiling and not the prefill bottleneck
-- [Documentation] Add a slots and prompt cache section covering n_ctx_seq, idle slot clearing and id_slot pinning
 - [Documentation] Document that an mmproj disables cache-reuse, leaving exact prefix matching as the only reuse path
 - [Documentation] Document that models-max is router-scoped and that a sidecar model forces an unload and reload per call
+- [Documentation] Document that GGML_CUDA_GRAPH_OPT costs 28 percent of prompt processing on the dual-GPU tier
+- [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
+- [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
+- [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
+- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry ships 4
+- [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
+- [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
+- [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
+- [Documentation] Document the measured build time and ggml-cuda.dll reduction from narrowing GGML_CUDA_FA_QUANTS
+- [Documentation] Document that GGML_CCACHE is a silent no-op under the Visual Studio generator
+- [Documentation] Document that switching to Ninja is blocked by an nvcc quoting bug in the ggml CMake
+- [Documentation] Document that test-backend-ops never generates a mismatched q5_0-q4_1 flash-attention case
+- [Documentation] Document that llama-bench discards ggml warnings through a null log callback
+- [Documentation] Document that the flash-attention fallback warning only fires from the vector path
+- [Documentation] Document why each Python requirements override is still needed
+- [Documentation] Document why ctx-checkpoints is 8 on the Ling-3.0-tiny entry
 
 ### Changed
+- [Build] Replace the deprecated GGML_CUDA_FA_ALL_QUANTS flag with GGML_CUDA_FA_QUANTS narrowed to the three K/V pairs the presets use
+- [Build] Retarget the torch override to 2.11.0+cu130
+- [Build] Bump the transformers override to 5.16.1
+- [Build] Widen the numpy override to the 2.x line
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB ctx-size to 262144 and parallel to 1
+- [Presets] Lower the Qwen3.8-Flash-Next 24 GB fit-target to 1024
 - [OpenCode] Export SESSION_ID through the shell environment instead of the system prompt
+- [Documentation] Split docs/model_tuning.md into one file per model family under docs/model_tuning/
+- [Documentation] Rewrite the Qwen3.8-Flash-Next context and parallel rationale around the 262144 pool
 - [Documentation] Describe the per-harness SESSION_ID mechanisms and how to read it under OpenCode
 - [Documentation] Replace the untested CUDA sysmem fallback note with the measured over-commit result
 
-
-## [1.42.0] - 2026-09-02
-
-### Added
-- [Configuration] Add .env configuration for the router-mode launch environment
-- [Configuration] Add .env.example template
-- [Configuration] Add load_env.ps1 to load .env into the current session
-- [Documentation] Document configuring and launching the router via .env
-- [Documentation] Document CUDA_SCALE_LAUNCH_QUEUES for multi-GPU prompt processing
-- [Documentation] Document that pipeline parallelism does not lift prompt processing on the dual-GPU tier
-- [Documentation] Document the WDDM paging slowdown below ~300 MiB free on the display GPU
-- [Documentation] Document tensor-split as the prompt-processing lever on the dual-GPU tier and its VRAM cost per context token
-- [Documentation] Document the measured Qwen3.8-27B dual-GPU retune and why split-mode tensor stays off
-
-### Changed
-- [Presets] Retune the dual-GPU Qwen3.8-27B entry to tensor-split 1,3 with q4_0 KV at ctx-size 131072
-- [Documentation] Split docs/model_tuning.md into one file per model family under docs/model_tuning/
-
 ### Removed
-- [Presets] Remove kv-unified from the dual-GPU Qwen3.8-27B entry
+- [Presets] Drop the Qwen3.6-27B entries from the 16 GB, 24 GB and dual-GPU tiers
+- [Presets] Drop the Qwen3.6-35B-A3B entries from the 16 GB, 24 GB and dual-GPU tiers
+- [Presets] Drop the Qwen3.6-27B-uncensored-heretic-v2 entry from the dual-GPU tier
+- [Presets] Drop the gemma-4-12B-it-qat-q4_0 entry from the 24 GB tier
+- [Presets] Remove kv-unified from the Qwen3.8-Flash-Next 24 GB entry
+- [Documentation] Drop the Qwen 3.6 entries from the model lists in the Qwen tuning notes and the presets README
 - [Documentation] Move the no-host, fit, swa-full and context-shift mechanisms out of the per-model files into docs/presets.md
 - [Documentation] Drop the Presets section from AGENTS.md that its Reference table already carries
 
 ### Fixed
+- [Build] Abort the rebuild when CMake configuration or compilation fails instead of reporting success
+- [Documentation] Correct the flash-attention fallback from a CPU-backend collapse to an f16 K/V conversion
+- [Documentation] Widen the identical-cache-type trap from deepseek4 to any MLA entry
 - [Documentation] Fix the presets README note callout that rendered its body outside the block
 - [Documentation] Fix the grammar example in the README that dropped its last flag onto a separate command
 
