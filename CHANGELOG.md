@@ -53,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that GGML_CUDA_P2P is a no-op because consumer GeForce reports no peer access
 - [Documentation] Document that spec-draft-p-min raises draft acceptance and lowers throughput on this pair
 - [Documentation] Document that spec-draft-device is silently ignored for draft-mtp
-- [Documentation] Document the re-swept spec-draft-n-max curve and why the entry ships 4
+- [Documentation] Document the re-swept spec-draft-n-max curve and why the dual-GPU entry ships 4
+- [Documentation] Scope the spec-draft-n-max guidance per tier instead of naming one peak
 - [Documentation] Document that the desktop share of the display GPU swings by 450 MiB and cannot be moved in software
 - [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
 - [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x

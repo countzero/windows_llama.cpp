@@ -138,11 +138,15 @@ Cross-model rules are in `docs/presets.md`.
   non-thinking mode wants a different set (`temp 0.7`, `top-p 0.8`,
   `presence-penalty 1.5`); the preset does not cover it because `reasoning = on`.
 
-- **Qwen 3.8's MTP head is multi-step trained, so `spec-draft-n-max = 3` is a measured
-  peak rather than an inherited default.** A day-0 `n_max` sweep of 2/3/4/6 on this model
-  put the maximum at 3 — acceptance falls monotonically with depth, but through 3 the
-  extra tokens per iteration win. This overturns the Qwen 3.6 rule of thumb that 2 was
-  optimal. 3 also happens to be the upstream default (`common/common.h:325`). Note the
+- **Qwen 3.8's MTP head is multi-step trained, so `spec-draft-n-max` is worth sweeping per
+  entry rather than inheriting.** The peak is not one number across the tiers: a day-0
+  sweep of 2/3/4/6 put it at 3, which is also the upstream default
+  (`common/common.h:325`) and is what the 24 GB entry still ships; a re-sweep on b10940
+  put it at 4 for the dual-GPU entry, which the 16 GB entry follows — see *the re-swept
+  `spec-draft-n-max` curve* below for the numbers and for why the allocation changed
+  underneath the day-0 result. Acceptance falls monotonically with depth in every sweep;
+  what moves is how far the extra tokens per iteration keep paying. This overturns the
+  Qwen 3.6 rule of thumb that 2 was optimal. Note the
   cost: `draft-mtp` sets `n_rs_seq = spec-draft-n-max` (`common/common.cpp:1699`), which
   multiplies the recurrent-state buffer by `1 + n_max` — ~150 MiB becomes ~600 MiB at 3.
   Both `Qwen3.8-27B` and `Qwen3.6-27B` carry `blk.64` (the MTP head) at `Q4_0` in the
@@ -256,7 +260,9 @@ Cross-model rules are in `docs/presets.md`.
   144 MiB KV and 616-720 MiB scratch on CUDA1, because the MTP head lives in the target model and
   the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070.
 
-- **`spec-draft-n-max` peaks at 4 on b10940, not 3, and the entry ships 4.** Re-swept because the
+- **`spec-draft-n-max` peaks at 4 on b10940 for the dual-GPU entry, not 3, and it ships 4 — as
+  does the 16 GB entry, which follows it untested; the 24 GB entry is unswept and still ships 3.**
+  Re-swept because the
   committed 3 was a day-0 result and the MTP context KV allocation has since changed (#28630 made
   the nextn filter generic, so `qwen35` now allocates the draft KV for 1 layer — 144 MiB at
   131072 — rather than the whole trunk). Measured tg code / reasoning / after 32k: `2` gives
