@@ -1,10 +1,9 @@
 # Conventions Reference
 
-Read when writing a commit message, a pull request description, a `.ps1` comment, or a
-paragraph in `AGENTS.md`, `docs/` or a README. Not auto-loaded into the agent context; read
-it on demand. The one-line rules these sections back are in AGENTS.md "Version Control" and
-"Documentation and prose"; the changelog bullet format is AGENTS.md "Changelog style" and is
-not repeated here.
+Read when writing a commit message, a changelog entry, a pull request description, a `.ps1`
+comment, or a paragraph in `AGENTS.md`, `docs/` or a README. Not auto-loaded into the agent
+context; read it on demand. The one-line rules these sections back are in AGENTS.md "Version
+Control", "Changelog" and "Documentation and prose".
 
 ## Commit messages
 
@@ -27,10 +26,8 @@ The body wraps at 80 columns and carries **everything the diff cannot show**:
 
 No `Co-Authored-By`, no `Generated with`, no `Signed-off-by` trailer.
 
-A commit that changes behavior carries its own `CHANGELOG.md` version entry **in the same
-commit**. Versions are bumped per change; there is no release branch that collects them
-afterwards, and a change with no changelog entry is invisible to everyone who was not in the
-session.
+A commit that changes behavior carries its own `CHANGELOG.md` version entry in the same
+commit (*Changelog*).
 
 ## Pull request descriptions
 
@@ -78,6 +75,41 @@ the feedback you ask for, the draft state and not assuming the reader knows the 
 GitHub's
 [How to write the perfect pull request](https://github.blog/developer-skills/github/how-to-write-the-perfect-pull-request/).
 
+## Changelog
+
+`CHANGELOG.md` is read by someone deciding whether to pull a new version, so a bullet
+records **a change that reader can observe by running the repository**: a script's behavior,
+a preset entry, a build flag, a configuration file, a submodule pin. A commit that changes
+one of those carries its entry in the same commit; versions are bumped per change, there is
+no release branch that collects them afterwards, and a change with no entry is invisible to
+everyone who was not in the session.
+
+One bullet is **one change, not one commit**. Six commits converging on a single shipped
+retune are one bullet naming the retune, not six naming the steps that found it.
+
+Prose is not something a reader can run, and earns a bullet in four cases only:
+
+- A reference document under `docs/` is added or removed.
+- A restructure moves where a reader looks for something.
+- A README or `presets/README.md` passage a reader copies or acts on changes.
+- A published claim a reader could have acted on is corrected.
+
+The case this rules out is the finding measured while tuning. It has a home already, in the
+document that owns the mechanism and in the commit that measured it (*Documentation*); a
+bullet restating it is the second copy that drifts once the doc is re-measured, and it
+buries the shipped change under prose about prose. The filter applies to the prose, not to
+the tag: a `[Documentation]` bullet and an `[Agents]` bullet announcing a new `AGENTS.md`
+section go the same way.
+
+The bullet itself:
+
+- One physical line, never broken by hand; let the editor soft-wrap.
+- `- [Component] <verb> <thing>`, under `Added`, `Changed`, `Fixed` or `Removed`.
+- No rationale, no file paths, no line numbers, no explanatory prose. Rationale lives in
+  AGENTS.md "Non-obvious behavior", the matching `docs/` file, or the commit message.
+- Pull request references as a bare `#NNNNN`, at most once per release.
+- `[1.21.0]` – `[1.27.0]` are the canonical examples.
+
 ## Documentation
 
 Every piece of information has exactly one home, chosen by its **kind**, not by its topic:
@@ -89,7 +121,7 @@ Every piece of information has exactly one home, chosen by its **kind**, not by 
 | A contract, its mechanics, its numbers   | The reference document of that task, listed in `AGENTS.md` "Reference"                  |
 | A decision and its rejected alternatives | The commit message that made it                                                         |
 | A recipe an agent runs with tools        | A skill under `.claude/skills/`, which points at the document rather than restating it  |
-| What shipped in which version            | `CHANGELOG.md`, one bullet per change                                                   |
+| What shipped in which version            | `CHANGELOG.md`, one bullet per observable change (*Changelog*)                          |
 | A value that changes on its own          | Nowhere. Point at the file that sets it: `requirements_override.txt`, `.env.example`    |
 | The history of this repository           | Git, never a document                                                                   |
 | A rule that already has a home           | A pointer: `` `docs/<file>.md` -> *Section* ``                                          |

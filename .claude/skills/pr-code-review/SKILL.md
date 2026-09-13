@@ -183,7 +183,9 @@ three locations move together.
   the GGUF-embedded template, not redundant with `jinja = true`); stale
   `spec-type` flag names.
 - **CHANGELOG style:** Entries that are not one physical line, omit the
-  `[Component] <verb> <thing>` form, or carry rationale/paths/line numbers.
+  `[Component] <verb> <thing>` form, carry rationale/paths/line numbers, or
+  record a finding measured while tuning instead of a change a reader can
+  observe by running the repository.
 
 ### Final Summary
 
