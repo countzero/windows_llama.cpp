@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Configuration] Add .env.example template
 - [Configuration] Add load_env.ps1 to load .env into the current session
 - [Configuration] Note the R615 minimum driver for CUDA_SCALE_LAUNCH_QUEUES with CUDA graphs
+- [Configuration] Carry a commented CUDA_VISIBLE_DEVICES pin for the two presets that do not pin devices
 - [Agents] Add a Version Control section stating the branch model, the commit message shape and that commit and push are never automatic
 - [Agents] Add a Documentation and prose section stating the one-home rule, the pointer form and the size budgets
 - [Documentation] Add docs/conventions.md covering commit messages, pull request descriptions, documentation homes and size budgets, punctuation, comments and PowerShell style
