@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.49.0] - 2026-09-13
+
+### Changed
+- [Presets] Move the Qwen3.8-27B projector to CUDA0 with mmproj-device instead of running it on the CPU
+
+### Added
+- [Documentation] Document that mmproj-device beats no-mmproj-offload by 4.5x on the dual-GPU tier
+- [Documentation] Document that no-mmproj-offload runs CLIP on the CPU rather than declining one GPU
+- [Documentation] Document that mmproj-device and no-mmproj-offload must not be paired
+
+
 ## [1.48.0] - 2026-09-13
 
 ### Changed

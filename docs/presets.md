@@ -185,6 +185,24 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   time. Set `false` on tiers where LLM + KV already saturate VRAM, and on any `fit = on` entry
   unless `fit-target` carries the CLIP budget — see *fit* above.
 
+- **On the dual-GPU tier the answer is not `no-mmproj-offload = true` but `mmproj-device = CUDA0`:
+  the projector goes on the card that is not saturated, and image prefill is 4.5x faster.**
+  `no-mmproj-offload = true` does not merely decline the display GPU, it runs CLIP on the *CPU*,
+  which is the slowest option available and costs far more than it saves. Measured on
+  `Qwen3.8-27B.IQ4_XS` at `image-min-tokens = 1024`, same 768x768 probe image, 1053-token prompt:
+  CPU projector 14633 ms (72.0 t/s), projector on `CUDA0` 3253 ms (323.7 t/s) — 11.4 seconds saved
+  per image request. It costs the 2060 SUPER 1138 MiB (4883 to 6021 MiB used) and costs the
+  4070 Ti SUPER nothing at all: free VRAM there stayed at 474 MiB, so this does not touch the
+  margin that *Device pinning and multi-GPU* is about. `-mmdev` / `--mmproj-device` takes exactly
+  one device (`common/arg.cpp:2605-2620`) and is wired into `mtmd_context_params.device`
+  (`tools/server/server-context.cpp:1049`), which `clip.cpp:188-193` actually consumes — unlike
+  `spec-draft-device`, which is accepted and silently ignored for `draft-mtp`. Do **not** pair the
+  two keys: `--no-mmproj-offload` writes the same `mmproj_use_gpu` field that `-mmdev` sets, and
+  preset emission order is an unordered map, so whichever lands last wins. Remove
+  `no-mmproj-offload` when adding `mmproj-device`. Verify with a real image request, never with a
+  clean startup — the failure mode above is still silent, and the warmup buffer scales with
+  `image-min-tokens`.
+
 ## swa-full
 
 - **Never set `swa-full` on an entry whose architecture has a sliding-window tier.** The SWA cache
