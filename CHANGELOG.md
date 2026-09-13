@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Documentation] Document that Windows per-app GPU preference cannot exile an app to a headless GPU
 - [Documentation] Document that the GPU Process Memory counter over-counts dedicated usage by roughly 2.5x
 
+### Fixed
+- [Presets] Pin reasoning-effort to xhigh on the Qwen3.8-27B-Uncensored entry
+- [Presets] Raise temp to 1.0 on the Qwen3.8-27B-Uncensored entry
+
 
 ## [1.45.0] - 2026-09-09
 
