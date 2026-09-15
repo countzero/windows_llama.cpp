@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.43.0] - 2026-09-15
+
+### Changed
+- [Presets] Lower the Qwen3.8-Flash-Next dual-GPU ctx-size to 131072
+- [Presets] Add batch-size and ubatch-size 2048 to the Qwen3.8-Flash-Next dual-GPU entry
+- [Presets] Pin the Qwen3.8-Flash-Next dual-GPU entry to CUDA1 with a local main-gpu override
+- [Presets] Raise the Qwen3.8-Flash-Next dual-GPU fit-target to 2048
+
+
 ## [1.42.0] - 2026-09-13
 
 ### Added

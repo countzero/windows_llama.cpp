@@ -36,7 +36,8 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   on the GPU. The GPU-side floor is therefore small, and how many of the 48 expert layers survive
   beside the KV cache is the only thing that moves throughput.
 
-- **`fit = on` with an explicit `ctx-size`.** Fit honours `ctx-size = 262144` and spends the
+- **`fit = on` with an explicit `ctx-size`.** Fit honours the `ctx-size` the entry sets — 262144 on
+  the 24 GB and 16 GB tiers, 131072 on the dual-GPU tier — and spends the
   remainder on expert fractions; its overflow pattern matches exactly what this arch names them
   (`src/models/qwen4exp.cpp:202-203`). Two of fit's blind spots bite here specifically: it assumes
   host memory is unlimited, and it measures with lazy read off, so its host figure counts the full
@@ -86,6 +87,63 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   costs ~0.9 GiB and 32 would cost ~3.6 GiB, so 8 is now a conservative floor rather than a measured
   ceiling. Raising `parallel` again means lowering this in step.
 
+- **On the dual-GPU tier prefill is bound by expert host-to-device traffic, not by compute, so the
+  levers are `ubatch-size`, the device pin and `ctx-size` — together worth 4.4x.** Measured on
+  b10952 through the router with the real `.env`, 32318-token prompt:
+
+  | dual-GPU entry | pp 32k | tg code / reasoning / after 32k | 4070 free | load |
+  | --- | ---: | ---: | ---: | ---: |
+  | as shipped in 1.42.0 | 53.8 / 53.7 | 10.8 / 11.3 / 11.1 | 99-541 MiB | 79-120 s |
+  | **retuned** | **240.3 / 237.5** | **15.0 / 15.8 / 16.0** | **1946 idle, 1616 run** | **28 s** |
+
+  The 8k-prompt sweep that isolates each lever, `fitt` = `fit-target`, all rows `device = CUDA1`
+  except the two marked *both*:
+
+  | config | pp | tg | 4070 free |
+  | --- | ---: | ---: | ---: |
+  | ctx 262144, ub 512 (default), fitt 1024, *both* | 55.1 | 14.1 | 520 |
+  | ctx 262144, ub 4096, fitt 1024,1024, *both* | fails to load | — | `create_context` OOM |
+  | ctx 262144, ub 4096, fitt 1024 | 131.4 | 4.3 | 108 |
+  | ctx 131072, ub 4096, fitt 1024 | 203.1 | 14.5 | 840 |
+  | ctx 131072, ub 4096, fitt 1024, `-tb 16` | 191.9 | 13.2 | 814 |
+  | ctx 131072, ub 4096, fitt 2048 | 181.1 | 9.5 | 1667 |
+  | **ctx 131072, ub 2048, fitt 2048 (shipped)** | **184.6** | **14.9** | **1998** |
+  | ctx 262144, ub 2048, fitt 2048 | 157.0 | 8.8 | 2130 |
+
+  Three things to read off it. **The entry set no `ubatch-size` at all**, so it ran the 512 default
+  while the reference box for this model swept 2048=762, 4096=850, 6144=864 t/s — below its lowest
+  tested point. **The 2060 SUPER negotiates PCIe 3.0 x4** (`nvidia-smi --query-gpu=pcie.link.gen.current,pcie.link.width.current`),
+  about 3.9 GB/s, and offloaded-MoE prefill is bound by serial expert H2D copies with the GPU idle
+  a large fraction of each pass (upstream #25859), so putting a share of the 60.938 GiB of experts
+  behind that link dominated everything else; dropping the card was the single largest gain and it
+  costs nothing, because `fit` simply places more experts on the 4070 instead. **`ctx-size 131072`
+  beats 262144 on both axes** (+18 % pp, +69 % tg at equal target) — the fixed cost table below is
+  the reason, and the QSA bullet below is why the context penalty is steeper here than the table
+  alone implies. `threads-batch` was measured and rejected: 16 is worse than the inherited 24 on
+  both axes. `ubatch-size 4096` costs 5.4 t/s of tg against 2048 for 2.5 t/s of pp, so 2048 ships.
+  Context: a single RTX 4090 with 96 GB DDR5 at UD-IQ3_XXS reports 863-1360 t/s prefill and
+  19.5-30 t/s decode, so even the retuned entry is an order of magnitude short of a
+  one-card-fits-the-hot-path box; the remaining gap is the dense QSA path below.
+
+- **The `device = CUDA1` pin needs a local `main-gpu = 0` beside it.** `--device` filters the
+  device list before `main-gpu` indexes into it, so the `[*]` section's `main-gpu = 1` would point
+  past the end of a one-device list. `--device` is the right key rather than `CUDA_VISIBLE_DEVICES`
+  in `.env`, because the environment reaches every child in router mode
+  (`tools/server/server-models.cpp:802`) and would strip the 2060 from the four entries that want
+  it. Confirm with `--list-devices`: under `CUDA_DEVICE_ORDER=PCI_BUS_ID`, `CUDA0` is the 2060
+  SUPER and `CUDA1` the 4070 Ti SUPER.
+
+- **QSA attention still runs the dense O(n_kv) path on this build, which is why `ctx-size` costs
+  more than its bytes.** `src/models/qwen4exp.cpp:747-750` passes `0` as `n_kv_max` with the
+  sparse call commented out behind a `// TODO: enable sparse attention when we are ready`, and
+  `ggml/src/ggml-cuda/fattn-mma-f16.cuh:1760-1761` whitelists sparse only for `DKQ == 512` and
+  `DKQ == 576` while this arch is `DKQ = DV = 256`, so the kernel is not reachable even if the call
+  were enabled. Upstream #28734 profiles the same thing on 5x RTX 3090 and reports attention at
+  ~11 ms/token at 250K against 0.22 ms once the sparse path is enabled, with prefill 609 -> 716
+  t/s at 111K. Two of its patches are three lines total and `patches/` is the supported vehicle,
+  but they are unmerged third-party changes and would need a needle-in-haystack retrieval gate
+  before being trusted; not taken.
+
 - **Measured on a 24463 MiB card, `q8_0` K + V, CLIP on CPU, `fit-target = 3072`.** At the shipped
   `ctx-size = 262144` / `parallel = 1`: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short
   context. At `ctx-size = 524288` / `parallel = 2`: 19950 MiB used, 4513 MiB free, 14.90 t/s on a
@@ -100,7 +158,8 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   IQ4_XS, so the ~1.25 GiB per token that is not resident on the GPU is what sets the rate. That is
   the currency `ctx-size` is spent in — 1,300 MiB of KV is one expert layer is roughly 2 % of tg.
 
-- **`ctx-size = 262144` with `parallel = 1`, because the 524288 pool cost about half the
+- **On the 24 GB tier, `ctx-size = 262144` with `parallel = 1`, because the 524288 pool cost about
+  half the
   GPU-resident expert layers and bought reach no single-user workload can use.** `llama-fit-params`
   gives the fixed cost directly, in MiB, as a function of `n_ctx_seq` (`context` is KV plus the
   recurrent rows, `compute` is the graph buffer):
@@ -161,13 +220,19 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
 - **`no-mmproj-offload = true`, because CLIP is exactly what `fit` cannot see** (`docs/presets.md`
   -> *fit*, blind spot 4). The 588 MiB of `Q8_0` weights plus ~310 MiB of CLIP compute would have
   to be reserved by hand through `fit-target`, and there is no margin left to absorb them
-  otherwise. `fit-target = 1024` rather than the 3072 the DeepSeek entry keeps on the same card:
-  the margin still clears the ~400 MiB WDDM floor (`docs/presets.md` -> *Device pinning and
-  multi-GPU*) and the ~2 GiB it releases buys expert layers, but it is the tightest target in the
-  tier and the compositor's share of the card moves by hundreds of MiB with desktop state, so an
-  unexplained slowdown here is a paging check before it is anything else. It also leaves nothing
-  spare to hand-reserve the 588 MiB of CLIP weights, which is the second reason `mmproj-offload`
-  stays off. `cache-ram = 32768` rather than the 51200 used by the small entries: a full-context
-  prompt state is ~4.6 GiB here (4,488 MiB KV plus the
-  recurrent rows), and the host is already backing most of a 90.635 GiB file through the page
-  cache plus a PLE working set that only grows.
+  otherwise. The 24 GB and 16 GB entries keep `fit-target = 1024` rather than the 3072 the DeepSeek
+  entry keeps on the same card: the margin still clears the ~400 MiB WDDM floor (`docs/presets.md`
+  -> *Device pinning and multi-GPU*) and the ~2 GiB it releases buys expert layers, but it is the
+  tightest target in the tier and the compositor's share of the card moves by hundreds of MiB with
+  desktop state, so an unexplained slowdown there is a paging check before it is anything else. The
+  dual-GPU entry carries **2048** instead, measured: at 1024 it landed at 99-541 MiB free and lost
+  a third of its prefill to WDDM paging, and the 2048 target costs 2.5 t/s of pp for 1.3 GiB of
+  margin on a display GPU whose desktop swings ~450 MiB. Reaching a target is not automatic —
+  `fit`'s only lever is expert placement, so once `ctx-size` and the `ubatch` compute buffer have
+  claimed the card it undershoots silently (`docs/presets.md` -> *fit*, blind spot 5); the
+  ctx 262144 / ub 4096 row above asked for 1024 MiB and got 108. Verify the margin with
+  `nvidia-smi` after load rather than reading it off the target. `cache-ram = 32768` rather than
+  the 51200 used by the small entries: a full-context prompt state is ~4.6 GiB here (4,488 MiB KV
+  plus the recurrent rows), and the host is already backing most of a 90.635 GiB file through the
+  page cache plus a PLE working set that only grows.
+

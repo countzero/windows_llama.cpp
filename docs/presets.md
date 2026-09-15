@@ -177,6 +177,43 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
      `mtmd` loads the mmproj, so `mmproj-offload = true` on a fit entry lands in the silent-OOM
      window below with no margin left to absorb it unless `fit-target` reserves the CLIP weights
      and compute buffer by hand.
+  5. Its own reach — expert placement is the only lever it has, so once `ctx-size` and the
+     `ubatch-size` compute buffer have claimed the card, moving every remaining expert to the CPU
+     is not enough and fit proceeds with whatever margin is left rather than failing. Measured on
+     the dual-GPU `Qwen3.8-Flash-Next` entry: `fit-target 1024` at `ctx-size 262144` with
+     `ubatch-size 4096` ended at **108 MiB** free, while the same target at `ctx-size 131072`
+     landed at 840 MiB and `fit-target 2048` at `ctx-size 262144` reached 2130 MiB. So a target is
+     a request, not a guarantee — **read the margin off `nvidia-smi` after load, never off the
+     target**, and if it is short the fix is `ctx-size` or `ubatch-size`, not a bigger target.
+
+- **`fit-target` is per-device and a single value is broadcast to all of them.** The flag is
+  `-fitt, --fit-target MiB0,MiB1,MiB2,...`; `common/arg.cpp` splits on `,` or `/` and `std::fill`s
+  a lone value across every slot, which `common/fit.cpp:288-289` then reads per device. So a bare
+  `fit-target = 1024` on a two-GPU tier asks for 1024 MiB on *both* cards, not just the first —
+  a short margin on the display GPU is blind spot 5 above, not a syntax mistake. Pass a list only
+  when the two cards genuinely need different margins, e.g. `1024,512` to give the display GPU more
+  room than a compute-only card.
+
+
+## batch-size and ubatch-size
+
+- **On an entry whose experts live on the CPU, `ubatch-size` is a prefill lever worth multiples
+  rather than percent, and the 512 default is far below the knee.** llama.cpp delegates prompt
+  processing to the GPU by copying the CPU-assigned weights over per microbatch, so the physical
+  batch size sets how many tokens amortise each transfer. Prefill on such an entry is bound by
+  serial expert host-to-device copies with the GPU idle a large fraction of every pass (upstream
+  #25859), which is why the same knob is worth under 1 % on a fully resident entry and 2-4x here.
+  Measured on the dual-GPU `Qwen3.8-Flash-Next` entry, 8k prompt: 512 (default) 55.1 t/s, 2048
+  184.6, 4096 203.1. Keep `batch-size` equal to `ubatch-size`, or the logical batch splits into a
+  slow undersized tail.
+- **It is paid for in the compute buffer, on every device, so it trades against the `fit` margin
+  and against tg.** `ubatch-size 4096` at `ctx-size 262144` fails to build a context at all on a
+  16 GB + 8 GB pair, and at `ctx-size 131072` it costs 5.4 t/s of tg against 2048 for 2.5 t/s of
+  pp. Sweep it against `fit-target` rather than alone — *fit*, blind spot 5.
+- **This is the opposite conclusion from a GPU-resident entry, so do not copy the value across
+  tiers.** The dual-GPU `Qwen3.8-27B` entry went the other way and *lowered* `ubatch-size` to 256
+  to buy VRAM margin at 0.6 % of prefill (`docs/model_tuning/qwen.md`), because its weights are
+  already on the GPU and there is no transfer to amortise.
 
 ## mmproj-offload
 
