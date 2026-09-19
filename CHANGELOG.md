@@ -11,12 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Agents] Remove the CLAUDE.md import shim, replaced by native AGENTS.md support in Claude Code v2.1.277
 
 
-## [1.43.1] - 2026-09-19
-
-### Fixed
-- [Configuration] Exclude node_modules, build, dist and .svelte-kit from the Sublime Text project folder
-
-
 ## [1.43.0] - 2026-09-15
 
 ### Changed
