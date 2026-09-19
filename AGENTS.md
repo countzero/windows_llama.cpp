@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Canonical agent-instruction file for this repository. Both Claude Code (via the `@AGENTS.md` import in `CLAUDE.md`) and OpenCode (which reads `AGENTS.md` natively) load this file. It carries the always-on rules; deep reference documentation lives under `docs/` and is read on demand, not loaded into context (see *Reference* at the end).
+Canonical agent-instruction file for this repository. OpenCode reads it natively, and so does Claude Code from v2.1.277 on; an older build, or one running on Bedrock, Vertex or Foundry, loads no project instructions here at all and needs a `CLAUDE.md` that imports this file. It carries the always-on rules; deep reference documentation lives under `docs/` and is read on demand, not loaded into context (see *Reference* at the end).
 
 ## What this is
 
