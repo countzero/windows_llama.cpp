@@ -51,23 +51,25 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   Indexer K is what `ggml_top_k` ranks blocks on (`src/models/qwen4exp.cpp:599-601`), so cheapening
   it degrades *which* tokens are attended, not just their values. Per-token cost: 12 attention
   layers x 1024 elements (`n_head_kv = 2` x `head = 256`, K and V) plus 12 indexer layers x 384
-  elements = 17,952 B at `q8_0`, i.e. 4,488 MiB at 262144. Two thirds of the indexer share is
-  dead — `src/llama-memory-hybrid-idx.cpp:50-51` sets `n_embd_head_k_full`
-  but not `n_embd_head_v_full`, so `is_mla()` is false, `src/llama-kv-cache.cpp:232-235` allocates a
-  256-wide V, and the graph only ever calls `cpy_k` / `get_k` (`src/models/qwen4exp.cpp:530`,
-  `:533`). Dropping `cache-type-v` to `q4_0` would recover 1,152 MiB at this context with the
-  quality cost paid only by the 12 real attention layers; worth trying, not taken. Unlike
-  `deepseek4` the two types may legally differ — the equality guard at
-  `src/llama-context.cpp:3592-3595` fires only for `is_mla()` or `LLM_ARCH_DEEPSEEK4`.
+  elements = 17,952 B at `q8_0`, i.e. 4,488 MiB at 262144; that figure predates the change below
+  and has not been re-read from a load log. The indexer cache no longer allocates V:
+  `src/llama-memory-hybrid-idx.cpp:64-66` now marks its copy of the hparams as MLA, so it holds
+  keys only, where earlier builds allocated a 256-wide V the graph never read. Dropping
+  `cache-type-v` to `q4_0` therefore touches only the 12 attention layers, about 768 MiB at 262144
+  by arithmetic (12 x 512 V elements per token). It needs a `q8_0-q4_0` pair in
+  `GGML_CUDA_FA_QUANTS` first and is not measured. Unlike `deepseek4` the two types may legally
+  differ: the equality guard at `src/llama-context.cpp:3835` checks the model's own hparams,
+  which are not MLA, or `LLM_ARCH_DEEPSEEK4`.
 
 - **Recurrent state is 112.219 MiB per sequence and independent of `ctx-size`, so `parallel` is the
   cheap knob and context the expensive one.** 36 gated-delta-net layers at
   `n_embd_r = 3 x 10240` and `n_embd_s = 128 x 6144` elements (`src/llama-hparams.cpp:204`, `:232`),
-  both hardcoded `GGML_TYPE_F32` (`src/llama-model.cpp:2513-2514`) so no cache type shrinks them,
-  and one row per sequence because `qwen4exp` is absent from `llm_arch_supports_rs_rollback`
-  (`src/llama-arch.cpp:1099-1113`) and `n_rs_seq` is clamped to 0 at
-  `src/llama-context.cpp:105-108`. The entry ships `parallel = 1`, so the context carries one
-  recurrent row and a single conversation owns the whole 262144-cell pool. Raising it stays cheap
+  both hardcoded `GGML_TYPE_F32` (`src/llama-model.cpp:2513-2514`) so no cache type shrinks them.
+  `qwen4exp` is now in `llm_arch_supports_rs_rollback` (`src/llama-arch.cpp:1134`, upstream
+  #28123), and with `draft-mtp` the server asks for `n_rs_seq = spec-draft-n-max`
+  (`common/common.h:396-402`), so each sequence carries `1 + n_rs_seq` rows
+  (`src/llama-memory-recurrent.cpp:101`): about 337 MiB at the shipped `spec-draft-n-max = 2`.
+  The entry ships `parallel = 1`, so a single conversation owns the whole 262144-cell pool. Raising it stays cheap
   in VRAM if it is ever wanted — restore `kv-unified = true` and `n_ctx_seq = n_ctx`
   (`src/llama-context.cpp:290-291`), so the extra slots *share* the pool rather than each being
   given one and cost only 112.219 MiB apiece. It is not free elsewhere: it multiplies the
@@ -133,16 +135,18 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   it. Confirm with `--list-devices`: under `CUDA_DEVICE_ORDER=PCI_BUS_ID`, `CUDA0` is the 2060
   SUPER and `CUDA1` the 4070 Ti SUPER.
 
-- **QSA attention still runs the dense O(n_kv) path on this build, which is why `ctx-size` costs
-  more than its bytes.** `src/models/qwen4exp.cpp:747-750` passes `0` as `n_kv_max` with the
-  sparse call commented out behind a `// TODO: enable sparse attention when we are ready`, and
-  `ggml/src/ggml-cuda/fattn-mma-f16.cuh:1760-1761` whitelists sparse only for `DKQ == 512` and
-  `DKQ == 576` while this arch is `DKQ = DV = 256`, so the kernel is not reachable even if the call
-  were enabled. Upstream #28734 profiles the same thing on 5x RTX 3090 and reports attention at
-  ~11 ms/token at 250K against 0.22 ms once the sparse path is enabled, with prefill 609 -> 716
-  t/s at 111K. Two of its patches are three lines total and `patches/` is the supported vehicle,
-  but they are unmerged third-party changes and would need a needle-in-haystack retrieval gate
-  before being trusted; not taken.
+- **The sparse QSA path is wired up on this build, but a file only uses it if its
+  `compress_ratios` are right.** `src/models/qwen4exp.cpp:1014-1019` calls `build_attn_qsa` for
+  every layer that has a block selection, and `ggml/src/ggml-cuda/fattn-mma-f16.cuh:1800-1805` now
+  admits `DKQ = DV = 256`; earlier builds left the sparse call commented out and whitelisted only
+  512 and 576. A layer gets a selection only when its ratio is non-zero, and a file converted
+  under the pinned `transformers` without `patches/0002-*` carries 0 for all 12 trunk layers
+  (`docs/build_system.md` -> *Local patches*), so it runs dense O(n_kv) attention with no warning.
+  The local IQ4_XS was repaired on 2026-10-02. Every throughput figure in this document older than
+  that was taken on a file whose ratios can no longer be checked, so how much of the `ctx-size`
+  penalty above is dense attention is unknown until re-measured. Whether the sparse kernel is
+  actually dispatched at runtime has not been checked here. Upstream #28734 reports attention at
+  ~11 ms/token at 250K dense against 0.22 ms sparse on 5x RTX 3090.
 
 - **Measured on a 24463 MiB card, `q8_0` K + V, CLIP on CPU, `fit-target = 3072`.** At the shipped
   `ctx-size = 262144` / `parallel = 1`: 20174 MiB used, 3964 MiB free, 19.87 t/s tg at short
@@ -195,11 +199,44 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   (`tools/server/server-context.cpp:1209-1214`, applied at `:1274`) and the `- capping` line is
   expected rather than a misconfiguration.
 
-- **No MTP head, and context shift and cache-reuse are structurally impossible — which is what makes
-  `ctx-checkpoints` load-bearing.** `conversion/qwen4exp.py:28-30` drops the MTP block ("a separate
-  draft head; vLLM drops it too"), so the GGUF carries no `nextn` tensors and `spec-type =
-  draft-mtp` fails at `src/llama-context.cpp:3637-3642`; `ngram-mod` is the only speculative type
-  available. `get_can_shift()` is false because IMRoPE gives `n_pos_per_embd() == 4`
+- **The GGUF carries the MTP head, and `draft-mtp` drafts from the target's own weights.** Since
+  upstream #29761 the converter exports the MTP block as `blk.48`: 32 tensors, 1.372 GiB in the
+  local IQ4_XS, `block_count = 49`. With `draft-mtp` and no `spec-draft-model` the server builds
+  an MTP context against the loaded target (`common/speculative.cpp:2557-2566`), so no second file
+  is loaded and `fit` sizes that context when it places experts. Use the head in the model file,
+  not unsloth's separate `mtp-*.gguf`: those predate #29761, carry ratio 0 for the MTP block and
+  hit upstream #29811.
+
+- **On the 24 GB tier MTP is about break-even on throughput, and ships for its VRAM margin.**
+  Measured 2026-10-02 on `207bdab` (b11347+1), RTX PRO 5000 Blackwell Laptop 24 GB, Core Ultra 9
+  285HX, 191 GiB RAM, the entry otherwise as shipped, through the router with `--models-max 1`,
+  `examples/mtp-bench.py` (9 prompts, `max_tokens 192`, `seed 42`, the preset's temp 1.0):
+
+  | run           | spec                | agg t/s | mean per prompt | slowest prompt | accept | free after |
+  | ------------- | ------------------- | ------: | --------------: | -------------: | -----: | ---------: |
+  | sweep         | `ngram-mod`         |   13.39 |           16.67 |           14.8 |      - |    459 MiB |
+  | sweep         | + MTP n-max 1       |   15.08 |           19.73 |           16.6 |  0.696 |    500 MiB |
+  | sweep         | + MTP n-max 2       |   15.84 |           21.05 |           18.5 |  0.621 |    820 MiB |
+  | sweep         | + MTP n-max 3       |   14.76 |           19.41 |           16.6 |  0.514 |    705 MiB |
+  | interleaved 1 | `ngram-mod`         |   14.61 |           18.27 |           17.6 |      - |    410 MiB |
+  | interleaved 2 | + MTP n-max 2       |   14.30 |           18.59 |           14.7 |  0.621 |    784 MiB |
+  | interleaved 3 | `ngram-mod`         |   14.74 |           18.51 |           17.2 |      - |    415 MiB |
+  | interleaved 4 | + MTP n-max 2       |   15.23 |           20.02 |           15.9 |  0.621 |    782 MiB |
+
+  The sweep's +18.3 % for n-max 2 is not real: its baseline ran straight after the first load and
+  paid for mmap page faults. Interleaved, n-max 2 lands at -2.1 % and +3.3 % aggregate against two
+  baselines within 1 % of each other, and the two MTP runs, which produced identical text, differ by
+  6.5 % in wall time, so the effect is inside the noise; its slowest prompt is slower than any
+  baseline prompt. n-max 1 and 3 each lose on at least one prompt, and 3 also loses acceptance.
+  What MTP does buy is margin: `fit` reserves for the draft context and lands at ~780 MiB free
+  against ~410 MiB without it, which sits on the ~400 MiB WDDM floor. Upstream points the same way:
+  fully resident setups report +36-55 % (#29761, #27836), CPU-offload ones flat or negative unless
+  the speculation checkpoints stay on the device (upstream #28118, unmerged, +61 % reported on a
+  CUDA/Windows offload box). Not measured: prefill, long-context decode, and the 16 GB and
+  dual-GPU entries, which keep `ngram-mod` only.
+
+- **Context shift and cache-reuse are structurally impossible, which is what makes
+  `ctx-checkpoints` load-bearing.** `get_can_shift()` is false because IMRoPE gives `n_pos_per_embd() == 4`
   (`src/llama-kv-cache.cpp:1194-1196`, rope type at `src/llama-model.cpp:2951-2955`), so the two
   startup warnings and the checkpoint-based rollback described in `docs/presets.md` ->
   *context-shift and cache-reuse* apply. `swa-full` is inert: `swa_type` is `NONE`, which is why
