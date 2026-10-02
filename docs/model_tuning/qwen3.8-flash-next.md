@@ -235,6 +235,52 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   CUDA/Windows offload box). Not measured: prefill, long-context decode, and the 16 GB and
   dual-GPU entries, which keep `ngram-mod` only.
 
+- **On the 24 GB tier `ubatch-size = batch-size = 1024`, because 2048 gives the decode back and
+  4096 does not load.** Same box, build and harness as the MTP table above, with the shipped MTP
+  entry and one setting changed per arm. Each run did a discarded warm-up, two ~7,400-token
+  prefills with the prompt cache off, and one `mtp-bench.py` pass; the arms ran A B C D then
+  D C B A:
+
+  | `ubatch` | prefill t/s (4 prompts)           | decode agg t/s    | lowest free |
+  | -------: | --------------------------------- | ----------------: | ----------: |
+  |  default |     145.1 / 164.5 / 144.4 / 169.6 |     15.49 / 15.40 |     616 MiB |
+  | **1024** | **174.9 / 199.2 / 185.3 / 183.3** | **15.41 / 14.90** | **653 MiB** |
+  |     2048 |     200.8 / 206.4 / 187.4 / 195.5 |     14.40 / 13.68 |     236 MiB |
+  |     4096 |                     fails to load |                 - |           - |
+
+  1024 buys +19 % prefill on the mean for -1.9 % decode, which is inside the noise, and leaves
+  the margin where it was. 2048 adds another 6 points of prefill but loses 9 % of decode and
+  ends both runs below the ~400 MiB WDDM floor. 4096 fails on both runs while creating the MTP
+  context: `fit` places experts for the target alone, and the draft context then asks for a
+  12,355 MiB compute buffer that no longer fits (`docs/presets.md` -> *fit*, blind spot 5). The
+  gain is smaller than the dual-GPU tier's 3.4x because this card holds more of the experts, so
+  prefill is less bound by host-to-device copies (`docs/presets.md` -> *batch-size and
+  ubatch-size*).
+
+- **Thread count, polling and longer drafts were measured on top of that and rejected.** Same
+  harness, `ubatch-size 1024`, decode agg t/s per run:
+
+  | variant                                                | decode agg t/s | accept        |
+  | ------------------------------------------------------ | -------------: | ------------- |
+  | `threads 24` (shipped)                                 |  13.71 / 17.41 | 0.653         |
+  | `threads 16`                                           |  16.43 / 16.43 | 0.650 / 0.648 |
+  | `threads 8` on the P-cores (`cpu-mask 0xc03c03`)       |  16.33 / 16.21 | 0.642 / 0.646 |
+  | `threads 24`, `poll 0`                                 |  14.58 / 13.21 | 0.644 / 0.435 |
+  | n-max 2 (shipped), second suite                        |  16.91 / 16.87 | 0.650         |
+  | n-max 3, `spec-draft-p-min 0.6`                        |  14.05 / 14.15 | 0.764         |
+  | n-max 3, `spec-draft-p-min 0.75`                       |  14.09 / 14.09 | 0.843         |
+  | `draft-mtp` without `ngram-mod`                        |  16.61 / 20.07 | 0.650 / 0.645 |
+
+  `threads-batch` stayed at 24 throughout. The shipped `threads 24` spans 13.71-17.41 across
+  runs, which swallows the 16- and 8-thread arms; P-core-only decode is not worse, but not
+  better either. `poll 0` is slower. A confidence gate lifts n-max 3 acceptance to 0.76-0.84
+  and still costs 16 % against n-max 2, because each verified draft token reads more experts
+  from host RAM. `draft-mtp` alone has the same acceptance; its 20.07 run followed its first
+  without a reload, the one place the run order puts an arm back to back, and its mean per
+  prompt (20.45 / 21.26 against 20.53 / 20.74) shows no gain, so `ngram-mod` stays. Logical
+  CPUs 0, 1, 10-13, 22 and 23 are the P-cores of the 285HX (`GetSystemCpuSetInformation`,
+  efficiency class 1); they are not numbered first.
+
 - **Context shift and cache-reuse are structurally impossible, which is what makes
   `ctx-checkpoints` load-bearing.** `get_can_shift()` is false because IMRoPE gives `n_pos_per_embd() == 4`
   (`src/llama-kv-cache.cpp:1194-1196`, rope type at `src/llama-model.cpp:2951-2955`), so the two
