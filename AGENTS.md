@@ -35,7 +35,7 @@ Work of more than one step keeps the todo tool current, one item in progress and
 
 - **The submodule always shows dirty.** `rebuild_llama.cpp.ps1` prepends an idempotent OpenBLAS linking shim to `vendor/llama.cpp/CMakeLists.txt`; `.gitmodules` sets `ignore = dirty` for it. Don't "clean it up." `docs/build_system.md` -> *Submodule lifecycle*
 - **Each build wipes `vendor/llama.cpp`** back to `origin/master` then checks out the requested `-version` / PR, so local edits there are lost by design. Other submodules are never advanced by the build script and must be bumped by hand. `docs/build_system.md` -> *Submodule lifecycle*
-- **`./patches/*.patch` is the only supported way to carry a local change into the submodule.** It is re-applied after every checkout and the build aborts if a patch no longer applies. Currently one patch, which keeps GGUF conversion from stalling when a tensor's row width puts the quantizer group on a slow allocation size. `docs/build_system.md` -> *Local patches*
+- **`./patches/*.patch` is the only supported way to carry a local change into the submodule.** It is re-applied after every checkout and the build aborts if a patch no longer applies. Currently two: one keeps GGUF conversion from stalling when a tensor's row width puts the quantizer group on a slow allocation size, the other keeps `qwen4exp` conversion from dropping its sparse-attention layers under the pinned `transformers`. `docs/build_system.md` -> *Local patches*
 - **CUDA is selected iff *both* `nvidia-smi` and `nvcc` are on PATH.** Missing either silently falls back to OpenBLAS.
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
@@ -61,6 +61,7 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
 - Any `cache-type-k`/`cache-type-v`/`-draft` pair added to a preset must also be added to `-DGGML_CUDA_FA_QUANTS` in `rebuild_llama.cpp.ps1` and the build re-run; the flag no longer compiles all combinations, and neither the server log nor `test-backend-ops` reports a missing pair. `docs/build_system.md` -> *CUDA build flags*
 - Never build a revision below **b10876** without swapping `-DGGML_CUDA_FA_QUANTS` for `-DGGML_CUDA_FA_ALL_QUANTS=ON` by hand; the flag does not exist there, CMake takes it as an unused cache entry, and the six `q5_0`-`q4_1` entries lose flash attention to the CPU backend. Only `-version` / `-pullRequest` can reach this. `docs/build_system.md` -> *CUDA build flags*
+- Never convert a `qwen4exp` model with `patches/0002-*` unapplied; the pinned `transformers` renames its layer types and the trunk `compress_ratios` come out all zero without a warning. `docs/build_system.md` -> *Local patches*
 
 ## Version Control
 

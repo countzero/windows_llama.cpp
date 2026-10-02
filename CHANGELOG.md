@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.45.0] - 2026-10-02
+
+### Added
+- [Build] Add a patch so qwen4exp conversion keeps its sparse-attention layers under the pinned transformers
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 207bdab for the Qwen3.8-Flash-Next MTP head #29761
+
+
 ## [1.44.0] - 2026-09-19
 
 ### Removed
