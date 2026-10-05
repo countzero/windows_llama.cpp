@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.48.0] - 2026-10-05
+
+### Changed
+- [Presets] Retune the 16 GB Qwen3.8-Flash-Next entry to ctx-size 131072, batch-size and ubatch-size 2048, fit-target 2048 and threads 24
+
+
 ## [1.47.0] - 2026-10-02
 
 ### Changed
