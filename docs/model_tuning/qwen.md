@@ -1,9 +1,10 @@
 # Qwen 3.6, Qwen 3.8, Bonsai and DSpark
 
 Per-model rationale behind the `qwen35`-arch entries in `presets/*.ini` — Qwen3.8-27B,
-Ternary-Bonsai-27B and Bonsai-27B — with the measured numbers each decision rests on. No Qwen 3.6
-entry ships any more; the Qwen 3.6 rules below are kept because both Bonsai entries are
-Qwen3.6-27B derivatives and inherit them. Not auto-loaded into the agent context; read on demand.
+Ternary-Bonsai-27B, Bonsai-27B and Ternary-Bonsai-2-27B — with the measured numbers each decision
+rests on. No Qwen 3.6 entry ships any more; the Qwen 3.6 rules below are kept because both
+Bonsai 1 entries are Qwen3.6-27B derivatives and inherit them. Bonsai 2 derives from Qwen3.8-27B
+instead and has its own section, *Bonsai 2*. Not auto-loaded into the agent context; read on demand.
 Cross-model rules are in `docs/presets.md`.
 `Qwen3.8-Flash-Next` is a different architecture and has its own file,
 `docs/model_tuning/qwen3.8-flash-next.md`.
@@ -44,8 +45,9 @@ Cross-model rules are in `docs/presets.md`.
   `xhigh`. Never leave the key unset.** The level is one injected paragraph at the top of the
   system prompt — ~45 tokens of "Reasoning effort is set to xhigh..." — and `medium` is the single
   level that injects nothing at all (`chat_template.jinja:53-59`). Qwen 3.6 has no trained notion of
-  the concept, so its Bonsai derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
-  template defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
+  the concept, so its Bonsai 1 derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
+  template defaults to `xhigh`, so those pin `xhigh`. Bonsai 2 pins `medium` for a different
+  reason, given under *Bonsai 2*. The template's own default is a
   `_default_reasoning_effort` variable at the top of the file (`chat_template.jinja:17`), currently
   `medium`, and it has moved between template releases before. That is the whole reason to pin:
   an unpinned entry silently changes reasoning level at a template bump, and a pinned one renders
@@ -129,7 +131,7 @@ Cross-model rules are in `docs/presets.md`.
   scalar and list tool arguments, and single-newline separation between consecutive `<tool_call>`
   blocks for token parity on multi-tool turns.
 
-- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai entries inherit from Qwen 3.6.**
+- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai 1 entries inherit from Qwen 3.6.**
   1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
   embeds as `general.sampling.temp`, applied at `common/common.cpp:1264` unless the
   preset overrides it. The rest of the sampler block (`top-p 0.95`, `top-k 20`,
@@ -292,7 +294,7 @@ Cross-model rules are in `docs/presets.md`.
 
 ## Bonsai and DSpark
 
-- **Both Bonsai entries are Qwen3.6-27B derivatives and take every Qwen 3.6 pin above.**
+- **Both Bonsai 1 entries are Qwen3.6-27B derivatives and take every Qwen 3.6 pin above.**
   `Ternary-Bonsai-27B` and `Bonsai-27B` ship from separate HF repos but share arch `qwen35`, and
   their tokenizers are byte-identical to stock Qwen3.6-27B (248320 tokens, same merges,
   `eos = 248046`) right down to the same 7764-byte embedded template — which is exactly the
@@ -315,3 +317,38 @@ Cross-model rules are in `docs/presets.md`.
   that it stays fork-only. The GGUF carries no MTP tensors either, so `draft-mtp` is out and
   the entry uses `ngram-mod`. Only the group-64 pack is mainline-loadable — `Q2_0.gguf` and
   `PQ2_0.gguf` in the same HF repo are group-128 fork packs.
+
+## Bonsai 2
+
+- **Only the `Q2_0` pack from `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` runs on mainline.** The
+  main repo's `PQ2_0` (type 142) has no upstream PR and fails to load; `PTQ1_0` (type 143) is
+  still open (#29672, CUDA #29676). The weights are Hadamard-folded, so the runtime from #29600
+  (b11564) must apply the inverse transform. Without it the file loads silently and outputs
+  garbage. Check: `llama-perplexity -c 512 --chunks 16` gives 10.27 with the transform and
+  ~1.2M without it.
+
+- **It derives from Qwen3.8-27B, not Qwen 3.6.** It embeds the 8952-byte Qwen 3.8 template, so
+  the `chat-template-file` pin applies for the same reasons as on `Qwen3.8-27B`. Sampling follows
+  Prism's card: `temp 1.0`, `top-p 0.95`, `top-k 20`, `min-p 0.05`.
+
+- **`reasoning-effort = medium`, although the model is trained on `xhigh`.** Prism's known
+  issues report loops at `xhigh` and equal accuracy at `medium` under ~16k output budgets.
+
+- **No MTP head, so `ngram-mod` only.** The GGUF stops at `blk.63`. Prism reports n-gram
+  speculation as a no-op on their fork (their #203); on mainline it drafts (table below).
+
+- **`q8_0` K/V at the full 262144 context.** Only 16 of 64 layers carry KV, so `q8_0` costs
+  ~8.5 GiB here. Prism reports `q5_0` K as several times slower (their #191).
+
+Measured on b11564 through the router, RTX PRO 5000 Blackwell Laptop 24 GB (not the display
+GPU), BF16 projector on the GPU. The entry takes 18565 MiB after load:
+
+| Request                     | Prompt tokens | pp t/s | Generated | tg t/s | Drafts accepted |
+| --------------------------- | ------------- | ------ | --------- | ------ | --------------- |
+| Code answer                 | 53            | 169    | 1710      | 52.3   | 71 / 384        |
+| Reasoning answer            | 66            | 421    | 269       | 51.0   | none            |
+| Script echo-edit            | 812           | 1190   | 874       | 196.2  | 733 / 832       |
+| Answer after 29k of context | 29092         | 1130   | 80        | 40.1   | none            |
+| Image (1024x768)            | 1063          | 772    | n/a       | 51.8   | none            |
+
+The pp figures for short prompts reflect fixed per-request overhead, not prefill speed.

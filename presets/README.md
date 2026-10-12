@@ -78,23 +78,17 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.8-*`, `Ternary-Bonsai-27B` and `Bonsai-27B` entries set
-> `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
-> overriding the buggy template embedded in the GGUF. The vendored template is a
-> single unified file that handles Qwen 3.5, 3.6 and 3.8 variants; both Bonsai models are
-> Qwen3.6-27B derivatives with a byte-identical tokenizer and embedded template. The path is
-> repo-relative, so launch `llama-server` from the repository root (as the examples above do).
-> If you cloned without `--recurse-submodules`, run `git submodule update --init`
-> first — otherwise startup fails with a missing-file error.
+> All `Qwen3.8-*` and Bonsai entries set
+> `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`, replacing the
+> buggy template embedded in the GGUF. The vendored file covers Qwen 3.5, 3.6 and 3.8; the
+> Bonsai 1 models derive from Qwen3.6-27B and `Ternary-Bonsai-2-27B` from Qwen3.8-27B. The path
+> is repo-relative, so launch `llama-server` from the repository root. If you cloned without
+> `--recurse-submodules`, run `git submodule update --init` first, or startup fails on a
+> missing file.
 >
-> The Bonsai entries additionally set `reasoning-effort = medium`, the `Qwen3.8-*`
-> entries `xhigh`. `medium` is the one level that injects no instruction text into the system
-> prompt, and Qwen 3.6 — which both Bonsai models derive from — has no trained notion of the
-> concept; Qwen 3.8 *is* trained on it and
-> `xhigh` is what Qwen's own template defaults to. Both are pinned rather than left unset because
-> the vendored template's own default has moved between its releases, so an unpinned entry would
-> silently change reasoning level at a template bump. Clients can still override per request via
-> the OpenAI `reasoning_effort` field.
+> Bonsai entries pin `reasoning-effort = medium`, `Qwen3.8-*` entries `xhigh`. Both are pinned
+> because the template's own default has moved between releases. Clients can override per
+> request via the OpenAI `reasoning_effort` field. Rationale: `docs/model_tuning/qwen.md`.
 >
 > All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
 > the official Google template bundled with llama.cpp itself, kept in lock-step with
