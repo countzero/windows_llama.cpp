@@ -334,21 +334,30 @@ Cross-model rules are in `docs/presets.md`.
 - **`reasoning-effort = medium`, although the model is trained on `xhigh`.** Prism's known
   issues report loops at `xhigh` and equal accuracy at `medium` under ~16k output budgets.
 
-- **No MTP head, so `ngram-mod` only.** The GGUF stops at `blk.63`. Prism reports n-gram
-  speculation as a no-op on their fork (their #203); on mainline it drafts (table below).
+- **MTP comes from a sidecar: `ggml-org/Qwen3.8-27B-GGUF`'s `mtp-Qwen3.8-27B-Q4_0.gguf`.** The
+  Bonsai GGUF stops at `blk.63`. The sidecar carries its own unrotated `token_embd`, so no
+  Hadamard handling is needed, and nothing is double-loaded because the target has no head.
+  The `Q4_0` head beats `Q8_0` at equal acceptance, and n-max 2 beats 3 (table below). The
+  4-bit acceptance collapse noted for the embedded Qwen3.8 head does not happen here.
+  `ngram-mod` stays alongside for echo-heavy edits; it drafts on mainline, unlike on Prism's
+  fork (their #203).
 
-- **`q8_0` K/V at the full 262144 context.** Only 16 of 64 layers carry KV, so `q8_0` costs
-  ~8.5 GiB here. Prism reports `q5_0` K as several times slower (their #191).
+- **`q8_0` K/V at the full 262144 context, one slot.** Only 16 of 64 layers carry KV, so
+  `q8_0` costs 8704 MiB. Prism reports `q5_0` K as several times slower (their #191). Two
+  262144 slots at `q4_0` with the sidecar exited during load; two 131072 slots at `q8_0` load
+  with 911 MiB free but are not benchmarked.
 
 Measured on b11564 through the router, RTX PRO 5000 Blackwell Laptop 24 GB (not the display
-GPU), BF16 projector on the GPU. The entry takes 18565 MiB after load:
+GPU), BF16 projector on the GPU, `examples/mtp-bench.py` (9 prompts, 192 tokens):
 
-| Request                     | Prompt tokens | pp t/s | Generated | tg t/s | Drafts accepted |
-| --------------------------- | ------------- | ------ | --------- | ------ | --------------- |
-| Code answer                 | 53            | 169    | 1710      | 52.3   | 71 / 384        |
-| Reasoning answer            | 66            | 421    | 269       | 51.0   | none            |
-| Script echo-edit            | 812           | 1190   | 874       | 196.2  | 733 / 832       |
-| Answer after 29k of context | 29092         | 1130   | 80        | 40.1   | none            |
-| Image (1024x768)            | 1063          | 772    | n/a       | 51.8   | none            |
+| Arm                       | Entry MiB | Median tg t/s | Acceptance |
+| ------------------------- | --------- | ------------- | ---------- |
+| `ngram-mod` only          | 19047     | 50.7          | n/a        |
+| **MTP `Q4_0`, n-max 2**   | 21731     | 79.0          | 0.70       |
+| MTP `Q8_0`, n-max 2       | 22541     | 68.9          | 0.69       |
+| MTP `Q4_0`, n-max 3       | 22256     | 73.9          | 0.59       |
+| MTP `Q8_0`, n-max 3       | 22689     | 64.8          | 0.59       |
 
-The pp figures for short prompts reflect fixed per-request overhead, not prefill speed.
+With the shipped settings, a 384-token code answer runs at 83.8 t/s on an empty context and
+64.7 t/s after a 28837-token prompt (pp 1162 t/s), against 40.1 t/s there without MTP. Depth
+beyond 29k is unmeasured; upstream #29172 reports a decode collapse past ~70k-155k on Blackwell.
