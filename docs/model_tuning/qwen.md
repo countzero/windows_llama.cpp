@@ -361,3 +361,31 @@ GPU), BF16 projector on the GPU, `examples/mtp-bench.py` (9 prompts, 192 tokens)
 With the shipped settings, a 384-token code answer runs at 83.8 t/s on an empty context and
 64.7 t/s after a 28837-token prompt (pp 1162 t/s), against 40.1 t/s there without MTP. Depth
 beyond 29k is unmeasured; upstream #29172 reports a decode collapse past ~70k-155k on Blackwell.
+
+- **On the 16 GB tier MTP is worth more than context: 114688 with the sidecar, not ~180k
+  without it.** The card is the display GPU, so the projector runs on the CPU and the margin
+  rule of `docs/presets.md` -> *Device pinning and multi-GPU* sets `ctx-size`. The sidecar costs
+  64k of context and buys +63-68 % median tg (table below). The gain holds on Ada, so it is
+  not a Blackwell effect. Context costs ~1 t/s per 16k without MTP, and the 196608 arm
+  ran into WDDM demotion: 103 MiB free, tg 31.0 t/s after the long prompt against 45.7 at
+  163840. With the same seed, all MTP arms accepted the same drafts as each other, so this
+  table measures VRAM and speed, not acceptance. Acceptance here, 0.66, is a little below the
+  24 GB entry's 0.70.
+
+Measured on b11583 (9d7d504) through the router, RTX 4070 Ti SUPER 16 GB (display GPU, desktop
+at 1.3-1.6 GiB), pinned with `CUDA_VISIBLE_DEVICES`, BF16 projector on the CPU, q8_0 K/V.
+`examples/mtp-bench.py` gives median tg; "Long" is a code answer (104-123 tokens, cap 384)
+after a 30202-token prompt:
+
+| Arm                          | Free after load | Median tg t/s | Long pp t/s | Long tg t/s |
+| ---------------------------- | --------------- | ------------- | ----------- | ----------- |
+| MTP, ctx 98304               | 1390 MiB        | 91.6          | 1421        | 69.8        |
+| **MTP, ctx 114688**          | 659-818 MiB     | 92.5-93.3     | 1434-1455   | 69.6-69.7   |
+| MTP, ctx 122880              | 280 MiB         | 91.7          | 1456        | 70.8        |
+| `ngram-mod` only, ctx 163840 | 1076 MiB        | 56.7          | 1504        | 45.7        |
+| `ngram-mod` only, ctx 180224 | 400 MiB         | 55.7          | 1518        | 46.6        |
+| `ngram-mod` only, ctx 196608 | 127 MiB         | 51.7          | 1421        | 31.0        |
+
+122880 falls below the ~300 MiB floor once the desktop peaks, so 114688 is the largest MTP
+context with margin. The CPU projector takes ~13 s for a 1024x768 image (pp 82 t/s) and
+transcribed it correctly on every arm.

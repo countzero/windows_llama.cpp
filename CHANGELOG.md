@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.51.0] - 2026-10-13
+
+### Added
+- [Presets] Add Ternary-Bonsai-2-27B Q2_0 entry with MTP to 16 GB tier
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 9d7d504
+
+
 ## [1.50.0] - 2026-10-12
 
 ### Changed
