@@ -123,7 +123,8 @@ starting and `completed` when done.
 Some rules deliberately live in more than one place. A trap is stated
 in `AGENTS.md` *Traps* without rationale, in its `docs/` section with
 rationale, and — where a reviewer needs it without an on-demand read —
-in the `pr-code-review` *Project-Specific Review Checklist*. When a
+in the `pr-audit` reviewer brief's *Project checklist*
+(`.claude/skills/pr-audit/prompts/reviewer.md`). When a
 candidate targets one of those, propose the edit to **all** copies in a
 single survivor, never to one in isolation.
 

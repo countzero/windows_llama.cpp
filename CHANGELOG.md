@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.53.0] - 2026-10-13
+
+### Added
+- [Skills] Add the pr-audit skill with its reviewer and verifier agents
+- [Skills] Add the trim-prose skill
+- [Tooling] Add the `worktree_enter` OpenCode tool and `docs/worktrees.md`
+
+### Changed
+- [Docs] Add shared-working-tree rules and ban scratch files in the OS temp directory
+
+### Removed
+- [Skills] Remove the pr-code-review skill, replaced by pr-audit
+
+
 ## [1.52.0] - 2026-10-13
 
 ### Added
