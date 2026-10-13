@@ -29,6 +29,8 @@ Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), 
 
 **No tests, no linter.** Verify changes by running an example script against a real GGUF model.
 
+A server, benchmark or other long-running process an agent starts runs hidden and detached; it never opens a console window or terminal tab on the user's desktop. `docs/conventions.md` -> *Background processes*
+
 Work of more than one step keeps the todo tool current, one item in progress and each ticked off as it finishes, so a human can follow along.
 
 ## Non-obvious behavior

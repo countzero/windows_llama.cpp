@@ -229,3 +229,26 @@ restate what the parameters do.
   `bin/Release/`. Both `cmake` steps in `rebuild_llama.cpp.ps1` check it for this reason.
 - **A script a user runs directly carries comment-based help.** `server.ps1`,
   `speed-bench.ps1` and `count_tokens.ps1` do; a new one in `examples/` is expected to.
+
+## Background processes
+
+- **An agent never opens a window on the user's desktop.** A server, benchmark or any other
+  long-running process an agent starts runs hidden and detached: no console window, no
+  terminal tab, no `pwsh` left for the user to close. This is a hard rule, not a preference,
+  because the user keeps working on the same desktop while a test runs.
+- **The launch that meets it** is the conda environment's `python.exe` calling
+  `subprocess.Popen` with `creationflags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP`,
+  `stdin = DEVNULL`, stdout and stderr redirected to a log file under
+  `.tmp/sessions/<session-id>/`, and `CUDA_*` variables passed through `env=` instead of a
+  wrapper script. Measured 2026-10-13: the call returned in 57 ms, `llama-server` ran with
+  `MainWindowHandle = 0`, and no Windows Terminal or OpenConsole process appeared. The router
+  already starts its children with `subprocess_option_no_window`
+  (`tools/server/server-models.cpp:1213`), so only the top-level launch needs the flag.
+- **Two launches look hidden and are not.** `Invoke-CimMethod Win32_Process Create` on
+  `pwsh -File <script>` gives the child its own console, which Windows Terminal opens as a
+  visible tab. `Start-Process -WindowStyle Hidden` hides the window but passes the shell's
+  handles on, so the tool call blocks until the process exits (`docs/build_system.md` ->
+  *speed-bench*).
+- **Stop a background process by PID, never by matching its command line.** A pattern such as
+  `*router.ps1*` also matches the shell that runs the stop command, which then kills itself
+  before the relaunch.

@@ -389,3 +389,36 @@ after a 30202-token prompt:
 122880 falls below the ~300 MiB floor once the desktop peaks, so 114688 is the largest MTP
 context with margin. The CPU projector takes ~13 s for a 1024x768 image (pp 82 t/s) and
 transcribed it correctly on every arm.
+
+- **On the dual-GPU tier the entry runs on the 4070 Ti SUPER alone, the same as the 16 GB entry,
+  and uses the 2060 SUPER only for the projector.** `device = CUDA1` and `main-gpu = 0` keep
+  the model and the MTP sidecar on one card, as on `Qwen3.8-Flash-Next`. `mmproj-device = CUDA0`
+  moves CLIP from the CPU to the 2060, which makes image prefill 5.5x faster (pp 435-471
+  against 82 t/s) for 1.2-1.3 GiB of 2060 memory. The 7 GB model fits on one card, so a layer
+  split buys context and nothing else: with `tensor-split = 1,2` every token crosses both
+  cards, median tg falls ~35 % and 30k prefill drops from ~1400 to ~890 t/s. `split-mode =
+  tensor` and `row` cannot load Hadamard-folded weights at all (Prism's #213).
+  `1,1` and `1,3` were not run, because a ratio can only move tg toward the
+  single-card figure, not past it.
+
+- **`1,2` at 262144 with `q8_0` is the silent `mmproj-offload` failure from
+  `docs/presets.md` -> *mmproj-offload*.** It loads with 223 MiB free on the 4070 and 494 on the
+  2060. CLIP's 248 MiB warmup buffer fails on CUDA0, the server stays up, and every image
+  request returns HTTP 500.
+
+Measured on b11583 (9d7d504) through the router, the real dual-GPU preset, both cards visible,
+`CUDA_DEVICE_ORDER=PCI_BUS_ID`, `examples/mtp-bench.py` median tg; "Long" is a code answer after
+a ~30k-token prompt. Free memory is read after load; the 4070's desktop share moved from 0.7 to
+1.6 GiB between rows, so compare free figures within a row only:
+
+| Arm                                | 4070 / 2060 free | Median tg t/s | Long pp t/s | Long tg t/s |
+| ---------------------------------- | ---------------- | ------------- | ----------- | ----------- |
+| **4070 only, 114688 `q8_0`**       | 848-1344 / 6788  | 90.2-91.6     | 1405-1421   | 67.1-72.7   |
+| 4070 only, 196608 `q4_0`           | 726 / 6788       | 93.4          | 1396        | 73.4        |
+| `1,2`, 196608 `q8_0`               | 2298 / 1244      | 59.4          | 888         | 51.8        |
+| `1,2`, 262144 `q4_0`               | 2672 / 1524      | 59.0          | 892         | 50.7        |
+| `1,2`, 262144 `q8_0`, image fails  | 223 / 494        | 54.2          | 700         | 48.0        |
+
+The 4070-only `q4_0` row reaches 196608 at full speed. It does not ship, because Prism's own
+guide advises against plain `q4_0` K/V without their calibration bias, and the 16 GB entry
+it would diverge from runs `q8_0`. Its quality cost is unmeasured.
