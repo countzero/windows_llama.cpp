@@ -135,7 +135,8 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   (`src/llama-model-loader.cpp:1467`) rather than through `cpu_buft_list` — but expert weights
   that `op-offload` ships to the GPU for large-batch matmuls now come from pageable memory, which
   may cost some prompt-processing throughput. There is no way to keep that and still load.
-  Measured DeepSeek figures with and without the flag: `docs/model_tuning/deepseek-v4-flash.md`.
+  Measured DeepSeek figures with and without the flag, and the `+DSpark` entry that loads and
+  prefills 7x faster without it: `docs/model_tuning/deepseek-v4-flash.md`.
 
 - **It is also what keeps mmap aliasing reachable.** With `CUDA_Host` at the head of the list the
   chosen buft fails the `is_default_buft` test at `src/llama-model.cpp:1715`, the mmap-aliasing
@@ -150,7 +151,7 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `--n-cpu-moe`, or `n-gpu-layers` other than `-1`, throws inside fit (`common/fit.cpp:462-464`,
   `:483-485`) and is downgraded to a warning at `:893-895`: fit does nothing and the model no
   longer fits at all. This is why the DeepSeek and `Qwen3.8-Flash-Next` entries keep
-  `n-gpu-layers = -1` explicitly. `--fit-target` writes only `params.fit_params_target` and never
+  `n-gpu-layers = -1` explicitly; DeepSeek `+DSpark` is `fit = off` with hand-placed experts. `--fit-target` writes only `params.fit_params_target` and never
   `mparams`, so unlike `-ngl` / `-ncmoe` / `-ot` it cannot trip the aborts. Fit places experts at
   sub-layer granularity (`common/fit.cpp:399-441`, `:719-769`); its overflow pattern is
   `blk\.N\.ffn_(up|down|gate_up|gate)_(ch|)exps` (`common/fit.cpp:522`). Note `--cpu-moe`'s

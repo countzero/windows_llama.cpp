@@ -85,11 +85,26 @@ referenced here rather than restated.
   force-disables both — `docs/presets.md` -> *context-shift and cache-reuse*. `seq_rm` also
   refuses partial removal when `n_rs_seq == 0` (`dsv4.cpp:1427-1429`), which `ngram-mod` does not
   set, so rollback goes through checkpoints — correct, but each rejected draft costs a ~14.5 MiB
-  state restore and the net throughput effect is uncharacterised. The `dspark` sidecar in the
+  state restore and the net throughput effect is uncharacterised.
+
+- **The `+DSpark` entry runs the `dspark` sidecar on 24 GB, outside `fit`.** The sidecar in the
   same HF repo is a genuine mainline `dflash` drafter (unlike the Bonsai one in
-  `docs/model_tuning/qwen.md`), but is unusable here: its README requires `--fit off` plus full
-  offload of target *and* drafter (11 GiB drafter + 13.69 GiB non-expert exceeds 24 GB),
-  `--spec-draft-n-max` is clamped to 5, multi-GPU needs a rebuild with
-  `GGML_SCHED_MAX_SPLIT_INPUTS=48`, and it carries an open decode-time CUDA abort after ~2500
-  tokens (#26554). The regression that broke spec decoding on this arch (#26576, a 2D `wo_a` in
+  `docs/model_tuning/qwen.md`); `--spec-draft-n-max` is clamped to 5, and multi-GPU needs a
+  rebuild with `GGML_SCHED_MAX_SPLIT_INPUTS=48`. Measured 2026-10-15 on `23deec0`, one run per
+  arm through the router: a ~7,350-token prefill, `examples/mtp-bench.py`, and a 3,200-token
+  decode in one request:
+
+  | Arm                                          | Free after load | Prefill t/s | Decode agg / median t/s | 3,200-token decode t/s |
+  | -------------------------------------------- | --------------: | ----------: | ----------------------: | ---------------------: |
+  | base entry (`fit = on`, `no-host`, 1M ctx)   |        4054 MiB |        43.6 |             4.98 / 5.62 |                   5.40 |
+  | `+DSpark` as shipped                         |        6676 MiB |       310.9 |             6.53 / 8.14 |                   6.41 |
+  | `+DSpark` with `no-host = true`              |        8064 MiB |        42.8 |             5.62 / 6.25 |                   5.88 |
+
+  Both `+DSpark` arms finished the 3,200-token decode, so the abort after ~2,500 tokens (#26554)
+  does not reproduce; acceptance is 0.37-0.40. The 7x prefill comes from pinned memory, not from
+  the sidecar: without `no-host` the loader puts 141,362 MiB of target and 9,792 MiB of drafter
+  weights in `CUDA_Host`, and the same entry with `no-host = true` falls back to the base
+  entry's prefill. That load succeeded with 173 of 191 GiB host RAM free, against the CUDA OOM
+  the `no-host` bullet above records at 137 GiB; whether it fails with less free RAM is
+  unmeasured. The regression that broke spec decoding on this arch (#26576, a 2D `wo_a` in
   `dflash.cpp` after #26531) is fixed by #26577 at `b10269`.

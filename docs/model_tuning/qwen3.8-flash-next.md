@@ -235,11 +235,25 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   CUDA/Windows offload box). Not measured: prefill, long-context decode, and the 16 GB and
   dual-GPU entries, which keep `ngram-mod` only.
 
-- **On the 24 GB tier `ubatch-size = batch-size = 1024`, because 2048 gives the decode back and
-  4096 does not load.** Same box, build and harness as the MTP table above, with the shipped MTP
-  entry and one setting changed per arm. Each run did a discarded warm-up, two ~7,400-token
-  prefills with the prompt cache off, and one `mtp-bench.py` pass; the arms ran A B C D then
-  D C B A:
+- **On the 24 GB tier `ubatch-size = batch-size = 2048`.** Measured 2026-10-15 on `23deec0`, same
+  box and harness as the table below, A B B A:
+
+  | `ubatch` | prefill t/s (4 prompts)           | decode agg t/s    | free after load |
+  | -------: | --------------------------------- | ----------------: | --------------: |
+  |     1024 |     185.0 / 211.6 / 198.3 / 210.5 |     16.59 / 16.93 |        2368 MiB |
+  | **2048** | **215.3 / 224.9 / 212.7 / 232.3** | **16.15 / 16.63** |    **2118 MiB** |
+
+  2048 buys +10 % prefill on the mean, with decode inside the noise (per-prompt median 20.2-20.7
+  t/s on both arms), for 250 MiB. The 9 % decode loss and the 236 MiB margin in the `207bdab`
+  table below are gone: the same entry now loads with ~1.7 GiB more free. Which upstream change
+  freed it is not isolated; #30405 is the likely one. Fit does include the draft context: at
+  `log-verbosity = 4` it logs measuring "the extra model" at the full context before it places
+  experts, and the draft's compute buffer is 2,510 MiB against the target's 4,323 MiB. A
+  1,097-token image request with `draft-mtp` on returned a correct description at 20.8 t/s
+  (#30397).
+
+  The `207bdab` sweep it replaces. Each run did a discarded warm-up, two ~7,400-token prefills
+  with the prompt cache off, and one `mtp-bench.py` pass; the arms ran A B C D then D C B A:
 
   | `ubatch` | prefill t/s (4 prompts)           | decode agg t/s    | lowest free |
   | -------: | --------------------------------- | ----------------: | ----------: |
@@ -251,8 +265,8 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   1024 buys +19 % prefill on the mean for -1.9 % decode, which is inside the noise, and leaves
   the margin where it was. 2048 adds another 6 points of prefill but loses 9 % of decode and
   ends both runs below the ~400 MiB WDDM floor. 4096 fails on both runs while creating the MTP
-  context: `fit` places experts for the target alone, and the draft context then asks for a
-  12,355 MiB compute buffer that no longer fits (`docs/presets.md` -> *fit*, blind spot 5). The
+  context, which asks for a 12,355 MiB compute buffer that no longer fits once fit has no
+  experts left to move (`docs/presets.md` -> *fit*, blind spot 5). Not re-measured on `23deec0`. The
   gain is smaller than the dual-GPU tier's 3.4x because this card holds more of the experts, so
   prefill is less bound by host-to-device copies (`docs/presets.md` -> *batch-size and
   ubatch-size*).

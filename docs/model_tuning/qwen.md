@@ -260,7 +260,10 @@ Cross-model rules are in `docs/presets.md`.
   ungated. Acceptance is a vanity metric on this pair. `--spec-draft-device CUDA0` is accepted
   without error and **silently ignored** for `draft-mtp`: the draft context still reports its
   144 MiB KV and 616-720 MiB scratch on CUDA1, because the MTP head lives in the target model and
-  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070.
+  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070, but
+  `spec-draft-n-ubatch` (#30459) shrinks it: on the 24 GB card on `23deec0`, 256 / 64 freed
+  168 / 294 MiB on the Bonsai 2 entry and 92 / 160 MiB on gemma-4, at unchanged decode. Neither
+  24 GB entry needs the room; this entry is the untested candidate.
 
 - **`spec-draft-n-max` peaks at 4 on b10940 for the dual-GPU entry, not 3, and it ships 4 — as
   does the 16 GB entry, which follows it untested; the 24 GB entry is unswept and still ships 3.**

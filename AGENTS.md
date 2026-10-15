@@ -53,8 +53,8 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/presets.md` -> *swa-full*
 - Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning/muse-glimmer.md`
 - Never add RoPE scaling to a Muse Glimmer entry. `docs/model_tuning/muse-glimmer.md`
-- `no-host = true` is mandatory on the DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `docs/presets.md` -> *no-host*
-- Keep `fit = on` on the DeepSeek and `Qwen3.8-Flash-Next` entries; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
+- `no-host = true` is mandatory on the base DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `+DSpark` is the measured exception. `docs/presets.md` -> *no-host*
+- Keep `fit = on` on the base DeepSeek and `Qwen3.8-Flash-Next` entries (`+DSpark` places experts by hand); never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
 - A `fit-target` is a request, not a guarantee: once `ctx-size` and `ubatch-size` have claimed the card, fit undershoots it silently. Read the margin off `nvidia-smi` after load, never off the target. `docs/presets.md` -> *fit*
 - Never copy `ubatch-size` between a CPU-offload entry and a GPU-resident one — it buys 2-4x of prefill on the former and is spent on VRAM margin on the latter. `docs/presets.md` -> *batch-size and ubatch-size*
 - `cache-type-k` and `cache-type-v` must be identical on any MLA entry — currently `deepseek4` and `Ling-3.0-tiny`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/ling-3.0.md`

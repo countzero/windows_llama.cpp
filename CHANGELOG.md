@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.54.0] - 2026-10-15
+
+### Changed
+- [Presets] Raise batch-size and ubatch-size to 2048 on the 24 GB Qwen3.8-Flash-Next entry
+- [Vendor] Bump llama.cpp submodule to 23deec0
+- [Docs] Correct the claim that the DeepSeek dspark sidecar cannot run on a 24 GB card
+
+
 ## [1.53.0] - 2026-10-13
 
 ### Added
