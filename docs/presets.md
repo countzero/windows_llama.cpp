@@ -327,13 +327,16 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `slot print_timing: ... prompt eval time = X ms / Y tokens`, where `Y` is what was actually
   re-prefilled; a warm turn should report tens of tokens, not thousands.
 - **A second model is never the answer to slot contention on a single-GPU box.** `models-max` is a
-  router-level parameter and is stripped from child presets (`tools/server/server-models.cpp:305`),
-  so it cannot be scoped per entry. At `models-max = 1` a request for a different model is queued
-  (`:113`), and the running model is unloaded the moment it goes idle to free the slot
-  (`:213-214`) — so routing auxiliary traffic to a small sidecar model costs a full unload/reload of
-  the large one per call. Raising it to 2 lets any two entries in the preset try to co-reside, which
-  on a 16 GB + 8 GB pair is an out-of-memory abort rather than a degradation. Use `parallel` and, if
-  placement must be deterministic, `id_slot`.
+  router-level parameter and is stripped from every preset section, `[*]` included
+  (`unset_reserved_args`, `tools/server/server-models.cpp:485`), so it cannot be scoped per entry
+  and a value in the INI is ignored without a warning: only `--models-max` or
+  `LLAMA_ARG_MODELS_MAX` reach the router, and without either it runs at the upstream default
+  of 4. At `models-max = 1` a request for a different model is queued (`:113`), and the running
+  model is unloaded the moment it goes idle to free the slot (`:213-214`), so routing auxiliary
+  traffic to a small sidecar model costs a full unload/reload of the large one per call. Raising
+  it to 2 lets any two entries in the preset try to co-reside, which on a 16 GB + 8 GB pair is an
+  out-of-memory abort rather than a degradation. Use `parallel` and, if placement must be
+  deterministic, `id_slot`.
 - **Slot placement is a tie-break, so pin it if it matters.** `f_sim` is `lcp / len(new prompt)`, so
   a *short* side call sharing only the chat template can score as high as the real conversation, and
   which slot wins comes down to scan order and the strict `>` at `server-context.cpp:1579`. Sending

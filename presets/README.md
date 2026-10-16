@@ -17,7 +17,7 @@ per-device `fit-target` values line up with the physical cards:
 
 ```powershell
 $env:CUDA_DEVICE_ORDER = "PCI_BUS_ID"   # CUDA0 = 8 GB GPU, CUDA1 = 16 GB GPU
-llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini
+llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini --models-max 1
 ```
 
 | Flag              | Purpose                                                 |
@@ -26,9 +26,11 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 | `--models-preset` | INI file with model configs (router mode source #2)     |
 
 > [!TIP]
-> `main-gpu`, `models-max`, `split-mode`, `tensor-split`, and `threads` are handled by the
-> preset's `[*]` global section. `--host`, `--port`, and `--models-dir` must stay on the CLI
-> — they are parent-server settings that the server manages internally and cannot be set via preset.
+> `main-gpu`, `split-mode`, `tensor-split`, and `threads` are handled by the preset's `[*]`
+> global section. `--host`, `--port`, `--models-dir` and `--models-max` must stay on the CLI or
+> in `.env`: they configure the router itself, which strips them from every preset section, so
+> a `models-max` in `[*]` is ignored without a warning (`docs/presets.md` -> *Slots and the
+> prompt cache*).
 
 > [!NOTE]
 > The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice. Every entry uses `load-mode = dio` except `Qwen3.8-Flash-Next`, which needs `mmap` so that its 26.8 GiB n-gram embedding table can be read on demand — do not normalise that one away.
@@ -40,7 +42,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 > card twice as heavily as the 8 GB card; the two `Qwen3.8-27B` entries override it to
 > `1,3`, which buys prompt processing at the cost of 16 GB-card VRAM per context token.
 > `main-gpu = 1` puts scratch buffers and intermediate results
-> on the 16 GB card. `models-max = 1` limits to one loaded model at a time. Every entry
+> on the 16 GB card. `--models-max 1` limits to one loaded model at a time. Every entry
 > except `Qwen3.8-Flash-Next` sets `fit = off` with a fixed `ctx-size` and
 > `n-gpu-layers = -1` baked in for deterministic launches.
 >
