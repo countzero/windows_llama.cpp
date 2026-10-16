@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.54.2] - 2026-10-16
+
+### Changed
+- [Presets] Set reasoning to auto on the 24 GB Ternary-Bonsai-2-27B entry so clients can turn thinking off
+
+
 ## [1.54.1] - 2026-10-16
 
 ### Fixed

@@ -336,6 +336,8 @@ Cross-model rules are in `docs/presets.md`.
 
 - **`reasoning-effort = medium`, although the model is trained on `xhigh`.** Prism's known
   issues report loops at `xhigh` and equal accuracy at `medium` under ~16k output budgets.
+  The 24 GB entry sets `reasoning = auto`, as Prism's known issues advise: thinking stays on by
+  default, but `on` would override a client's `reasoning_effort: "none"`.
 
 - **MTP comes from a sidecar: `ggml-org/Qwen3.8-27B-GGUF`'s `mtp-Qwen3.8-27B-Q4_0.gguf`.** The
   Bonsai GGUF stops at `blk.63`. The sidecar carries its own unrotated `token_embd`, so no
@@ -364,6 +366,33 @@ GPU), BF16 projector on the GPU, `examples/mtp-bench.py` (9 prompts, 192 tokens)
 With the shipped settings, a 384-token code answer runs at 83.8 t/s on an empty context and
 64.7 t/s after a 28837-token prompt (pp 1162 t/s), against 40.1 t/s there without MTP. Depth
 beyond 29k is unmeasured; upstream #29172 reports a decode collapse past ~70k-155k on Blackwell.
+
+- **Long thinking answers run at 51-54 t/s, and depth is the largest cost, not a setting.**
+  `llama-bench` without MTP gives tg128 54.3 t/s at depth 0, 46.6 at 16384 and 39.1 at 32768
+  (-14 % and -28 %). Under sustained load the card sits at its power cap (~97 W) in 91-100 % of
+  samples and the SM clock settles at ~1340-1390 MHz, so the cold `mtp-bench.py` median of ~80
+  falls to ~69 after a 3-minute warm-up. Compare arms only after the same warm-up.
+
+- **`spec-draft-sampling = probabilistic` raises acceptance but not throughput, so the entry
+  stays on greedy drafting.** It is lossless at `temp` > 0 (#27694) and lifted acceptance by
+  3-5 points on long answers and 4-6 on short ones, but long tg moved +1.0 % and short median
+  -1.7 %, both inside the baseline's own 2.9 % spread.
+
+- **A Bonsai-2-trained DFlash2 drafter does not work on mainline.** The drafters
+  (`naklitechie/Qwen3.8-27B-DFlash2-ternary-bonsai2`, `Schiltmans/...-DFlash2-ft5-GGUF`) carry no
+  embeddings or head and borrow the target's through `ctx_other`, and the draft context applies
+  no Hadamard transform to them (`src/models/dflash.cpp`, `src/llama-context.cpp`). Prism's fork
+  fixed this in its PR #210 (0/1204 drafts accepted before, 79.9 % after); mainline has no
+  equivalent, so expect zero acceptance and slower decoding than without a drafter.
+
+Measured on b11700 through the router, the same laptop, 3-minute warm-up per block, blocks in
+the order A, B, A, B. "Long" is three 2048-token answers at `reasoning_effort` medium after a
+26503-token prompt (the second and third reuse it); "Short" is `examples/mtp-bench.py`:
+
+| Arm                                   | Long tg t/s   | Long acceptance | Short median t/s | Short acceptance |
+| ------------------------------------- | ------------- | --------------- | ---------------- | ---------------- |
+| **Greedy drafting (shipped)**         | 51.63 / 53.14 | 0.635           | 68.88 / 69.32    | 0.618            |
+| `spec-draft-sampling = probabilistic` | 51.66 / 54.16 | 0.666 / 0.688   | 67.20 / 68.65    | 0.681 / 0.656    |
 
 - **On the 16 GB tier MTP is worth more than context: 114688 with the sidecar, not ~180k
   without it.** The card is the display GPU, so the projector runs on the CPU and the margin
