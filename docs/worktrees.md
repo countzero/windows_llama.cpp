@@ -58,31 +58,26 @@ push; it must not print `origin/develop`.
 ## Entering it with the running session
 
 A worktree reached only through a per-call working directory is half a worktree: the first tool
-call that forgets the argument writes to the main tree. Move the session instead, with the
-OpenCode tool `worktree_enter` (`.opencode/plugins/worktree.js`, available only in an OpenCode
-started after that file appeared). It takes one argument, the target directory, absolute or
-relative to the **main** working tree, so the same argument names the same place from either.
+call that forgets the argument writes to the main tree. Create the worktree with git as above, then
+move the session with OpenCode's built-in `session_move` tool (Code Mode namespace `opencode`,
+reached through `execute`): target `.worktrees/<branch-slug>` to enter, the main working tree to
+leave. A relative target resolves against the session's current directory, so from inside a
+worktree the main tree is `../..`. The move takes effect at the next safe boundary, and it moves
+only the calling session; a subagent re-homes its own child session. OpenCode's `worktree_create`
+is no substitute for the git command: it checks out a detached HEAD with no branch.
 
-It accepts two target shapes and refuses every other: a directory named as a lowercase branch slug
-directly below `.worktrees/`, and the main working tree itself, which `.` names. The whitelist's
+`.opencode/plugins/worktree-guard.js` refuses every other target before the move runs: anything
+that is neither the main tree nor an existing directory named as a lowercase branch slug directly
+below `.worktrees/`, a move to where the session already is, and a move of another session. The
 point is that a mistyped or invented path must not re-home a session into an unrelated directory,
-`vendor/` included. Uncommitted changes never travel with the session, and the source working tree
-is left untouched.
+`vendor/` included.
 
-**The move happens when the turn ends.** OpenCode keeps a running agent loop in the instance of the
-directory it started in but routes every request by the session's current directory, so a session
-moved mid-turn would leave its loop behind and the next prompt would start a second one. The tool
-therefore records the move and asks for the turn to end; once the session is idle the plugin moves
-it and posts the prompt that starts the next turn there. `esc` drops the move. The tool moves only
-the session it is called from, so a subagent that calls it re-homes its own child session.
+A move lands the session in a different tree: read the branch and run the preflight again
+(`docs/conventions.md` -> *Shared working tree*) before writing or committing.
 
-A move lands the session in a different tree: read the branch and run the preflight again before
-writing or committing. The way back is `worktree_enter` with `.`, which keeps the conversation.
-
-**Never use the `/move` dialog.** It reaches the same endpoint but, when the source tree has
-changes, preselects carrying them along, which applies them at the destination and discards them at
-the source, untracked files included. In the shared main working tree that destroys every other
-agent's work. `worktree_enter` pins that answer to "no".
+**Never use the `/move` dialog.** When the source tree has changes it preselects carrying them
+along, which applies them at the destination and discards them at the source, untracked files
+included. In the shared main working tree that destroys every other agent's work.
 
 ## Scratch artefacts
 
@@ -92,11 +87,11 @@ From inside a worktree, `git rev-parse --path-format=absolute --git-common-dir` 
 repository's `.git`, whose parent is the main tree.
 
 That location is outside the working directory of a session in a worktree, a boundary OpenCode
-guards. `.opencode/opencode.json` carries the one exception: `"../*": "deny"` refuses every edit
-outside the worktree, and `"../../.tmp/**": "allow"` re-admits exactly the main tree's `.tmp/`,
-which the flat layout puts two levels up. OpenCode takes the **last** matching rule, which is why
-the allow stands after the deny. A separate `external_directory` permission still asks once per
-directory before either rule is read.
+guards. `.opencode/opencode.json` carries the one exception. OpenCode matches a path inside the
+session's directory as a repo-relative path and one outside it as an absolute path such as
+`D:/...`, so the deny rules on `?:/*` and `/*` refuse every edit outside the worktree, and the allow
+on `*/.tmp/*` re-admits the main tree's `.tmp/`. OpenCode takes the **last** matching rule, which is
+why the allow stands after the denies.
 
 ## Cleanup
 

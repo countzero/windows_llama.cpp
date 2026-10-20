@@ -26,10 +26,11 @@ with the Write tool to `.tmp/sessions/<session-id>/trim/<name>.sh` and run it
 with Git Bash from the repository root:
 
 ```powershell
-& 'C:\Program Files\Git\bin\bash.exe' ".tmp/sessions/$env:SESSION_ID/trim/<name>.sh"
+& 'C:\Program Files\Git\bin\bash.exe' ".tmp/sessions/<session-id>/trim/<name>.sh"
 ```
 
-Under OpenCode `<session-id>` inside a block is `$SESSION_ID`, which Git Bash
+Under OpenCode `<session-id>` is `$env:OPENCODE_SESSION_ID` in the PowerShell
+line and `$OPENCODE_SESSION_ID` inside a block, which Git Bash
 inherits; under Claude Code write the literal id (`AGENTS.md` -> *Scratch
 Files*). Every block opens with the same two lines, so no variable has to
 outlive the call that set it:

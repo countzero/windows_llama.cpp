@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.55.0] - 2026-10-20
+
+### Added
+- [Tooling] Add the worktree-guard OpenCode plugin, which limits the built-in `session_move` to the main tree and `.worktrees/<branch-slug>`
+
+### Changed
+- [Tooling] Port the OpenCode edit permissions to the OpenCode V2 rule array
+- [Agents] Read the OpenCode session ID from `OPENCODE_SESSION_ID`
+
+### Removed
+- [Tooling] Remove the `worktree_enter` OpenCode tool, replaced by the built-in `session_move`
+- [Tooling] Remove the OpenCode session-id-injector plugin
+
+
 ## [1.54.2] - 2026-10-16
 
 ### Changed
