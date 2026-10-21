@@ -9,7 +9,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_VRA
 ```
 
 ```powershell
-llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_24GB_VRAM.ini --models-max 1
+llama-server --models-dir E:\AI\LLM\gguf --models-preset presets\models_24GB_VRAM.ini --models-max 1
 ```
 
 Dual-GPU (16 GB + 8 GB across two cards) - set the device order **before** launching so the

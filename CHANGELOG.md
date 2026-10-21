@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.56.0] - 2026-10-21
+
+### Changed
+- [Presets] Move the 24 GB tier's model paths from D:\AI\LLM\gguf to E:\AI\LLM\gguf
+
+### Removed
+- [Presets] Remove the DeepSeek-V4-Flash-0731, DeepSeek-V4-Flash-0731+DSpark, Muse-Glimmer-30B, Ling-3.0-tiny and MiniCPM5-2B entries from the 24 GB tier
+
+
 ## [1.55.0] - 2026-10-20
 
 ### Added
