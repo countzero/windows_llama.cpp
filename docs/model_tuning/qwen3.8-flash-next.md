@@ -68,7 +68,8 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   `qwen4exp` is now in `llm_arch_supports_rs_rollback` (`src/llama-arch.cpp:1134`, upstream
   #28123), and with `draft-mtp` the server asks for `n_rs_seq = spec-draft-n-max`
   (`common/common.h:396-402`), so each sequence carries `1 + n_rs_seq` rows
-  (`src/llama-memory-recurrent.cpp:101`): about 337 MiB at the shipped `spec-draft-n-max = 2`.
+  (`src/llama-memory-recurrent.cpp:101`): about 337 MiB at `spec-draft-n-max = 2`. No
+  Qwen3.8-Flash-Next entry ships `draft-mtp`, so it is one row.
   The entry ships `parallel = 1`, so a single conversation owns the whole 262144-cell pool. Raising it stays cheap
   in VRAM if it is ever wanted — restore `kv-unified = true` and `n_ctx_seq = n_ctx`
   (`src/llama-context.cpp:290-291`), so the extra slots *share* the pool rather than each being
@@ -199,16 +200,45 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   (`tools/server/server-context.cpp:1209-1214`, applied at `:1274`) and the `- capping` line is
   expected rather than a misconfiguration.
 
-- **The GGUF carries the MTP head, and `draft-mtp` drafts from the target's own weights.** Since
-  upstream #29761 the converter exports the MTP block as `blk.48`: 32 tensors, 1.372 GiB in the
-  local IQ4_XS, `block_count = 49`. With `draft-mtp` and no `spec-draft-model` the server builds
-  an MTP context against the loaded target (`common/speculative.cpp:2557-2566`), so no second file
-  is loaded and `fit` sizes that context when it places experts. Use the head in the model file,
-  not unsloth's separate `mtp-*.gguf`: those predate #29761, carry ratio 0 for the MTP block and
-  hit upstream #29811.
+- **The 24 GB entry runs Unsloth's UD-IQ4_XS; the 16 GB and dual-GPU entries run the
+  self-converted IQ4_XS.** The Unsloth file (`unsloth/Qwen3.8-Flash-Next-GGUF`, 3 shards, ~94 GB)
+  has 48 blocks and no MTP tensors, its trunk `compress_ratios` are non-zero at 3, 7, ..., 47, so
+  it is not affected by the `patches/0002-*` defect, and its PLE table is 26.8 GiB `IQ4_NL`. The
+  self-converted file carries the MTP head as `blk.48` (upstream #29761): 32 tensors, 1.372 GiB,
+  `block_count = 49`. With `draft-mtp` and no `spec-draft-model` the server builds an MTP context
+  against the loaded target (`common/speculative.cpp:2557-2566`), so no second file is loaded and
+  `fit` sizes that context when it places experts.
 
-- **On the 24 GB tier MTP is about break-even on throughput, and ships for its VRAM margin.**
-  Measured 2026-10-02 on `207bdab` (b11347+1), RTX PRO 5000 Blackwell Laptop 24 GB, Core Ultra 9
+- **Unsloth's current `MTP/mtp-Qwen3.8-Flash-Next-Q8_0.gguf` loads as a `spec-draft-model`.**
+  Checked 2026-10-21: the 4,137,429,120 B file holds only `blk.48` plus `token_embd` and
+  `output`, `block_count = 49`, `nextn_predict_layers = 1`, and `compress_ratios` non-zero at
+  3, 7, ..., 47 and 4 at 48, so the ratio-0 defect behind upstream #29811 is fixed in it, and it
+  loads via `-md` on #30817 / b11700. The `shared-*` variants borrow `token_embd` / `output` from
+  the target, and this build has no cross-model borrow code, so they should not load; that is
+  read from the source, not tested.
+
+- **The 24 GB entry ships without MTP, because on this CPU-offload tier it is a net loss.**
+  Measured 2026-10-21 on #30817 head `b72050d` (build 11717), RTX PRO 5000 Blackwell Laptop 24 GB,
+  Core Ultra 9 285HX, 192 GB DDR5-4000, model on an unencrypted WD SN700. Common: ctx 262144,
+  `fit = on`, `fit-target 1024`, batch / ubatch 2048, `no-host`, `load-mode = mmap`, `q8_0` K and
+  V, flash attention, pinned template, `ngram-mod` n-match 24 / n-min 48 / n-max 64. Probe: 20 hex
+  copies at temp 0, then one 5,766-token prompt with 512 generated; one run per arm, ~±5 % noise:
+
+  | arm            | setting                                                        | free after load | prefill t/s | decode t/s | hex exact |
+  | -------------- | -------------------------------------------------------------- | --------------: | ----------: | ---------: | --------: |
+  | base           | `ngram-mod`                                                    |        1976 MiB |      206.03 |      18.99 |     20/20 |
+  | **mmproj**     | **+ mmproj BF16, `no-mmproj-offload` (shipped)**               |    **1976 MiB** |  **214.24** |  **20.12** | **20/20** |
+  | mtp            | + `-md` MTP Q8_0, `draft-mtp,ngram-mod`, n-max 2, KV q8_0      |        2514 MiB |      183.06 |      16.81 |     20/20 |
+  | mtp, no mmproj | as mtp without mmproj                                          |        2514 MiB |      198.84 |      17.37 |     20/20 |
+
+  The projector on the CPU costs neither VRAM nor throughput. MTP accepts 63 % (285/451, mean
+  length 2.26) yet loses 8-16 % decode and 4-15 % prefill: every verified draft token reads more
+  experts from host RAM, and `fit` cannot measure the sidecar ("extra model"), so it placed the
+  target more conservatively and left 2514 MiB free. Upstream points the same way: fully resident
+  setups report +36-55 % (#29761, #27836), CPU-offload ones flat or negative unless the
+  speculation checkpoints stay on the device (upstream #28118, unmerged).
+
+- **The built-in head was about break-even on the same card.** Measured 2026-10-02 on `207bdab` (b11347+1), RTX PRO 5000 Blackwell Laptop 24 GB, Core Ultra 9
   285HX, 191 GiB RAM, the entry otherwise as shipped, through the router with `--models-max 1`,
   `examples/mtp-bench.py` (9 prompts, `max_tokens 192`, `seed 42`, the preset's temp 1.0):
 
@@ -229,11 +259,9 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   6.5 % in wall time, so the effect is inside the noise; its slowest prompt is slower than any
   baseline prompt. n-max 1 and 3 each lose on at least one prompt, and 3 also loses acceptance.
   What MTP does buy is margin: `fit` reserves for the draft context and lands at ~780 MiB free
-  against ~410 MiB without it, which sits on the ~400 MiB WDDM floor. Upstream points the same way:
-  fully resident setups report +36-55 % (#29761, #27836), CPU-offload ones flat or negative unless
-  the speculation checkpoints stay on the device (upstream #28118, unmerged, +61 % reported on a
-  CUDA/Windows offload box). Not measured: prefill, long-context decode, and the 16 GB and
-  dual-GPU entries, which keep `ngram-mod` only.
+  against ~410 MiB without it, which sat on the ~400 MiB WDDM floor; the current build leaves
+  ~2 GiB free without it, so that reason is gone. The 16 GB and dual-GPU entries keep
+  `ngram-mod` only.
 
 - **On the 24 GB tier `ubatch-size = batch-size = 2048`.** Measured 2026-10-15 on `23deec0`, same
   box and harness as the table below, A B B A:
@@ -245,12 +273,12 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
 
   2048 buys +10 % prefill on the mean, with decode inside the noise (per-prompt median 20.2-20.7
   t/s on both arms), for 250 MiB. The 9 % decode loss and the 236 MiB margin in the `207bdab`
-  table below are gone: the same entry now loads with ~1.7 GiB more free. Which upstream change
-  freed it is not isolated; #30405 is the likely one. Fit does include the draft context: at
-  `log-verbosity = 4` it logs measuring "the extra model" at the full context before it places
-  experts, and the draft's compute buffer is 2,510 MiB against the target's 4,323 MiB. A
-  1,097-token image request with `draft-mtp` on returned a correct description at 20.8 t/s
-  (#30397).
+  table below were gone: the former self-converted 24 GB entry loaded with ~1.7 GiB more free.
+  Which upstream change freed it is not isolated; #30405 is the likely one. Fit included the draft
+  context there: at `log-verbosity = 4` it logged measuring "the extra model" at the full context
+  before placing experts, with a 2,510 MiB draft compute buffer against the target's 4,323 MiB. A
+  1,097-token image request with `draft-mtp` on that entry returned a correct description at
+  20.8 t/s (#30397).
 
   The `207bdab` sweep it replaces. Each run did a discarded warm-up, two ~7,400-token prefills
   with the prompt cache off, and one `mtp-bench.py` pass; the arms ran A B C D then D C B A:
@@ -280,7 +308,7 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   | `threads 16`                                           |  16.43 / 16.43 | 0.650 / 0.648 |
   | `threads 8` on the P-cores (`cpu-mask 0xc03c03`)       |  16.33 / 16.21 | 0.642 / 0.646 |
   | `threads 24`, `poll 0`                                 |  14.58 / 13.21 | 0.644 / 0.435 |
-  | n-max 2 (shipped), second suite                        |  16.91 / 16.87 | 0.650         |
+  | n-max 2 (formerly shipped), second suite               |  16.91 / 16.87 | 0.650         |
   | n-max 3, `spec-draft-p-min 0.6`                        |  14.05 / 14.15 | 0.764         |
   | n-max 3, `spec-draft-p-min 0.75`                       |  14.09 / 14.09 | 0.843         |
   | `draft-mtp` without `ngram-mod`                        |  16.61 / 20.07 | 0.650 / 0.645 |
@@ -315,9 +343,11 @@ block-sparse attention over an indexer cache, 36 gated-delta-net layers, 512 exp
   `top-k 20`), matching Qwen3.8-27B.
 
 - **`no-mmproj-offload = true`, because CLIP is exactly what `fit` cannot see** (`docs/presets.md`
-  -> *fit*, blind spot 4). The 588 MiB of `Q8_0` weights plus ~310 MiB of CLIP compute would have
-  to be reserved by hand through `fit-target`, and there is no margin left to absorb them
-  otherwise. The 24 GB and 16 GB entries keep `fit-target = 1024` rather than the 3072 the DeepSeek
+  -> *fit*, blind spot 4). The projector weights (588 MiB `Q8_0` on the self-converted tiers,
+  865 MiB `BF16` from Unsloth on 24 GB) plus ~310 MiB of CLIP compute would have to be reserved by
+  hand through `fit-target`, and there is no margin left to absorb them otherwise. On the CPU it
+  costs no measurable throughput (table above); only image prefill pays, 1,086 tokens at 45.5 t/s,
+  and a 512x256 PNG reading "7391" was answered correctly. The 24 GB and 16 GB entries keep `fit-target = 1024` rather than the 3072 the DeepSeek
   entry keeps on the same card: the margin still clears the ~400 MiB WDDM floor (`docs/presets.md`
   -> *Device pinning and multi-GPU*) and the ~2 GiB it releases buys expert layers, but it is the
   tightest target in the tier and the compositor's share of the card moves by hundreds of MiB with
