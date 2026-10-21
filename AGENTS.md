@@ -42,13 +42,14 @@ Work of more than one step keeps the todo tool current, one item in progress and
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
+- **The DeepSeek-V4.1 entry needs a `-pullRequest "30817"` build.** Any other rebuild drops the `deepseek41` arch and the entry fails at load; the submodule pointer is never committed at that PR commit. `docs/model_tuning/deepseek-v4.1-flash.md` -> *Build*
 - **Keep ~400 MiB free on the display GPU.** Below ~300 MiB WDDM pages the working set to system RAM and the entry silently runs 20-45 % slower; nothing in the llama.cpp log shows it, only throughput does. Check `nvidia-smi` free memory after a preset change. `docs/presets.md` -> *Device pinning and multi-GPU*
 
 ## Traps
 
 Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Each is stated here without rationale so it is always in context; read the linked section before acting on one. These lines are a deliberate projection of `docs/` — when a trap changes, both move together.
 
-- Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next`, which must keep `load-mode = mmap`. `docs/presets.md` -> *load-mode*
+- Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next` and `DeepSeek-V4.1-Flash`, which must keep `load-mode = mmap` (V4.1 also `lazy-mode = on`). `docs/presets.md` -> *load-mode*
 - Never set `mmproj-offload = true` on a tier where LLM + KV already saturate VRAM. `docs/presets.md` -> *mmproj-offload*
 - Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/presets.md` -> *swa-full*
 - Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning/muse-glimmer.md`
@@ -57,7 +58,7 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 - Keep `fit = on` on the base DeepSeek and `Qwen3.8-Flash-Next` entries (`+DSpark` places experts by hand); never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
 - A `fit-target` is a request, not a guarantee: once `ctx-size` and `ubatch-size` have claimed the card, fit undershoots it silently. Read the margin off `nvidia-smi` after load, never off the target. `docs/presets.md` -> *fit*
 - Never copy `ubatch-size` between a CPU-offload entry and a GPU-resident one — it buys 2-4x of prefill on the former and is spent on VRAM margin on the latter. `docs/presets.md` -> *batch-size and ubatch-size*
-- `cache-type-k` and `cache-type-v` must be identical on any MLA entry — currently `deepseek4` and `Ling-3.0-tiny`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/ling-3.0.md`
+- `cache-type-k` and `cache-type-v` must be identical on any MLA entry — currently `deepseek4`, `deepseek41` and `Ling-3.0-tiny`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/deepseek-v4.1-flash.md`, `docs/model_tuning/ling-3.0.md`
 - Never set `image-min-tokens` on a gemma-4 entry; it is a `qwen3vl_merger` key only. `docs/model_tuning/gemma-4.md`
 - Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning/qwen.md`, `docs/model_tuning/gemma-4.md`
 - Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
@@ -101,4 +102,4 @@ Deep reference documentation lives under `docs/` and is **read on demand**, not 
 | `docs/presets.md`               | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `no-host`, `fit`, `mmproj-offload`, `swa-full`, context shift, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
 | `docs/conventions.md`           | Commit message, changelog entry and pull request description, where a piece of information lives and what it may not restate, the size budgets, punctuation and table padding, `.ps1` comments and PowerShell/CLI style. **Read before writing a commit message, a changelog entry or a pull request description, and before adding a paragraph to `AGENTS.md`, `docs/` or a README.** |
 | `docs/worktrees.md`             | Creating, entering (`session_move`) and removing a git worktree, the scratch location from one, and the submodule cleanup `git worktree remove` refuses. **Read before creating, using or removing a worktree.** |
-| `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |
+| `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `deepseek-v4.1-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |

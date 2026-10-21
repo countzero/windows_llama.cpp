@@ -98,9 +98,8 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
 
 ## load-mode
 
-- **Every entry but `Qwen3.8-Flash-Next` uses `load-mode = dio`; never pair `direct-io` with
-  `no-mmap` again.** Both spellings
-  are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
+- **Every entry but `Qwen3.8-Flash-Next` and `DeepSeek-V4.1-Flash` uses `load-mode = dio`; never
+  pair `direct-io` with `no-mmap` again.** Both spellings are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
   `LLAMA_LOAD_MODE_NONE` (`common/arg.cpp:2594`) while `--direct-io` sets
   `LLAMA_LOAD_MODE_DIRECT_IO` (`:2603`) — so setting both means only whichever is parsed last wins.
   Which one that is is *not* the INI order: `common/preset.cpp` emits `opt.args.back()` while
@@ -115,6 +114,10 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   enabled; `dio` reads and holds the whole table for nothing. `no-host = true` is part of the same
   mechanism, not an independent choice — see *no-host* below and
   `docs/model_tuning/qwen3.8-flash-next.md`.
+
+- **`DeepSeek-V4.1-Flash` is the second `mmap` exception, for the same reason.** Its Engram table
+  `per_layer_token_embd` (135 GB of Q5_K) is created `TENSOR_READ_LAZY` and needs
+  `lazy-mode = on` as well; see `docs/model_tuning/deepseek-v4.1-flash.md`.
 
 - **`load-mode = dio` does not enable DirectIO on Windows — it only disables mmap.** The Win32 `llama_file::impl` ctor takes `use_direct_io` as `[[maybe_unused]]` and just calls `ggml_fopen` (`vendor/llama.cpp/src/llama-mmap.cpp:86-95`); `FILE_FLAG_NO_BUFFERING` is never set and `read_alignment()` stays 1 (`:391`), so the loader's async staging buffers are 4 x 1 MiB of pinned host memory instead of the 4 x 64 MiB the aligned path would use (`src/llama-model-loader.cpp:1418`, `:1427`). `has_direct_io()` nevertheless returns a hardcoded `true` on Windows (`:173-175`). Net effect of `dio` on this platform: buffered reads, no mmap, and zero VRAM cost — it is never implicated in a CUDA OOM. Keep the key for the deprecation-warning reason documented above, but do not reason about page-cache behaviour from it.
 

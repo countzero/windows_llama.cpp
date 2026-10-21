@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.58.0] - 2026-10-21
+
+### Added
+- [Presets] Add a DeepSeek-V4.1-Flash-1017 UD-IQ2_XXS entry to the 24 GB tier
+- [Docs] Add docs/model_tuning/deepseek-v4.1-flash.md
+
+
 ## [1.57.0] - 2026-10-21
 
 ### Changed
