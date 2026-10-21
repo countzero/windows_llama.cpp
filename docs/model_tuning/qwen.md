@@ -1,9 +1,10 @@
 # Qwen 3.6, Qwen 3.8, Bonsai and DSpark
 
 Per-model rationale behind the `qwen35`-arch entries in `presets/*.ini` — Qwen3.8-27B,
-Ternary-Bonsai-27B and Bonsai-27B — with the measured numbers each decision rests on. No Qwen 3.6
-entry ships any more; the Qwen 3.6 rules below are kept because both Bonsai entries are
-Qwen3.6-27B derivatives and inherit them. Not auto-loaded into the agent context; read on demand.
+Ternary-Bonsai-27B, Bonsai-27B and Ternary-Bonsai-2-27B — with the measured numbers each decision
+rests on. No Qwen 3.6 entry ships any more; the Qwen 3.6 rules below are kept because both
+Bonsai 1 entries are Qwen3.6-27B derivatives and inherit them. Bonsai 2 derives from Qwen3.8-27B
+instead and has its own section, *Bonsai 2*. Not auto-loaded into the agent context; read on demand.
 Cross-model rules are in `docs/presets.md`.
 `Qwen3.8-Flash-Next` is a different architecture and has its own file,
 `docs/model_tuning/qwen3.8-flash-next.md`.
@@ -44,8 +45,9 @@ Cross-model rules are in `docs/presets.md`.
   `xhigh`. Never leave the key unset.** The level is one injected paragraph at the top of the
   system prompt — ~45 tokens of "Reasoning effort is set to xhigh..." — and `medium` is the single
   level that injects nothing at all (`chat_template.jinja:53-59`). Qwen 3.6 has no trained notion of
-  the concept, so its Bonsai derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
-  template defaults to `xhigh`, so those pin `xhigh`. The template's own default is a
+  the concept, so its Bonsai 1 derivatives pin `medium`; Qwen 3.8 *is* trained on it and Qwen's own
+  template defaults to `xhigh`, so those pin `xhigh`. Bonsai 2 pins `medium` for a different
+  reason, given under *Bonsai 2*. The template's own default is a
   `_default_reasoning_effort` variable at the top of the file (`chat_template.jinja:17`), currently
   `medium`, and it has moved between template releases before. That is the whole reason to pin:
   an unpinned entry silently changes reasoning level at a template bump, and a pinned one renders
@@ -129,7 +131,7 @@ Cross-model rules are in `docs/presets.md`.
   scalar and list tool arguments, and single-newline separation between consecutive `<tool_call>`
   blocks for token parity on multi-tool turns.
 
-- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai entries inherit from Qwen 3.6.**
+- **`Qwen3.8-27B` sets `temp = 1.0`, unlike the `0.6` the Bonsai 1 entries inherit from Qwen 3.6.**
   1.0 is the official thinking-mode value on Qwen's card and is what the GGUF itself
   embeds as `general.sampling.temp`, applied at `common/common.cpp:1264` unless the
   preset overrides it. The rest of the sampler block (`top-p 0.95`, `top-k 20`,
@@ -258,7 +260,10 @@ Cross-model rules are in `docs/presets.md`.
   ungated. Acceptance is a vanity metric on this pair. `--spec-draft-device CUDA0` is accepted
   without error and **silently ignored** for `draft-mtp`: the draft context still reports its
   144 MiB KV and 616-720 MiB scratch on CUDA1, because the MTP head lives in the target model and
-  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070.
+  the draft context inherits `main-gpu`. There is no way to move that scratch off the 4070, but
+  `spec-draft-n-ubatch` (#30459) shrinks it: on the 24 GB card on `23deec0`, 256 / 64 freed
+  168 / 294 MiB on the Bonsai 2 entry and 92 / 160 MiB on gemma-4, at unchanged decode. Neither
+  24 GB entry needs the room; this entry is the untested candidate.
 
 - **`spec-draft-n-max` peaks at 4 on b10940 for the dual-GPU entry, not 3, and it ships 4 — as
   does the 16 GB entry, which follows it untested; the 24 GB entry is unswept and still ships 3.**
@@ -292,7 +297,7 @@ Cross-model rules are in `docs/presets.md`.
 
 ## Bonsai and DSpark
 
-- **Both Bonsai entries are Qwen3.6-27B derivatives and take every Qwen 3.6 pin above.**
+- **Both Bonsai 1 entries are Qwen3.6-27B derivatives and take every Qwen 3.6 pin above.**
   `Ternary-Bonsai-27B` and `Bonsai-27B` ship from separate HF repos but share arch `qwen35`, and
   their tokenizers are byte-identical to stock Qwen3.6-27B (248320 tokens, same merges,
   `eos = 248046`) right down to the same 7764-byte embedded template — which is exactly the
@@ -315,3 +320,137 @@ Cross-model rules are in `docs/presets.md`.
   that it stays fork-only. The GGUF carries no MTP tensors either, so `draft-mtp` is out and
   the entry uses `ngram-mod`. Only the group-64 pack is mainline-loadable — `Q2_0.gguf` and
   `PQ2_0.gguf` in the same HF repo are group-128 fork packs.
+
+## Bonsai 2
+
+- **Only the `Q2_0` pack from `prism-ml/Ternary-Bonsai-2-27B-gguf-dev` runs on mainline.** The
+  main repo's `PQ2_0` (type 142) has no upstream PR and fails to load; `PTQ1_0` (type 143) is
+  still open (#29672, CUDA #29676). The weights are Hadamard-folded, so the runtime from #29600
+  (b11564) must apply the inverse transform. Without it the file loads silently and outputs
+  garbage. Check: `llama-perplexity -c 512 --chunks 16` gives 10.27 with the transform and
+  ~1.2M without it.
+
+- **It derives from Qwen3.8-27B, not Qwen 3.6.** It embeds the 8952-byte Qwen 3.8 template, so
+  the `chat-template-file` pin applies for the same reasons as on `Qwen3.8-27B`. Sampling follows
+  Prism's card: `temp 1.0`, `top-p 0.95`, `top-k 20`, `min-p 0.05`.
+
+- **`reasoning-effort = medium`, although the model is trained on `xhigh`.** Prism's known
+  issues report loops at `xhigh` and equal accuracy at `medium` under ~16k output budgets.
+  The 24 GB entry sets `reasoning = auto`, as Prism's known issues advise: thinking stays on by
+  default, but `on` would override a client's `reasoning_effort: "none"`.
+
+- **MTP comes from a sidecar: `ggml-org/Qwen3.8-27B-GGUF`'s `mtp-Qwen3.8-27B-Q4_0.gguf`.** The
+  Bonsai GGUF stops at `blk.63`. The sidecar carries its own unrotated `token_embd`, so no
+  Hadamard handling is needed, and nothing is double-loaded because the target has no head.
+  The `Q4_0` head beats `Q8_0` at equal acceptance, and n-max 2 beats 3 (table below). The
+  4-bit acceptance collapse noted for the embedded Qwen3.8 head does not happen here.
+  `ngram-mod` stays alongside for echo-heavy edits; it drafts on mainline, unlike on Prism's
+  fork (their #203).
+
+- **`q8_0` K/V at the full 262144 context, one slot.** Only 16 of 64 layers carry KV, so
+  `q8_0` costs 8704 MiB. Prism reports `q5_0` K as several times slower (their #191). Two
+  262144 slots at `q4_0` with the sidecar exited during load; two 131072 slots at `q8_0` load
+  with 911 MiB free but are not benchmarked.
+
+Measured on b11564 through the router, RTX PRO 5000 Blackwell Laptop 24 GB (not the display
+GPU), BF16 projector on the GPU, `examples/mtp-bench.py` (9 prompts, 192 tokens):
+
+| Arm                       | Entry MiB | Median tg t/s | Acceptance |
+| ------------------------- | --------- | ------------- | ---------- |
+| `ngram-mod` only          | 19047     | 50.7          | n/a        |
+| **MTP `Q4_0`, n-max 2**   | 21731     | 79.0          | 0.70       |
+| MTP `Q8_0`, n-max 2       | 22541     | 68.9          | 0.69       |
+| MTP `Q4_0`, n-max 3       | 22256     | 73.9          | 0.59       |
+| MTP `Q8_0`, n-max 3       | 22689     | 64.8          | 0.59       |
+
+With the shipped settings, a 384-token code answer runs at 83.8 t/s on an empty context and
+64.7 t/s after a 28837-token prompt (pp 1162 t/s), against 40.1 t/s there without MTP. Depth
+beyond 29k is unmeasured; upstream #29172 reports a decode collapse past ~70k-155k on Blackwell.
+
+- **Long thinking answers run at 51-54 t/s, and depth is the largest cost, not a setting.**
+  `llama-bench` without MTP gives tg128 54.3 t/s at depth 0, 46.6 at 16384 and 39.1 at 32768
+  (-14 % and -28 %). Under sustained load the card sits at its power cap (~97 W) in 91-100 % of
+  samples and the SM clock settles at ~1340-1390 MHz, so the cold `mtp-bench.py` median of ~80
+  falls to ~69 after a 3-minute warm-up. Compare arms only after the same warm-up.
+
+- **`spec-draft-sampling = probabilistic` raises acceptance but not throughput, so the entry
+  stays on greedy drafting.** It is lossless at `temp` > 0 (#27694) and lifted acceptance by
+  3-5 points on long answers and 4-6 on short ones, but long tg moved +1.0 % and short median
+  -1.7 %, both inside the baseline's own 2.9 % spread.
+
+- **A Bonsai-2-trained DFlash2 drafter does not work on mainline.** The drafters
+  (`naklitechie/Qwen3.8-27B-DFlash2-ternary-bonsai2`, `Schiltmans/...-DFlash2-ft5-GGUF`) carry no
+  embeddings or head and borrow the target's through `ctx_other`, and the draft context applies
+  no Hadamard transform to them (`src/models/dflash.cpp`, `src/llama-context.cpp`). Prism's fork
+  fixed this in its PR #210 (0/1204 drafts accepted before, 79.9 % after); mainline has no
+  equivalent, so expect zero acceptance and slower decoding than without a drafter.
+
+Measured on b11700 through the router, the same laptop, 3-minute warm-up per block, blocks in
+the order A, B, A, B. "Long" is three 2048-token answers at `reasoning_effort` medium after a
+26503-token prompt (the second and third reuse it); "Short" is `examples/mtp-bench.py`:
+
+| Arm                                   | Long tg t/s   | Long acceptance | Short median t/s | Short acceptance |
+| ------------------------------------- | ------------- | --------------- | ---------------- | ---------------- |
+| **Greedy drafting (shipped)**         | 51.63 / 53.14 | 0.635           | 68.88 / 69.32    | 0.618            |
+| `spec-draft-sampling = probabilistic` | 51.66 / 54.16 | 0.666 / 0.688   | 67.20 / 68.65    | 0.681 / 0.656    |
+
+- **On the 16 GB tier MTP is worth more than context: 114688 with the sidecar, not ~180k
+  without it.** The card is the display GPU, so the projector runs on the CPU and the margin
+  rule of `docs/presets.md` -> *Device pinning and multi-GPU* sets `ctx-size`. The sidecar costs
+  64k of context and buys +63-68 % median tg (table below). The gain holds on Ada, so it is
+  not a Blackwell effect. Context costs ~1 t/s per 16k without MTP, and the 196608 arm
+  ran into WDDM demotion: 103 MiB free, tg 31.0 t/s after the long prompt against 45.7 at
+  163840. With the same seed, all MTP arms accepted the same drafts as each other, so this
+  table measures VRAM and speed, not acceptance. Acceptance here, 0.66, is a little below the
+  24 GB entry's 0.70.
+
+Measured on b11583 (9d7d504) through the router, RTX 4070 Ti SUPER 16 GB (display GPU, desktop
+at 1.3-1.6 GiB), pinned with `CUDA_VISIBLE_DEVICES`, BF16 projector on the CPU, q8_0 K/V.
+`examples/mtp-bench.py` gives median tg; "Long" is a code answer (104-123 tokens, cap 384)
+after a 30202-token prompt:
+
+| Arm                          | Free after load | Median tg t/s | Long pp t/s | Long tg t/s |
+| ---------------------------- | --------------- | ------------- | ----------- | ----------- |
+| MTP, ctx 98304               | 1390 MiB        | 91.6          | 1421        | 69.8        |
+| **MTP, ctx 114688**          | 659-818 MiB     | 92.5-93.3     | 1434-1455   | 69.6-69.7   |
+| MTP, ctx 122880              | 280 MiB         | 91.7          | 1456        | 70.8        |
+| `ngram-mod` only, ctx 163840 | 1076 MiB        | 56.7          | 1504        | 45.7        |
+| `ngram-mod` only, ctx 180224 | 400 MiB         | 55.7          | 1518        | 46.6        |
+| `ngram-mod` only, ctx 196608 | 127 MiB         | 51.7          | 1421        | 31.0        |
+
+122880 falls below the ~300 MiB floor once the desktop peaks, so 114688 is the largest MTP
+context with margin. The CPU projector takes ~13 s for a 1024x768 image (pp 82 t/s) and
+transcribed it correctly on every arm.
+
+- **On the dual-GPU tier the entry runs on the 4070 Ti SUPER alone, the same as the 16 GB entry,
+  and uses the 2060 SUPER only for the projector.** `device = CUDA1` and `main-gpu = 0` keep
+  the model and the MTP sidecar on one card, as on `Qwen3.8-Flash-Next`. `mmproj-device = CUDA0`
+  moves CLIP from the CPU to the 2060, which makes image prefill 5.5x faster (pp 435-471
+  against 82 t/s) for 1.2-1.3 GiB of 2060 memory. The 7 GB model fits on one card, so a layer
+  split buys context and nothing else: with `tensor-split = 1,2` every token crosses both
+  cards, median tg falls ~35 % and 30k prefill drops from ~1400 to ~890 t/s. `split-mode =
+  tensor` and `row` cannot load Hadamard-folded weights at all (Prism's #213).
+  `1,1` and `1,3` were not run, because a ratio can only move tg toward the
+  single-card figure, not past it.
+
+- **`1,2` at 262144 with `q8_0` is the silent `mmproj-offload` failure from
+  `docs/presets.md` -> *mmproj-offload*.** It loads with 223 MiB free on the 4070 and 494 on the
+  2060. CLIP's 248 MiB warmup buffer fails on CUDA0, the server stays up, and every image
+  request returns HTTP 500.
+
+Measured on b11583 (9d7d504) through the router, the real dual-GPU preset, both cards visible,
+`CUDA_DEVICE_ORDER=PCI_BUS_ID`, `examples/mtp-bench.py` median tg; "Long" is a code answer after
+a ~30k-token prompt. Free memory is read after load; the 4070's desktop share moved from 0.7 to
+1.6 GiB between rows, so compare free figures within a row only:
+
+| Arm                                | 4070 / 2060 free | Median tg t/s | Long pp t/s | Long tg t/s |
+| ---------------------------------- | ---------------- | ------------- | ----------- | ----------- |
+| **4070 only, 114688 `q8_0`**       | 848-1344 / 6788  | 90.2-91.6     | 1405-1421   | 67.1-72.7   |
+| 4070 only, 196608 `q4_0`           | 726 / 6788       | 93.4          | 1396        | 73.4        |
+| `1,2`, 196608 `q8_0`               | 2298 / 1244      | 59.4          | 888         | 51.8        |
+| `1,2`, 262144 `q4_0`               | 2672 / 1524      | 59.0          | 892         | 50.7        |
+| `1,2`, 262144 `q8_0`, image fails  | 223 / 494        | 54.2          | 700         | 48.0        |
+
+The 4070-only `q4_0` row reaches 196608 at full speed. It does not ship, because Prism's own
+guide advises against plain `q4_0` K/V without their calibration bias, and the 16 GB entry
+it would diverge from runs `q8_0`. Its quality cost is unmeasured.

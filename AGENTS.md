@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Canonical agent-instruction file for this repository. Both Claude Code (via the `@AGENTS.md` import in `CLAUDE.md`) and OpenCode (which reads `AGENTS.md` natively) load this file. It carries the always-on rules; deep reference documentation lives under `docs/` and is read on demand, not loaded into context (see *Reference* at the end).
+Canonical agent-instruction file for this repository. OpenCode reads it natively, and so does Claude Code from v2.1.277 on; an older build, or one running on Bedrock, Vertex or Foundry, loads no project instructions here at all and needs a `CLAUDE.md` that imports this file. It carries the always-on rules; deep reference documentation lives under `docs/` and is read on demand, not loaded into context (see *Reference* at the end).
 
 ## What this is
 
@@ -29,34 +29,42 @@ Other helpers in `examples/`: `count_tokens.ps1`, `benchmark.ps1` (perplexity), 
 
 **No tests, no linter.** Verify changes by running an example script against a real GGUF model.
 
+A server, benchmark or other long-running process an agent starts runs hidden and detached; it never opens a console window or terminal tab on the user's desktop. `docs/conventions.md` -> *Background processes*
+
+Work of more than one step keeps the todo tool current, one item in progress and each ticked off as it finishes, so a human can follow along.
+
 ## Non-obvious behavior
 
 - **The submodule always shows dirty.** `rebuild_llama.cpp.ps1` prepends an idempotent OpenBLAS linking shim to `vendor/llama.cpp/CMakeLists.txt`; `.gitmodules` sets `ignore = dirty` for it. Don't "clean it up." `docs/build_system.md` -> *Submodule lifecycle*
 - **Each build wipes `vendor/llama.cpp`** back to `origin/master` then checks out the requested `-version` / PR, so local edits there are lost by design. Other submodules are never advanced by the build script and must be bumped by hand. `docs/build_system.md` -> *Submodule lifecycle*
-- **`./patches/*.patch` is the only supported way to carry a local change into the submodule.** It is re-applied after every checkout and the build aborts if a patch no longer applies. Currently one patch, which keeps GGUF conversion from stalling when a tensor's row width puts the quantizer group on a slow allocation size. `docs/build_system.md` -> *Local patches*
+- **`./patches/*.patch` is the only supported way to carry a local change into the submodule.** It is re-applied after every checkout and the build aborts if a patch no longer applies. Currently two: one keeps GGUF conversion from stalling when a tensor's row width puts the quantizer group on a slow allocation size, the other keeps `qwen4exp` conversion from dropping its sparse-attention layers under the pinned `transformers`. `docs/build_system.md` -> *Local patches*
 - **CUDA is selected iff *both* `nvidia-smi` and `nvcc` are on PATH.** Missing either silently falls back to OpenBLAS.
 - **Three vendored paths are hardcoded** (`gguf_dump.py`, `speed-bench/`, `models/templates/`). Upstream has moved them before; after a version bump treat a startup failure naming one as a relocation first. `docs/build_system.md` -> *Upstream path dependencies*
 - **`server.ps1 -additionalArguments` splits on whitespace** and re-pairs tokens into key/value flags. Values that contain spaces will not survive this parser.
 - **Rebuild aborts on running build-tree processes.** Before any destructive op, `rebuild_llama.cpp.ps1` checks `Get-Process` for any EXE under `vendor/llama.cpp/build/` and throws with the PID list. Catches the forgot-to-stop-`llama-server.exe` case.
+- **The DeepSeek-V4.1 entry needs a `-pullRequest "30817"` build.** Any other rebuild drops the `deepseek41` arch and the entry fails at load; the submodule pointer is never committed at that PR commit. `docs/model_tuning/deepseek-v4.1-flash.md` -> *Build*
 - **Keep ~400 MiB free on the display GPU.** Below ~300 MiB WDDM pages the working set to system RAM and the entry silently runs 20-45 % slower; nothing in the llama.cpp log shows it, only throughput does. Check `nvidia-smi` free memory after a preset change. `docs/presets.md` -> *Device pinning and multi-GPU*
 
 ## Traps
 
 Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Each is stated here without rationale so it is always in context; read the linked section before acting on one. These lines are a deliberate projection of `docs/` — when a trap changes, both move together.
 
-- Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next`, which must keep `load-mode = mmap`. `docs/presets.md` -> *load-mode*
+- Never pair `direct-io` with `no-mmap`; use `load-mode = dio` — except on `Qwen3.8-Flash-Next` and `DeepSeek-V4.1-Flash`, which must keep `load-mode = mmap` (V4.1 also `lazy-mode = on`). `docs/presets.md` -> *load-mode*
 - Never set `mmproj-offload = true` on a tier where LLM + KV already saturate VRAM. `docs/presets.md` -> *mmproj-offload*
 - Never set `swa-full` on a DeepSeek-V4-Flash or Muse Glimmer entry. `docs/presets.md` -> *swa-full*
 - Never set `context-shift` on a Muse Glimmer entry; it is silent corruption, not a refusal. `docs/model_tuning/muse-glimmer.md`
 - Never add RoPE scaling to a Muse Glimmer entry. `docs/model_tuning/muse-glimmer.md`
-- `no-host = true` is mandatory on the DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `docs/presets.md` -> *no-host*
-- Keep `fit = on` on the DeepSeek and `Qwen3.8-Flash-Next` entries; never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
-- `cache-type-k` and `cache-type-v` must be identical on any MLA entry — currently `deepseek4` and `Ling-3.0-tiny`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/ling-3.0.md`
+- `no-host = true` is mandatory on the base DeepSeek and `Qwen3.8-Flash-Next` entries, and on any entry that pushes tens of GiB of experts to CPU; without it the load fails as a misleading CUDA OOM. `+DSpark` is the measured exception. `docs/presets.md` -> *no-host*
+- Keep `fit = on` on the base DeepSeek and `Qwen3.8-Flash-Next` entries (`+DSpark` places experts by hand); never add `n-cpu-moe`/`-ot`, and never set `n-gpu-layers` to anything but `-1` — fit then silently no-ops. `docs/presets.md` -> *fit*
+- A `fit-target` is a request, not a guarantee: once `ctx-size` and `ubatch-size` have claimed the card, fit undershoots it silently. Read the margin off `nvidia-smi` after load, never off the target. `docs/presets.md` -> *fit*
+- Never copy `ubatch-size` between a CPU-offload entry and a GPU-resident one — it buys 2-4x of prefill on the former and is spent on VRAM margin on the latter. `docs/presets.md` -> *batch-size and ubatch-size*
+- `cache-type-k` and `cache-type-v` must be identical on any MLA entry — currently `deepseek4`, `deepseek41` and `Ling-3.0-tiny`; differing values are startup-fatal. `docs/model_tuning/deepseek-v4-flash.md`, `docs/model_tuning/deepseek-v4.1-flash.md`, `docs/model_tuning/ling-3.0.md`
 - Never set `image-min-tokens` on a gemma-4 entry; it is a `qwen3vl_merger` key only. `docs/model_tuning/gemma-4.md`
 - Never drop a `chat-template-file` pin; it replaces the GGUF-embedded template and is not redundant with `jinja = true`. `docs/model_tuning/qwen.md`, `docs/model_tuning/gemma-4.md`
 - Quantize Qwen3.8 GGUFs from `Qwen/Qwen3.8-27B`, never from the derived `-FP8` repo. `docs/model_tuning/qwen.md`
 - Any `cache-type-k`/`cache-type-v`/`-draft` pair added to a preset must also be added to `-DGGML_CUDA_FA_QUANTS` in `rebuild_llama.cpp.ps1` and the build re-run; the flag no longer compiles all combinations, and neither the server log nor `test-backend-ops` reports a missing pair. `docs/build_system.md` -> *CUDA build flags*
 - Never build a revision below **b10876** without swapping `-DGGML_CUDA_FA_QUANTS` for `-DGGML_CUDA_FA_ALL_QUANTS=ON` by hand; the flag does not exist there, CMake takes it as an unused cache entry, and the six `q5_0`-`q4_1` entries lose flash attention to the CPU backend. Only `-version` / `-pullRequest` can reach this. `docs/build_system.md` -> *CUDA build flags*
+- Never convert a `qwen4exp` model with `patches/0002-*` unapplied; the pinned `transformers` renames its layer types and the trunk `compress_ratios` come out all zero without a warning. `docs/build_system.md` -> *Local patches*
 
 ## Version Control
 
@@ -78,7 +86,11 @@ Prohibitions that cause a silent OOM, silent corruption, or a startup abort. Eac
 
 ## Scratch Files
 
-Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is `SESSION_ID`, supplied by whichever mechanism keeps it out of the cached prefix on that harness: Claude Code's `SessionStart` hook in `.claude/settings.json` prints it into the conversation ahead of the first prompt, which is already outside the system block, while OpenCode's `.opencode/plugins/session-id-injector.js` exports it into the environment of every shell command, because its hook would otherwise put it in the system prompt and a per-session string there destroys llama.cpp prompt-cache reuse across sessions (`docs/presets.md` -> *Slots and the prompt cache*). Under OpenCode the literal value is therefore **not** in context: use it inside a shell command as `$env:SESSION_ID`, or run `Write-Output $env:SESSION_ID` once when an absolute path is needed for the Write/Edit tools. If neither mechanism fired, mint `YYYYMMDD-HHMMSS-<random6>` instead. Never write scratch files to `.claude/`, the repo root, or `vendor/`.
+Non-committed agent artifacts (diffs, trace outputs, generated reports, experimental scripts) go under `.tmp/sessions/<session-id>/` at the repo root; `.tmp/` is gitignored. `<session-id>` is the session ID, supplied by whichever mechanism keeps it out of the cached prefix on that harness, because a per-session string in the system prompt destroys llama.cpp prompt-cache reuse across sessions (`docs/presets.md` -> *Slots and the prompt cache*): Claude Code's `SessionStart` hook in `.claude/settings.json` prints `SESSION_ID` into the conversation ahead of the first prompt, which is already outside the system block, while OpenCode sets `OPENCODE_SESSION_ID` in the environment of every shell command, a subagent getting its own. Under OpenCode the literal value is therefore **not** in context: use it inside a shell command as `$env:OPENCODE_SESSION_ID`, or run `Write-Output $env:OPENCODE_SESSION_ID` once when a path is needed for the Write/Edit tools. If neither mechanism fired, mint `YYYYMMDD-HHMMSS-<random6>` instead. Never write scratch files to `.claude/`, the repo root, `vendor/`, or the OS temp directory (`$env:TEMP`); inside a worktree they go to the main tree's `.tmp/`. `docs/conventions.md` -> *Shared working tree*
+
+## Shared working tree
+
+Other agents and the user share this checkout: an uncommitted change or untracked file you did not create is theirs and is never reverted, deleted, moved or stashed. Run `git status --porcelain -u` at task start and before every commit, and stage your own files by name. A worktree under `.worktrees/` is optional and for prose, presets and scripts only, never builds; read `docs/worktrees.md` before creating or removing one. `docs/conventions.md` -> *Shared working tree*
 
 ## Reference
 
@@ -89,4 +101,5 @@ Deep reference documentation lives under `docs/` and is **read on demand**, not 
 | `docs/build_system.md`          | Why the build scripts do what they do: submodule lifecycle, `ml64.exe`/`vswhere` toolchain detection, CUDA flags, SMT-aware parallelism, the Python requirements layering, the hardcoded upstream paths, and how `speed-bench.ps1` drives a router-mode server. **Read before editing `rebuild_llama.cpp.ps1` or any `examples/*.ps1`, and before running `speed-bench.ps1`.** |
 | `docs/presets.md`               | Cross-model INI rules: device pinning and multi-GPU, `load-mode`, `no-host`, `fit`, `mmproj-offload`, `swa-full`, context shift, context size and `override-kv`, ngram-mod speculative decoding. **Read before editing any file under `presets/`.** |
 | `docs/conventions.md`           | Commit message, changelog entry and pull request description, where a piece of information lives and what it may not restate, the size budgets, punctuation and table padding, `.ps1` comments and PowerShell/CLI style. **Read before writing a commit message, a changelog entry or a pull request description, and before adding a paragraph to `AGENTS.md`, `docs/` or a README.** |
-| `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |
+| `docs/worktrees.md`             | Creating, entering (`session_move`) and removing a git worktree, the scratch location from one, and the submodule cleanup `git worktree remove` refuses. **Read before creating, using or removing a worktree.** |
+| `docs/model_tuning/<family>.md` | Per-family rationale and measured VRAM/throughput numbers, one file each: `qwen.md` (Qwen 3.6, 3.8, Bonsai, DSpark), `qwen3.8-flash-next.md`, `gemma-4.md`, `deepseek-v4-flash.md`, `deepseek-v4.1-flash.md`, `muse-glimmer.md`, `ling-3.0.md`, `minicpm5.md`. **Read the matching file before adding, retuning or removing a model entry.** |

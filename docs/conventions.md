@@ -229,3 +229,56 @@ restate what the parameters do.
   `bin/Release/`. Both `cmake` steps in `rebuild_llama.cpp.ps1` check it for this reason.
 - **A script a user runs directly carries comment-based help.** `server.ps1`,
   `speed-bench.ps1` and `count_tokens.ps1` do; a new one in `examples/` is expected to.
+
+## Background processes
+
+- **An agent never opens a window on the user's desktop.** A server, benchmark or any other
+  long-running process an agent starts runs hidden and detached: no console window, no
+  terminal tab, no `pwsh` left for the user to close. This is a hard rule, not a preference,
+  because the user keeps working on the same desktop while a test runs.
+- **The launch that meets it** is the conda environment's `python.exe` calling
+  `subprocess.Popen` with `creationflags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP`,
+  `stdin = DEVNULL`, stdout and stderr redirected to a log file under
+  `.tmp/sessions/<session-id>/`, and `CUDA_*` variables passed through `env=` instead of a
+  wrapper script. Measured 2026-10-13: the call returned in 57 ms, `llama-server` ran with
+  `MainWindowHandle = 0`, and no Windows Terminal or OpenConsole process appeared. The router
+  already starts its children with `subprocess_option_no_window`
+  (`tools/server/server-models.cpp:1213`), so only the top-level launch needs the flag.
+- **Two launches look hidden and are not.** `Invoke-CimMethod Win32_Process Create` on
+  `pwsh -File <script>` gives the child its own console, which Windows Terminal opens as a
+  visible tab. `Start-Process -WindowStyle Hidden` hides the window but passes the shell's
+  handles on, so the tool call blocks until the process exits (`docs/build_system.md` ->
+  *speed-bench*).
+- **Stop a background process by PID, never by matching its command line.** A pattern such as
+  `*router.ps1*` also matches the shell that runs the stop command, which then kills itself
+  before the relaunch.
+
+## Shared working tree
+
+Several agents and the user can work in this checkout at once. Any uncommitted change or
+untracked file you did not create in this session belongs to someone else, and their work must
+not be lost because of your task.
+
+- **Foreign changes are untouchable.** Never run `git checkout --`, `git restore`,
+  `git reset --hard`, `git clean`, `Remove-Item`, `Move-Item` or `git stash pop`/`apply` on a
+  path someone else modified or created. A generic "commit and push" does not authorize
+  cleaning up foreign paths; only per-file approval does.
+- **Preflight.** Run `git status --porcelain -u` at task start to record the foreign-dirty set,
+  and again before `git commit`, then stage only your own files by name. The submodule pointer
+  of `vendor/llama.cpp` moves with every build and is yours only when your task bumped it.
+- **Stashes are session-scoped.** Stash only paths you modified, with an explicit pathspec and a
+  tagged message: `git stash push --message "session-<id>: <reason>" -- <files>`. A bare
+  `git stash`, `-u`, `--all`, and popping a stash not tagged with your session are forbidden.
+- **The Edit tool and shell writes are exclusive per file.** A file written by a shell command
+  leaves the Edit tool's cached content stale, and the next Edit can silently restore old text:
+  re-Read after any shell write. When Edit fails with "oldString not found", assume a concurrent
+  foreign write, re-Read and tell the user rather than guess.
+- **Scratch stays in the repository.** `.tmp/sessions/<session-id>/` of the **main** working
+  tree, never the operating system's temp directory (`$env:TEMP`, `%TEMP%\opencode`,
+  `os.tmpdir()`), which a harness may suggest but which sits outside the workspace, survives no
+  review and is shared with every other program. From a worktree, the main tree is the parent of
+  `git rev-parse --path-format=absolute --git-common-dir` (`docs/worktrees.md` -> *Scratch
+  artefacts*).
+- **Worktrees are the escape hatch, not the default.** Create one only when the user asks or the
+  preflight shows foreign work on files you must modify, and read `docs/worktrees.md` first;
+  `git worktree remove --force` and `git worktree prune` are forbidden.

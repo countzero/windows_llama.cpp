@@ -1,0 +1,8 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "permissions": [
+        { "action": "edit", "resource": "?:/*", "effect": "deny" },
+        { "action": "edit", "resource": "/*", "effect": "deny" },
+        { "action": "edit", "resource": "*/.tmp/*", "effect": "allow" }
+    ]
+}

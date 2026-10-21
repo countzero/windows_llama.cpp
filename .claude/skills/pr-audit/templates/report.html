@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{TITLE}}</title>
+    <!--
+        The style block opens with github-markdown.css, inlined verbatim by
+        the renderer, so no placeholder may appear in this comment. It
+        scopes its variables to .markdown-body, so they do not reach <body>;
+        the rules after it mirror its two theme backgrounds with a media
+        query, so the page padding matches the article in light and dark
+        mode. A table's first column holds a finding's id or a field's name,
+        which must not break at its hyphen or space. Every table fills the
+        width; the metadata table's Field column shrinks to its longest name,
+        and a findings table fixes its ID column, so the sections line up, and
+        pads its cells so the findings stand apart. Why the diff's counts come
+        as ins and del is render_report.mjs, metadataTable. The vendored
+        stylesheet carries no alert rules, so the note closing the page is
+        styled here as GitHub styles a NOTE alert.
+    -->
+    <style>
+{{CSS}}
+
+:root {
+    color-scheme: light dark;
+}
+body {
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 32px;
+    background: #ffffff;
+    color: #1f2328;
+}
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #0d1117;
+        color: #f0f6fc;
+    }
+}
+@media (max-width: 767px) {
+    body {
+        padding: 16px;
+    }
+}
+.markdown-body td:first-child {
+    white-space: nowrap;
+}
+.markdown-body table {
+    display: table;
+    width: 100%;
+}
+.markdown-body table:not(.findings) th:first-child {
+    width: 1%;
+    white-space: nowrap;
+}
+.markdown-body table.findings {
+    table-layout: fixed;
+}
+.markdown-body table.findings th:first-child {
+    width: 4.5rem;
+}
+.markdown-body table.findings th,
+.markdown-body table.findings td {
+    padding: 0.75rem 1rem;
+}
+.markdown-body table.findings td {
+    overflow-wrap: anywhere;
+    vertical-align: top;
+}
+.markdown-body table.findings td:first-child {
+    text-align: center;
+}
+.markdown-body ins {
+    color: var(--fgColor-success);
+    text-decoration: none;
+}
+.markdown-body del {
+    color: var(--fgColor-danger);
+    text-decoration: none;
+}
+.markdown-body .markdown-alert {
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    border-left: 0.25em solid var(--borderColor-accent-emphasis);
+    color: inherit;
+}
+.markdown-body .markdown-alert > :first-child {
+    margin-top: 0;
+}
+.markdown-body .markdown-alert > :last-child {
+    margin-bottom: 0;
+}
+.markdown-body .markdown-alert-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--fgColor-accent);
+    font-weight: 500;
+    line-height: 1;
+}
+    </style>
+</head>
+<body>
+    <article class="markdown-body">
+{{CONTENT}}
+    </article>
+</body>
+</html>

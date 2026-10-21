@@ -5,6 +5,153 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.58.0] - 2026-10-21
+
+### Added
+- [Presets] Add a DeepSeek-V4.1-Flash-1017 UD-IQ2_XXS entry to the 24 GB tier
+- [Docs] Add docs/model_tuning/deepseek-v4.1-flash.md
+
+
+## [1.57.0] - 2026-10-21
+
+### Changed
+- [Presets] Switch the 24 GB Qwen3.8-Flash-Next entry to Unsloth's UD-IQ4_XS with the BF16 projector and ngram-mod only, renamed to Qwen3.8-Flash-Next-UD-IQ4_XS
+- [Docs] Correct the claim that Unsloth's separate Qwen3.8-Flash-Next MTP head carries ratio 0 for its block
+
+
+## [1.56.0] - 2026-10-21
+
+### Changed
+- [Presets] Move the 24 GB tier's model paths from D:\AI\LLM\gguf to E:\AI\LLM\gguf
+
+### Removed
+- [Presets] Remove the DeepSeek-V4-Flash-0731, DeepSeek-V4-Flash-0731+DSpark, Muse-Glimmer-30B, Ling-3.0-tiny and MiniCPM5-2B entries from the 24 GB tier
+
+
+## [1.55.0] - 2026-10-20
+
+### Added
+- [Tooling] Add the worktree-guard OpenCode plugin, which limits the built-in `session_move` to the main tree and `.worktrees/<branch-slug>`
+
+### Changed
+- [Tooling] Port the OpenCode edit permissions to the OpenCode V2 rule array
+- [Agents] Read the OpenCode session ID from `OPENCODE_SESSION_ID`
+
+### Removed
+- [Tooling] Remove the `worktree_enter` OpenCode tool, replaced by the built-in `session_move`
+- [Tooling] Remove the OpenCode session-id-injector plugin
+
+
+## [1.54.2] - 2026-10-16
+
+### Changed
+- [Presets] Set reasoning to auto on the 24 GB Ternary-Bonsai-2-27B entry so clients can turn thinking off
+
+
+## [1.54.1] - 2026-10-16
+
+### Fixed
+- [Presets] Remove the ignored models-max key from the [*] sections and pass --models-max 1 on every router launch
+- [Config] Set LLAMA_ARG_MODELS_MAX=1 in .env.example
+
+
+## [1.54.0] - 2026-10-15
+
+### Changed
+- [Presets] Raise batch-size and ubatch-size to 2048 on the 24 GB Qwen3.8-Flash-Next entry
+- [Vendor] Bump llama.cpp submodule to 23deec0
+- [Docs] Correct the claim that the DeepSeek dspark sidecar cannot run on a 24 GB card
+
+
+## [1.53.0] - 2026-10-13
+
+### Added
+- [Skills] Add the pr-audit skill with its reviewer and verifier agents
+- [Skills] Add the trim-prose skill
+- [Tooling] Add the `worktree_enter` OpenCode tool and `docs/worktrees.md`
+
+### Changed
+- [Docs] Add shared-working-tree rules and ban scratch files in the OS temp directory
+
+### Removed
+- [Skills] Remove the pr-code-review skill, replaced by pr-audit
+
+
+## [1.52.0] - 2026-10-13
+
+### Added
+- [Presets] Add Ternary-Bonsai-2-27B Q2_0 entry with MTP to 16 GB + 8 GB tier
+
+### Changed
+- [Docs] Replace the agent background-launch recipe with one that opens no window
+
+
+## [1.51.0] - 2026-10-13
+
+### Added
+- [Presets] Add Ternary-Bonsai-2-27B Q2_0 entry with MTP to 16 GB tier
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 9d7d504
+
+
+## [1.50.0] - 2026-10-12
+
+### Changed
+- [Presets] Add MTP speculative decoding to the 24 GB Ternary-Bonsai-2-27B entry
+
+
+## [1.49.0] - 2026-10-12
+
+### Added
+- [Presets] Add Ternary-Bonsai-2-27B Q2_0 entry to 24 GB tier
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 08ffba2 for the Bonsai 2 Hadamard runtime #29600
+
+
+## [1.48.0] - 2026-10-05
+
+### Changed
+- [Presets] Retune the 16 GB Qwen3.8-Flash-Next entry to ctx-size 131072, batch-size and ubatch-size 2048, fit-target 2048 and threads 24
+
+
+## [1.47.0] - 2026-10-02
+
+### Changed
+- [Presets] Raise batch-size and ubatch-size to 1024 on the 24 GB Qwen3.8-Flash-Next entry
+
+
+## [1.46.0] - 2026-10-02
+
+### Changed
+- [Presets] Enable the built-in MTP head with spec-draft-n-max 2 on the 24 GB Qwen3.8-Flash-Next entry
+
+
+## [1.45.0] - 2026-10-02
+
+### Added
+- [Build] Add a patch so qwen4exp conversion keeps its sparse-attention layers under the pinned transformers
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 207bdab for the Qwen3.8-Flash-Next MTP head #29761
+
+
+## [1.44.0] - 2026-09-19
+
+### Removed
+- [Agents] Remove the CLAUDE.md import shim, replaced by native AGENTS.md support in Claude Code v2.1.277
+
+
+## [1.43.0] - 2026-09-15
+
+### Changed
+- [Presets] Lower the Qwen3.8-Flash-Next dual-GPU ctx-size to 131072
+- [Presets] Add batch-size and ubatch-size 2048 to the Qwen3.8-Flash-Next dual-GPU entry
+- [Presets] Pin the Qwen3.8-Flash-Next dual-GPU entry to CUDA1 with a local main-gpu override
+- [Presets] Raise the Qwen3.8-Flash-Next dual-GPU fit-target to 2048
+
+
 ## [1.42.0] - 2026-09-13
 
 ### Added

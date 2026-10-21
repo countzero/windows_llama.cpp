@@ -16,3 +16,6 @@
 # Machine-local agent settings. The checked-in counterpart is
 # .claude/settings.json.
 .claude/settings.local.json
+
+# Agent git worktrees, flat layout to keep Windows paths short.
+.worktrees/

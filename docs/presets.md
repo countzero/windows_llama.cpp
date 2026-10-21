@@ -98,9 +98,8 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
 
 ## load-mode
 
-- **Every entry but `Qwen3.8-Flash-Next` uses `load-mode = dio`; never pair `direct-io` with
-  `no-mmap` again.** Both spellings
-  are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
+- **Every entry but `Qwen3.8-Flash-Next` and `DeepSeek-V4.1-Flash` uses `load-mode = dio`; never
+  pair `direct-io` with `no-mmap` again.** Both spellings are deprecated, and they write the *same* mutually exclusive enum — `--no-mmap` sets
   `LLAMA_LOAD_MODE_NONE` (`common/arg.cpp:2594`) while `--direct-io` sets
   `LLAMA_LOAD_MODE_DIRECT_IO` (`:2603`) — so setting both means only whichever is parsed last wins.
   Which one that is is *not* the INI order: `common/preset.cpp` emits `opt.args.back()` while
@@ -115,6 +114,10 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   enabled; `dio` reads and holds the whole table for nothing. `no-host = true` is part of the same
   mechanism, not an independent choice — see *no-host* below and
   `docs/model_tuning/qwen3.8-flash-next.md`.
+
+- **`DeepSeek-V4.1-Flash` is the second `mmap` exception, for the same reason.** Its Engram table
+  `per_layer_token_embd` (135 GB of Q5_K) is created `TENSOR_READ_LAZY` and needs
+  `lazy-mode = on` as well; see `docs/model_tuning/deepseek-v4.1-flash.md`.
 
 - **`load-mode = dio` does not enable DirectIO on Windows — it only disables mmap.** The Win32 `llama_file::impl` ctor takes `use_direct_io` as `[[maybe_unused]]` and just calls `ggml_fopen` (`vendor/llama.cpp/src/llama-mmap.cpp:86-95`); `FILE_FLAG_NO_BUFFERING` is never set and `read_alignment()` stays 1 (`:391`), so the loader's async staging buffers are 4 x 1 MiB of pinned host memory instead of the 4 x 64 MiB the aligned path would use (`src/llama-model-loader.cpp:1418`, `:1427`). `has_direct_io()` nevertheless returns a hardcoded `true` on Windows (`:173-175`). Net effect of `dio` on this platform: buffered reads, no mmap, and zero VRAM cost — it is never implicated in a CUDA OOM. Keep the key for the deprecation-warning reason documented above, but do not reason about page-cache behaviour from it.
 
@@ -135,7 +138,8 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   (`src/llama-model-loader.cpp:1467`) rather than through `cpu_buft_list` — but expert weights
   that `op-offload` ships to the GPU for large-batch matmuls now come from pageable memory, which
   may cost some prompt-processing throughput. There is no way to keep that and still load.
-  Measured DeepSeek figures with and without the flag: `docs/model_tuning/deepseek-v4-flash.md`.
+  Measured DeepSeek figures with and without the flag, and the `+DSpark` entry that loads and
+  prefills 7x faster without it: `docs/model_tuning/deepseek-v4-flash.md`.
 
 - **It is also what keeps mmap aliasing reachable.** With `CUDA_Host` at the head of the list the
   chosen buft fails the `is_default_buft` test at `src/llama-model.cpp:1715`, the mmap-aliasing
@@ -150,7 +154,7 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `--n-cpu-moe`, or `n-gpu-layers` other than `-1`, throws inside fit (`common/fit.cpp:462-464`,
   `:483-485`) and is downgraded to a warning at `:893-895`: fit does nothing and the model no
   longer fits at all. This is why the DeepSeek and `Qwen3.8-Flash-Next` entries keep
-  `n-gpu-layers = -1` explicitly. `--fit-target` writes only `params.fit_params_target` and never
+  `n-gpu-layers = -1` explicitly; DeepSeek `+DSpark` is `fit = off` with hand-placed experts. `--fit-target` writes only `params.fit_params_target` and never
   `mparams`, so unlike `-ngl` / `-ncmoe` / `-ot` it cannot trip the aborts. Fit places experts at
   sub-layer granularity (`common/fit.cpp:399-441`, `:719-769`); its overflow pattern is
   `blk\.N\.ffn_(up|down|gate_up|gate)_(ch|)exps` (`common/fit.cpp:522`). Note `--cpu-moe`'s
@@ -177,6 +181,43 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
      `mtmd` loads the mmproj, so `mmproj-offload = true` on a fit entry lands in the silent-OOM
      window below with no margin left to absorb it unless `fit-target` reserves the CLIP weights
      and compute buffer by hand.
+  5. Its own reach — expert placement is the only lever it has, so once `ctx-size` and the
+     `ubatch-size` compute buffer have claimed the card, moving every remaining expert to the CPU
+     is not enough and fit proceeds with whatever margin is left rather than failing. Measured on
+     the dual-GPU `Qwen3.8-Flash-Next` entry: `fit-target 1024` at `ctx-size 262144` with
+     `ubatch-size 4096` ended at **108 MiB** free, while the same target at `ctx-size 131072`
+     landed at 840 MiB and `fit-target 2048` at `ctx-size 262144` reached 2130 MiB. So a target is
+     a request, not a guarantee — **read the margin off `nvidia-smi` after load, never off the
+     target**, and if it is short the fix is `ctx-size` or `ubatch-size`, not a bigger target.
+
+- **`fit-target` is per-device and a single value is broadcast to all of them.** The flag is
+  `-fitt, --fit-target MiB0,MiB1,MiB2,...`; `common/arg.cpp` splits on `,` or `/` and `std::fill`s
+  a lone value across every slot, which `common/fit.cpp:288-289` then reads per device. So a bare
+  `fit-target = 1024` on a two-GPU tier asks for 1024 MiB on *both* cards, not just the first —
+  a short margin on the display GPU is blind spot 5 above, not a syntax mistake. Pass a list only
+  when the two cards genuinely need different margins, e.g. `1024,512` to give the display GPU more
+  room than a compute-only card.
+
+
+## batch-size and ubatch-size
+
+- **On an entry whose experts live on the CPU, `ubatch-size` is a prefill lever worth multiples
+  rather than percent, and the 512 default is far below the knee.** llama.cpp delegates prompt
+  processing to the GPU by copying the CPU-assigned weights over per microbatch, so the physical
+  batch size sets how many tokens amortise each transfer. Prefill on such an entry is bound by
+  serial expert host-to-device copies with the GPU idle a large fraction of every pass (upstream
+  #25859), which is why the same knob is worth under 1 % on a fully resident entry and 2-4x here.
+  Measured on the dual-GPU `Qwen3.8-Flash-Next` entry, 8k prompt: 512 (default) 55.1 t/s, 2048
+  184.6, 4096 203.1. Keep `batch-size` equal to `ubatch-size`, or the logical batch splits into a
+  slow undersized tail.
+- **It is paid for in the compute buffer, on every device, so it trades against the `fit` margin
+  and against tg.** `ubatch-size 4096` at `ctx-size 262144` fails to build a context at all on a
+  16 GB + 8 GB pair, and at `ctx-size 131072` it costs 5.4 t/s of tg against 2048 for 2.5 t/s of
+  pp. Sweep it against `fit-target` rather than alone — *fit*, blind spot 5.
+- **This is the opposite conclusion from a GPU-resident entry, so do not copy the value across
+  tiers.** The dual-GPU `Qwen3.8-27B` entry went the other way and *lowered* `ubatch-size` to 256
+  to buy VRAM margin at 0.6 % of prefill (`docs/model_tuning/qwen.md`), because its weights are
+  already on the GPU and there is no transfer to amortise.
 
 ## mmproj-offload
 
@@ -289,13 +330,16 @@ this file is for editing. Per-model rationale lives in `docs/model_tuning/<famil
   `slot print_timing: ... prompt eval time = X ms / Y tokens`, where `Y` is what was actually
   re-prefilled; a warm turn should report tens of tokens, not thousands.
 - **A second model is never the answer to slot contention on a single-GPU box.** `models-max` is a
-  router-level parameter and is stripped from child presets (`tools/server/server-models.cpp:305`),
-  so it cannot be scoped per entry. At `models-max = 1` a request for a different model is queued
-  (`:113`), and the running model is unloaded the moment it goes idle to free the slot
-  (`:213-214`) — so routing auxiliary traffic to a small sidecar model costs a full unload/reload of
-  the large one per call. Raising it to 2 lets any two entries in the preset try to co-reside, which
-  on a 16 GB + 8 GB pair is an out-of-memory abort rather than a degradation. Use `parallel` and, if
-  placement must be deterministic, `id_slot`.
+  router-level parameter and is stripped from every preset section, `[*]` included
+  (`unset_reserved_args`, `tools/server/server-models.cpp:485`), so it cannot be scoped per entry
+  and a value in the INI is ignored without a warning: only `--models-max` or
+  `LLAMA_ARG_MODELS_MAX` reach the router, and without either it runs at the upstream default
+  of 4. At `models-max = 1` a request for a different model is queued (`:113`), and the running
+  model is unloaded the moment it goes idle to free the slot (`:213-214`), so routing auxiliary
+  traffic to a small sidecar model costs a full unload/reload of the large one per call. Raising
+  it to 2 lets any two entries in the preset try to co-reside, which on a 16 GB + 8 GB pair is an
+  out-of-memory abort rather than a degradation. Use `parallel` and, if placement must be
+  deterministic, `id_slot`.
 - **Slot placement is a tie-break, so pin it if it matters.** `f_sim` is `lcp / len(new prompt)`, so
   a *short* side call sharing only the chat template can score as high as the real conversation, and
   which slot wins comes down to scan order and the strict `>` at `server-context.cpp:1579`. Sending

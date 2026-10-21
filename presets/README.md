@@ -9,7 +9,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_VRA
 ```
 
 ```powershell
-llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_24GB_VRAM.ini --models-max 1
+llama-server --models-dir E:\AI\LLM\gguf --models-preset presets\models_24GB_VRAM.ini --models-max 1
 ```
 
 Dual-GPU (16 GB + 8 GB across two cards) - set the device order **before** launching so the
@@ -17,7 +17,7 @@ per-device `fit-target` values line up with the physical cards:
 
 ```powershell
 $env:CUDA_DEVICE_ORDER = "PCI_BUS_ID"   # CUDA0 = 8 GB GPU, CUDA1 = 16 GB GPU
-llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini
+llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB_VRAM.ini --models-max 1
 ```
 
 | Flag              | Purpose                                                 |
@@ -26,12 +26,14 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 | `--models-preset` | INI file with model configs (router mode source #2)     |
 
 > [!TIP]
-> `main-gpu`, `models-max`, `split-mode`, `tensor-split`, and `threads` are handled by the
-> preset's `[*]` global section. `--host`, `--port`, and `--models-dir` must stay on the CLI
-> — they are parent-server settings that the server manages internally and cannot be set via preset.
+> `main-gpu`, `split-mode`, `tensor-split`, and `threads` are handled by the preset's `[*]`
+> global section. `--host`, `--port`, `--models-dir` and `--models-max` must stay on the CLI or
+> in `.env`: they configure the router itself, which strips them from every preset section, so
+> a `models-max` in `[*]` is ignored without a warning (`docs/presets.md` -> *Slots and the
+> prompt cache*).
 
 > [!NOTE]
-> The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice. Every entry uses `load-mode = dio` except `Qwen3.8-Flash-Next`, which needs `mmap` so that its 26.8 GiB n-gram embedding table can be read on demand — do not normalise that one away.
+> The presets `models_16GB_VRAM.ini`, `models_24GB_VRAM.ini`, and `models_16GB_8GB_VRAM.ini` are each tuned for its VRAM budget (context size, KV quantisation, and MoE offload differ). Copy one as a starting point for other hardware. Only `models_16GB_8GB_VRAM.ini` pins GPUs — the other two leave `split-mode`/`tensor-split` unset, so on a multi-GPU host they spread across every visible CUDA device and may exceed the budget named in the file. Pin with `CUDA_VISIBLE_DEVICES` before launching; its indices follow `CUDA_DEVICE_ORDER`, which defaults to `FASTEST_FIRST` and does **not** match `nvidia-smi` ordering, so a GPU UUID is the unambiguous choice. Every entry uses `load-mode = dio` except `Qwen3.8-Flash-Next`, which needs `mmap` so that its 26.8 GiB n-gram embedding table can be read on demand, and the DeepSeek-V4.1 entry, which needs it for its 135 GB Engram table — do not normalise either away.
 
 > [!IMPORTANT]
 > **`models_16GB_8GB_VRAM.ini` (dual-GPU: one GPU with 16 GB VRAM + one with 8 GB VRAM).**
@@ -40,7 +42,7 @@ llama-server --models-dir D:\AI\LLM\gguf --models-preset presets\models_16GB_8GB
 > card twice as heavily as the 8 GB card; the two `Qwen3.8-27B` entries override it to
 > `1,3`, which buys prompt processing at the cost of 16 GB-card VRAM per context token.
 > `main-gpu = 1` puts scratch buffers and intermediate results
-> on the 16 GB card. `models-max = 1` limits to one loaded model at a time. Every entry
+> on the 16 GB card. `--models-max 1` limits to one loaded model at a time. Every entry
 > except `Qwen3.8-Flash-Next` sets `fit = off` with a fixed `ctx-size` and
 > `n-gpu-layers = -1` baked in for deterministic launches.
 >
@@ -78,23 +80,17 @@ The section header (e.g. `[gemma-4-31B-it.IQ4_XS.gguf]`) is the model name clien
 > See `llama-server --help` for all flags.
 
 > [!IMPORTANT]
-> All `Qwen3.8-*`, `Ternary-Bonsai-27B` and `Bonsai-27B` entries set
-> `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`,
-> overriding the buggy template embedded in the GGUF. The vendored template is a
-> single unified file that handles Qwen 3.5, 3.6 and 3.8 variants; both Bonsai models are
-> Qwen3.6-27B derivatives with a byte-identical tokenizer and embedded template. The path is
-> repo-relative, so launch `llama-server` from the repository root (as the examples above do).
-> If you cloned without `--recurse-submodules`, run `git submodule update --init`
-> first — otherwise startup fails with a missing-file error.
+> All `Qwen3.8-*` and Bonsai entries set
+> `chat-template-file = vendor\Qwen-Fixed-Chat-Templates\chat_template.jinja`, replacing the
+> buggy template embedded in the GGUF. The vendored file covers Qwen 3.5, 3.6 and 3.8; the
+> Bonsai 1 models derive from Qwen3.6-27B and `Ternary-Bonsai-2-27B` from Qwen3.8-27B. The path
+> is repo-relative, so launch `llama-server` from the repository root. If you cloned without
+> `--recurse-submodules`, run `git submodule update --init` first, or startup fails on a
+> missing file.
 >
-> The Bonsai entries additionally set `reasoning-effort = medium`, the `Qwen3.8-*`
-> entries `xhigh`. `medium` is the one level that injects no instruction text into the system
-> prompt, and Qwen 3.6 — which both Bonsai models derive from — has no trained notion of the
-> concept; Qwen 3.8 *is* trained on it and
-> `xhigh` is what Qwen's own template defaults to. Both are pinned rather than left unset because
-> the vendored template's own default has moved between its releases, so an unpinned entry would
-> silently change reasoning level at a template bump. Clients can still override per request via
-> the OpenAI `reasoning_effort` field.
+> Bonsai entries pin `reasoning-effort = medium`, `Qwen3.8-*` entries `xhigh`. Both are pinned
+> because the template's own default has moved between releases. Clients can override per
+> request via the OpenAI `reasoning_effort` field. Rationale: `docs/model_tuning/qwen.md`.
 >
 > All `gemma-4-*` entries set `chat-template-file = vendor\llama.cpp\models\templates\google-gemma-4-31B-it.jinja` —
 > the official Google template bundled with llama.cpp itself, kept in lock-step with
