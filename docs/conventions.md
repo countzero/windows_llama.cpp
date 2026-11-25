@@ -33,7 +33,7 @@ commit (*Changelog*).
 
 Work lands on `develop`. `main` receives it only through a pull request, titled
 `Release vX.Y.Z` when it carries a batch of them and descriptively when it carries one
-change. An outside contributor opens theirs from a fork against `main`.
+change. Merging, tagging and publishing a release is `docs/releases.md`. An outside contributor opens theirs from a fork against `main`.
 
 A description answers two questions, both mandatory:
 

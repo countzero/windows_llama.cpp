@@ -5,6 +5,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.60.0] - 2026-11-25
+
+### Added
+- [Presets] Add an Inkling-2-Mini IQ4_XS entry to the 24 GB tier
+- [Docs] Add docs/model_tuning/inkling-2.md
+
+### Changed
+- [Vendor] Bump llama.cpp submodule to 36d818e for Inkling 2 and its DSpark drafter #32218
+
+
+## [1.59.0] - 2026-10-21
+
+### Added
+- [Docs] Add docs/releases.md
+
+
 ## [1.58.0] - 2026-10-21
 
 ### Added
